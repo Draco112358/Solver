@@ -10,4 +10,4 @@ using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
 
-include("src/Solver.jl")
+include("src/solver_start.jl")
