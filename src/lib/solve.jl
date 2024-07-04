@@ -312,10 +312,10 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
         FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
     end
     #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
-    if length(stopComputation) > 0
-        pop!(stopComputation)
-        return Dict("id" => id, "isStopped" => true)
-    end
+    # if length(stopComputation) > 0
+    #     pop!(stopComputation)
+    #     return Dict("id" => id, "isStopped" => true)
+    # end
     if commentsEnabled
         out = @time FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
     else
@@ -325,7 +325,8 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
     if !isnothing(chan)
         publish_data(Dict("computation_completed" => true, "id" => id), "solver_feedback", chan)
     end
-    if(commentsEnabled == true)
+    if (commentsEnabled == true)
         publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
     end
+
 end

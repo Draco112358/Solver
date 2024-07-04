@@ -62,6 +62,20 @@ const commentsEnabled = []
 #   println("SOLVER READY")
 # end
 
+struct Stop end
+struct Continue end
+
+function safe_hanging(ch::Channel)
+    println("I'm hanging on thread ", threadid())
+    signal = Continue()
+    while true
+        isready(ch) && (signal = take!(ch))
+        signal == Stop() && break
+        sleep(1)
+    end
+    println("stopped!")
+end
+
 function force_compile2()
   println("------ Precompiling routes...wait for solver to be ready ---------")
   data = open(JSON.parse, "first_run_data.json")
@@ -103,11 +117,14 @@ const VIRTUALHOST = "/"
 const HOST = "127.0.0.1"
 const stop_condition = Ref{Float64}(0.0)
 
+const ch = Ref{Any}(nothing)
+
 function receive()
   # 1. Create a connection to the localhost or 127.0.0.1 of virtualhost '/'
   connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
       # 2. Create a channel to send messages
       AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
+          publish_data(Dict("target" => "solver", "status" => "starting"), "server_init", chan)
           force_compile2()
           # EXCG_DIRECT = "MyDirectExcg"
           # @assert exchange_declare(chan1, EXCG_DIRECT, EXCHANGE_TYPE_DIRECT)
@@ -124,10 +141,15 @@ function receive()
               println(data["message"])
               if (data["message"] == "solving")
                 mesherOutput = JSON.parsefile(data["body"]["mesherFileId"])
-                Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["id"]; chan)
-              end
-              if data["message"] == "stop"
+                ch[] = Channel(safe_hanging; spawn=true)
+                put!(ch[], doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["id"]; chan))
+                # doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["id"]; chan)
+              elseif data["message"] == "stop"
                 stop_condition[] = 1.0
+              
+              elseif data["message"] == "stop_computation"
+                put!(ch[], Stop())
+                publish_data(Dict("id" => data["body"]["id"], "isStopped" => true), "solver_results", chan)
               end
           end
 
@@ -136,11 +158,12 @@ function receive()
           success_management, consumer_tag = basic_consume(chan, management_queue, on_receive_management)
 
           @assert success_management == true
-
+          publish_data(Dict("target" => "solver", "status" => "ready"), "server_init", chan)
           while stop_condition[] != 1.0
               sleep(1)
           end
           # 5. Close the connection
+          publish_data(Dict("target" => "solver", "status" => "idle"), "server_init", chan)
       end
   end
 end

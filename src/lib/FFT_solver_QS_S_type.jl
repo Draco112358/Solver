@@ -62,10 +62,10 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     tn = zeros(ComplexF64, m + ns + n, 1)
 
     for k = 1:nfreq
-        if length(stopComputation) > 0
-            pop!(stopComputation)
-            return false
-        end
+        # if length(stopComputation) > 0
+        #     pop!(stopComputation)
+        #     return false
+        # end
         if !isnothing(chan)
             publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
         end
