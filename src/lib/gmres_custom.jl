@@ -1,6 +1,7 @@
 include("compute_Matrix_vector.jl")
+include("utility.jl")
 
-function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
+function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, id, chan)
     m = size(b, 1)
     n = m
     if restarted
@@ -55,7 +56,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         relres = normr / n2b
         iter = [0, 0]
         resvec = [normr]
-        return x, flag, relres, iter, resvec
+        return x, flag, relres, iter, resvec, false
     end
     minv_b = b
     n2minv_b = norm(minv_b)
@@ -67,7 +68,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         relres = normr / n2minv_b
         iter = [0, 0]
         resvec = [n2minv_b]
-        return x, flag, relres, iter, resvec
+        return x, flag, relres, iter, resvec, false
     end
     resvec = zeros(Float64, inner * outer + 1)
     resvec[1] = normr
@@ -93,6 +94,11 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         w[1] = -beta
         initercount=0
         for initer = 1:inner
+
+            if is_stopped_computation(id, chan)
+                return x, flag, relres, iter, resvec, true
+            end
+
             initercount = initercount + 1
             #println("Iteration = $initercount")
             # Form P1*P2*P3...Pj*ej.
@@ -313,7 +319,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         pop!(resvec)
     end
     
-    return x, flag, relres, iter, resvec
+    return x, flag, relres, iter, resvec, false
 
 end
 

@@ -4,6 +4,7 @@ include("create_Grids_externals.jl")
 include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 include("From_3D_to_1D.jl")
+include("utility.jl")
 
 using MKL
 using JSON
@@ -259,6 +260,11 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
 
     origin = (mesherDict["origin"]["origin_x"], mesherDict["origin"]["origin_y"], mesherDict["origin"]["origin_z"])
 
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
+
     MATERIALS = [material(el) for el in inputDict["materials"]]
 
     dominant_list = []
@@ -274,6 +280,10 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
     # testarray = [copy(value) for (index, value) in mesherDict["mesher_matrices"]]
 
     # grids = [unsqueeze(values, dims=2) for values in testarray]
+
+    if is_stopped_computation(id, chan)
+        return false
+    end
 
     frequencies = inputDict["frequencies"]
     freq = Array{Float64}(undef, 1, length(frequencies))
@@ -291,6 +301,10 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
     MATERIALS = [material(el) for el in inputDict["materials"]]
     #SIGNALS = [el for el in inputDict["signals"]]
 
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
     # # START SETTINGS--------------------------------------------
     # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
     # tol[ind_low_freq] .= 1e-7
@@ -298,19 +312,47 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
     QS_Rcc_FW = 1 # 1 QS, 2 Rcc, 3 Taylor
     use_escalings = 1
     mapping_vols, num_centri = create_volumes_mapping_v2(grids)
-    centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
-    externals_grids = create_Grids_externals(grids)
-    escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list)
-    if length(stopComputation) > 0
-        pop!(stopComputation)
-        return Dict("id" => id, "isStopped" => true)
+
+    if is_stopped_computation(id, chan)
+        return false
     end
+
+
+    centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
+
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
+    externals_grids = create_Grids_externals(grids)
+
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
+
+    escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list)
+    # if length(stopComputation) > 0
+    #     pop!(stopComputation)
+    #     return Dict("id" => id, "isStopped" => true)
+    # end
+
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
+
     if commentsEnabled
         FFTCP, FFTCLp = @time compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
         println("time for solver")
     else
         FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
     end
+
+    if is_stopped_computation(id, chan)
+        return false
+    end
+
     #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     # if length(stopComputation) > 0
     #     pop!(stopComputation)
@@ -320,6 +362,14 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
         out = @time FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
     else
         out = FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
+    end
+
+    if (out == false)
+        return false
+    end
+
+    if is_stopped_computation(id, chan)
+        return false
     end
 
     if !isnothing(chan)

@@ -3,6 +3,7 @@ using SparseArrays, IterativeSolvers, FFTW, LinearAlgebra, LinearMaps
 include("build_Yle_S.jl")
 include("compute_Z_self.jl")
 include("gmres_custom.jl")
+include("utility.jl")
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled::Bool)
     freq = freq .* escalings["freq"]
@@ -62,10 +63,9 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     tn = zeros(ComplexF64, m + ns + n, 1)
 
     for k = 1:nfreq
-        # if length(stopComputation) > 0
-        #     pop!(stopComputation)
-        #     return false
-        # end
+        if is_stopped_computation(id, chan)
+            return false
+        end
         if !isnothing(chan)
             publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
         end
@@ -102,7 +102,11 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #sol = solve(prob, KrylovJL_GMRES())
 
 
-                V::Vector{ComplexF64}, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector)
+                V::Vector{ComplexF64}, flag, relres, iter, resvec, stopped = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                if stopped
+                    return false
+                end
+                
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
                 if commentsEnabled
                     if (flag == 0)
