@@ -157,6 +157,13 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 end
             end
         end
+        if !isnothing(chan)
+            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
+        end
+        if (commentsEnabled == true)
+            partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports["port_nodes"], 1), id, true; freqIndex=k)
+            publish_data(partial_res, "solver_results", chan)
+        end
     end
     out::Dict = Dict()
     out["S"] = S

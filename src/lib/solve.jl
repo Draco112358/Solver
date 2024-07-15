@@ -9,7 +9,7 @@ include("utility.jl")
 using MKL
 using JSON
 using MLUtils: unsqueeze
-function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id)
+function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id, partial;freqIndex=nothing)
     z = [[[[0.1, 0.0]]]]
     pop!(z)
     s = similar(z)
@@ -34,7 +34,9 @@ function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id)
             "matrix_Y" => JSON.json(y),
         ),
         "isStopped" => false,
-        "id" => id
+        "id" => id,
+        "partial" => partial,
+        "freqIndex" => freqIndex
     )
     return solver_matrices_dict
 end
