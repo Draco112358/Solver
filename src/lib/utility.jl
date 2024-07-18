@@ -1,4 +1,4 @@
-using AMQPClient, JSON, GZip
+using AMQPClient, JSON, GZip, AWSS3, AWS, CodecZlib
 
 function publish_data(result::Dict, queue::String, chan)
     data = convert(Vector{UInt8}, codeunits(JSON.json(result)))
@@ -25,3 +25,20 @@ function read_gzipped_json_file(file_path::String) :: Dict
     data2 = String(take!(s))
     return JSON.parse(data2)
 end
+
+function download_json_gz(aws_config, bucket, key)
+    response = s3_get(aws_config, bucket, key)
+    content = transcode(GzipDecompressor, response)
+    GZip.open(key*".tmp.gz", "w") do f
+      write(f, content)
+    end
+    s = IOBuffer()
+    file = gzopen(key*".tmp.gz")
+    while !eof(file)
+      write(s, readline(file))
+    end
+    close(file)
+    Base.Filesystem.rm(key*".tmp.gz", force=true)
+    data2 = String(take!(s))
+    return JSON.parse(data2)
+  end

@@ -1,12 +1,15 @@
-using Base.Threads, AMQPClient, JSON
+using Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv
 include("./lib/solve.jl")
 include("./lib/utility.jl")
 
-# aws_access_key_id = get(ENV, "AWS_ACCESS_KEY_ID", "")
-# aws_secret_access_key = get(ENV, "AWS_SECRET_ACCESS_KEY", "")
-# aws_region = get(ENV, "AWS_DEFAULT_REGION", "us-east-1")
-# creds = AWSCredentials(aws_access_key_id, aws_secret_access_key)
-# AWS = global_aws_config(; region=aws_region, creds=creds)
+DotEnv.load!()
+
+aws_access_key_id = ENV["AWS_ACCESS_KEY_ID"]
+aws_secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]
+aws_region = ENV["AWS_DEFAULT_REGION"]
+aws_bucket_name = ENV["AWS_BUCKET_NAME"]
+creds = AWSCredentials(aws_access_key_id, aws_secret_access_key)
+aws = global_aws_config(; region=aws_region, creds=creds)
 
 #server = WebsocketServer()
 
@@ -49,7 +52,7 @@ function receive()
               println(data["message"])
               if (data["message"] == "solving")
                 # mesherOutput = JSON.parsefile(data["body"]["mesherFileId"])
-                mesherOutput = read_gzipped_json_file(data["body"]["mesherFileId"])
+                mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["id"]; chan)
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
@@ -69,6 +72,7 @@ function receive()
           end
           # 5. Close the connection
           publish_data(Dict("target" => "solver", "status" => "idle"), "server_init", chan)
+          sleep(3)
       end
   end
 end
