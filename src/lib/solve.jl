@@ -111,7 +111,7 @@ function read_ports(port_objects, escal)
         ipos[1, 2] = port_object["inputElement"][2] * escal
         ipos[1, 3] = port_object["inputElement"][3] * escal
         push!(input_positions, ipos)
-        @assert length(port_object["outputElement"]["transformationParams"]["position"]) == 3
+        @assert length(port_object["outputElement"]) == 3
         opos = zeros((1, 3))
         opos[1, 1] = port_object["outputElement"][1] * escal
         opos[1, 2] = port_object["outputElement"][2] * escal

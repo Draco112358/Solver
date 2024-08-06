@@ -350,98 +350,16 @@
                 "name": "Port1",
                 "category": "port",
                 "type": 1,
-                "inputElement": {
-                    "type": "CIRCLE",
-                    "keyComponent": 0,
-                    "geometryAttributes": {
-                        "radius": 0.24,
-                        "segments": 20
-                    },
-                    "name": "inputPort1",
-                    "orbitEnabled": false,
-                    "transformationParams": {
-                        "position": [
-                            0,
-                            2,
-                            1
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "previousTransformationParams": {
-                        "position": [
-                            -2.5,
-                            2.5,
-                            0.0
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "opacity": 1,
-                    "transparency": false
-                },
-                "outputElement": {
-                    "type": "CIRCLE",
-                    "keyComponent": 0,
-                    "geometryAttributes": {
-                        "radius": 0.24,
-                        "segments": 20
-                    },
-                    "name": "outputPort1",
-                    "orbitEnabled": false,
-                    "transformationParams": {
-                        "position": [
-                            0,
-                            10,
-                            1
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "previousTransformationParams": {
-                        "position": [
-                            2.5,
-                            2.5,
-                            0.0
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "opacity": 1,
-                    "transparency": false
-                },
+                "inputElement": [
+                    0,
+                    2,
+                    1
+                ],
+                "outputElement": [
+                    0,
+                    10,
+                    1
+                ],
                 "isSelected": true,
                 "rlcParams": {
                     "resistance": 50
@@ -453,98 +371,16 @@
                 "name": "Lumped2",
                 "category": "lumped",
                 "type": 1,
-                "inputElement": {
-                    "type": "CIRCLE",
-                    "keyComponent": 0,
-                    "geometryAttributes": {
-                        "radius": 0.24,
-                        "segments": 20
-                    },
-                    "name": "inputPort2",
-                    "orbitEnabled": false,
-                    "transformationParams": {
-                        "position": [
-                            0,
-                            2,
-                            1
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "previousTransformationParams": {
-                        "position": [
-                            -2.5,
-                            2.5,
-                            0.0
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "opacity": 1,
-                    "transparency": false
-                },
-                "outputElement": {
-                    "type": "CIRCLE",
-                    "keyComponent": 0,
-                    "geometryAttributes": {
-                        "radius": 0.24,
-                        "segments": 20
-                    },
-                    "name": "outputPort2",
-                    "orbitEnabled": false,
-                    "transformationParams": {
-                        "position": [
-                            0,
-                            10,
-                            1
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "previousTransformationParams": {
-                        "position": [
-                            2.5,
-                            2.5,
-                            0.0
-                        ],
-                        "rotation": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "scale": [
-                            1,
-                            1,
-                            1
-                        ]
-                    },
-                    "opacity": 1,
-                    "transparency": false
-                },
+                "inputElement": [
+                    0,
+                    2,
+                    1
+                ],
+                "outputElement": [
+                    0,
+                    10,
+                    1
+                ],
                 "isSelected": false,
                 "rlcParams": {
                     "resistance": 50
