@@ -105,17 +105,17 @@ function read_ports(port_objects, escal)
     N_PORTS = length(port_objects)
 
     for port_object in port_objects
-        @assert length(port_object["inputElement"]["transformationParams"]["position"]) == 3
+        @assert length(port_object["inputElement"]) == 3
         ipos = zeros((1, 3))
-        ipos[1, 1] = port_object["inputElement"]["transformationParams"]["position"][1] * escal
-        ipos[1, 2] = port_object["inputElement"]["transformationParams"]["position"][2] * escal
-        ipos[1, 3] = port_object["inputElement"]["transformationParams"]["position"][3] * escal
+        ipos[1, 1] = port_object["inputElement"][1] * escal
+        ipos[1, 2] = port_object["inputElement"][2] * escal
+        ipos[1, 3] = port_object["inputElement"][3] * escal
         push!(input_positions, ipos)
         @assert length(port_object["outputElement"]["transformationParams"]["position"]) == 3
         opos = zeros((1, 3))
-        opos[1, 1] = port_object["outputElement"]["transformationParams"]["position"][1] * escal
-        opos[1, 2] = port_object["outputElement"]["transformationParams"]["position"][2] * escal
-        opos[1, 3] = port_object["outputElement"]["transformationParams"]["position"][3] * escal
+        opos[1, 1] = port_object["outputElement"][1] * escal
+        opos[1, 2] = port_object["outputElement"][2] * escal
+        opos[1, 3] = port_object["outputElement"][3] * escal
         push!(output_positions, opos)
     end
     @assert length(input_positions) == N_PORTS && length(output_positions) == N_PORTS
@@ -149,17 +149,17 @@ function read_lumped_elements(lumped_elements_objects, escal)
         @assert length(input_positions) == N_LUMPED_ELEMENTS && length(output_positions) == N_LUMPED_ELEMENTS && length(values) == N_LUMPED_ELEMENTS && length(types) == N_LUMPED_ELEMENTS
     else
         for lumped_element_object in lumped_elements_objects
-            @assert length(lumped_element_object["inputElement"]["transformationParams"]["position"]) == 3
+            @assert length(lumped_element_object["inputElement"]) == 3
             ipos = zeros((1, 3))
-            ipos[1, 1] = lumped_element_object["inputElement"]["transformationParams"]["position"][1] * escal
-            ipos[1, 2] = lumped_element_object["inputElement"]["transformationParams"]["position"][2] * escal
-            ipos[1, 3] = lumped_element_object["inputElement"]["transformationParams"]["position"][3] * escal
+            ipos[1, 1] = lumped_element_object["inputElement"][1] * escal
+            ipos[1, 2] = lumped_element_object["inputElement"][2] * escal
+            ipos[1, 3] = lumped_element_object["inputElement"][3] * escal
             push!(input_positions, ipos)
-            @assert length(lumped_element_object["outputElement"]["transformationParams"]["position"]) == 3
+            @assert length(lumped_element_object["outputElement"]) == 3
             opos = zeros((1, 3))
-            opos[1, 1] = lumped_element_object["outputElement"]["transformationParams"]["position"][1] * escal
-            opos[1, 2] = lumped_element_object["outputElement"]["transformationParams"]["position"][2] * escal
-            opos[1, 3] = lumped_element_object["outputElement"]["transformationParams"]["position"][3] * escal
+            opos[1, 1] = lumped_element_object["outputElement"][1] * escal
+            opos[1, 2] = lumped_element_object["outputElement"][2] * escal
+            opos[1, 3] = lumped_element_object["outputElement"][3] * escal
             push!(output_positions, opos)
             lvalue = zeros(1)
             lvalue[1] = lumped_element_object["value"]
