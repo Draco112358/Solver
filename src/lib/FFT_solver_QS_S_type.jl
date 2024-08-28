@@ -1,5 +1,5 @@
 using MKL
-using SparseArrays, IterativeSolvers, FFTW, LinearAlgebra, LinearMaps
+using SparseArrays, IterativeSolvers, FFTW, LinearAlgebra, LinearMaps, FLoops
 include("build_Yle_S.jl")
 include("compute_Z_self.jl")
 include("gmres_custom.jl")
@@ -62,7 +62,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     # tn = Array{ComplexF64}(undef, m + ns + n)
     tn = zeros(ComplexF64, m + ns + n, 1)
 
-    for k = 1:nfreq
+    @floop for k = 1:nfreq
         if is_stopped_computation(id, chan)
             return false
         end
@@ -102,8 +102,8 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #sol = solve(prob, KrylovJL_GMRES())
 
 
-                V::Vector{ComplexF64}, flag, relres, iter, resvec, stopped = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
-                if stopped
+                V::Vector{ComplexF64}, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                if is_stopped_computation(id, chan)
                     return false
                 end
                 
@@ -143,17 +143,17 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
             end
 
-            Vrest[:, c1] = V
-            is[n1] = 0
-            is[n2] = 0
+            @reduce Vrest[:, c1] = V
+            @reduce is[n1] = 0
+            @reduce is[n2] = 0
             for c2::Int64 = c1:size(ports["port_nodes"], 1)
                 n3::Int64 = convert(Int32, ports["port_nodes"][c2, 1])
                 n4::Int64 = convert(Int32, ports["port_nodes"][c2, 2])
                 if c1 == c2
-                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - ports_scatter_value) / ports_scatter_value
+                    @reduce S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - ports_scatter_value) / ports_scatter_value
                 else
-                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / ports_scatter_value
-                    S[c2, c1, k] = S[c1, c2, k]
+                    @reduce S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / ports_scatter_value
+                    @reduce S[c2, c1, k] = S[c1, c2, k]
                 end
             end
         end

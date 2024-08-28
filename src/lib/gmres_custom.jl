@@ -319,7 +319,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         pop!(resvec)
     end
     
-    return x, flag, relres, iter, resvec, false
+    return x, flag, relres, iter, resvec
 
 end
 
