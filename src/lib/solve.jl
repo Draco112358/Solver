@@ -47,16 +47,16 @@ function material(dict_element)
         "name" => dict_element["name"],
         "color" => dict_element["color"],
         "permeability" => dict_element["permeability"],
-        "tangent_delta_permeability" => dict_element["tangent_delta_permeability"],
-        "custom_permeability" => dict_element["custom_permeability"],
+        "tangent_delta_permeability" => haskey(dict_element, "tangent_delta_permeability") ? dict_element["tangent_delta_permeability"] : 0,
+        "custom_permeability" => haskey(dict_element, "custom_permeability") ? dict_element["custom_permeability"] : 0,
         "permittivity" => dict_element["permittivity"],
-        "tangent_delta_permittivity" => dict_element["tangent_delta_permittivity"],
-        "custom_permittivity" => dict_element["custom_permittivity"],
+        "tangent_delta_permittivity" => haskey(dict_element, "tangent_delta_permittivity") ? dict_element["tangent_delta_permittivity"] : 0,
+        "custom_permittivity" => haskey(dict_element, "custom_permittivity") ? dict_element["custom_permittivity"] : 0,
         "conductivity" => dict_element["conductivity"],
-        "tangent_delta_conductivity" => dict_element["tangent_delta_conductivity"],
-        "custom_conductivity" => dict_element["custom_conductivity"],
+        "tangent_delta_conductivity" => haskey(dict_element, "tangent_delta_conductivity") ? dict_element["tangent_delta_conductivity"] : 0,
+        "custom_conductivity" => haskey(dict_element, "custom_conductivity") ? dict_element["custom_conductivity"] : 0,
         "sigmar" => dict_element["conductivity"],
-        "tan_D" => dict_element["tangent_delta_permittivity"],
+        "tan_D" => haskey(dict_element, "tangent_delta_conductivity") ? dict_element["tangent_delta_conductivity"] : 0,
         "eps_re" => dict_element["permittivity"],
         "mur" => dict_element["permeability"],
         "epsr" => 1,
@@ -252,133 +252,133 @@ function isMaterialConductor(materialName::String, materials)::Bool
 end
 
 function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing, commentsEnabled=true)
-    mesherDict = mesherOutput
-    inputDict = solverInput
-    unit = solverInput["unit"]
-    escal = getEscalFrom(unit)
-    ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
+    try
+        mesherDict = mesherOutput
+        inputDict = solverInput
+        unit = solverInput["unit"]
+        escal = getEscalFrom(unit)
+        ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
 
-    sx, sy, sz = mesherDict["cell_size"]["cell_size_x"] * escal, mesherDict["cell_size"]["cell_size_y"] * escal, mesherDict["cell_size"]["cell_size_z"] * escal
+        sx, sy, sz = mesherDict["cell_size"]["cell_size_x"] * escal, mesherDict["cell_size"]["cell_size_y"] * escal, mesherDict["cell_size"]["cell_size_z"] * escal
 
-    origin = (mesherDict["origin"]["origin_x"], mesherDict["origin"]["origin_y"], mesherDict["origin"]["origin_z"])
+        origin = (mesherDict["origin"]["origin_x"], mesherDict["origin"]["origin_y"], mesherDict["origin"]["origin_z"])
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
-
-
-    MATERIALS = [material(el) for el in inputDict["materials"]]
-
-    dominant_list = []
-    grids = []
-    conductors_index = 1
-    for (mat, value) in mesherDict["mesher_matrices"]
-        push!(grids, unsqueeze(copy(value), dims=2))
-        if (isMaterialConductor(mat, MATERIALS))
-            push!(dominant_list, conductors_index)
+        if is_stopped_computation(id, chan)
+            return false
         end
-        conductors_index += 1
-    end
-    # testarray = [copy(value) for (index, value) in mesherDict["mesher_matrices"]]
 
-    # grids = [unsqueeze(values, dims=2) for values in testarray]
+        MATERIALS = [material(el) for el in inputDict["materials"]]
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        dominant_list = []
+        grids = []
+        conductors_index = 1
+        for (mat, value) in mesherDict["mesher_matrices"]
+            push!(grids, unsqueeze(copy(value), dims=2))
+            if (isMaterialConductor(mat, MATERIALS))
+                push!(dominant_list, conductors_index)
+            end
+            conductors_index += 1
+        end
+        # testarray = [copy(value) for (index, value) in mesherDict["mesher_matrices"]]
 
-    frequencies = inputDict["frequencies"]
-    freq = Array{Float64}(undef, 1, length(frequencies))
-    for i in range(1, length(frequencies))
-        freq[1, i] = frequencies[i]
-    end
-    #freq = convert(Array{Float64}, freq)
+        # grids = [unsqueeze(values, dims=2) for values in testarray]
 
-    n_freq = length(freq)
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
-    PORTS = read_ports(inputDict["ports"], escal)
+        frequencies = inputDict["frequencies"]
+        freq = Array{Float64}(undef, 1, length(frequencies))
+        for i in range(1, length(frequencies))
+            freq[1, i] = frequencies[i]
+        end
+        #freq = convert(Array{Float64}, freq)
 
-    L_ELEMENTS = read_lumped_elements(inputDict["lumped_elements"], escal)
+        n_freq = length(freq)
+        println("reading ports")
 
-    MATERIALS = [material(el) for el in inputDict["materials"]]
-    #SIGNALS = [el for el in inputDict["signals"]]
+        PORTS = read_ports(inputDict["ports"], escal)
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        L_ELEMENTS = read_lumped_elements(inputDict["lumped_elements"], escal)
 
-    # # START SETTINGS--------------------------------------------
-    # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
-    # tol[ind_low_freq] .= 1e-7
-    GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
-    QS_Rcc_FW = 1 # 1 QS, 2 Rcc, 3 Taylor
-    use_escalings = 1
-    mapping_vols, num_centri = create_volumes_mapping_v2(grids)
+        MATERIALS = [material(el) for el in inputDict["materials"]]
+        println("reading ports completed")
+        #SIGNALS = [el for el in inputDict["signals"]]
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
+        # # START SETTINGS--------------------------------------------
+        # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
+        # tol[ind_low_freq] .= 1e-7
+        GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
+        QS_Rcc_FW = 2 # 1 QS, 2 Rcc, 3 Taylor
+        use_escalings = 1
+        println("create_volumes_mapping_v2")
+        mapping_vols, num_centri = create_volumes_mapping_v2(grids)
 
-    centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        println("create_volume_centers")
+        centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
 
-    externals_grids = create_Grids_externals(grids)
+        if is_stopped_computation(id, chan)
+            return false
+        end
+        println("create_Grids_externals")
+        externals_grids = create_Grids_externals(grids)
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
+        println("MesherFFT")
+        escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list)
+        # if length(stopComputation) > 0
+        #     pop!(stopComputation)
+        #     return Dict("id" => id, "isStopped" => true)
+        # end
 
-    escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list)
-    # if length(stopComputation) > 0
-    #     pop!(stopComputation)
-    #     return Dict("id" => id, "isStopped" => true)
-    # end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
-
-
-    if commentsEnabled
-        FFTCP, FFTCLp = @time compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
-        println("time for solver")
-    else
+        println("P and Lp")
         FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
-    end
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
-    #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
-    # if length(stopComputation) > 0
-    #     pop!(stopComputation)
-    #     return Dict("id" => id, "isStopped" => true)
-    # end
-    if commentsEnabled
-        out = @time FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
-    else
+        #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
+        # if length(stopComputation) > 0
+        #     pop!(stopComputation)
+        #     return Dict("id" => id, "isStopped" => true)
+        # end
+        println("gmres")
         out = FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
-    end
+        println("data publish")
+        if (out == false)
+            return false
+        end
 
-    if (out == false)
-        return false
-    end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
-    if is_stopped_computation(id, chan)
-        return false
-    end
-
-    if !isnothing(chan)
-        publish_data(Dict("computation_completed" => true, "id" => id), "solver_feedback", chan)
-    end
-    if (commentsEnabled == true)
-        publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
+        if !isnothing(chan)
+            publish_data(Dict("computation_completed" => true, "id" => id), "solver_feedback", chan)
+        end
+        if (commentsEnabled == true)
+            publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
+        end
+    catch ex
+        if ex isa OutOfMemoryError
+            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+        end
     end
 
 end
