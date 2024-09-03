@@ -1,26 +1,34 @@
 include("compute_Lp_Voxels.jl")
 include("compute_row_P_sup.jl")
+include("compute_rows_Rcc_Lp.jl")
+include("compute_rows_Rcc_P.jl")
 
 function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, Nz, QS_Rcc_FW, id, chan)
     # FFTCP, FFTCLp = Array{Array{ComplexF64}}(undef, 3, 3), nothing
     # if QS_Rcc_FW == 1
     FFTW.set_num_threads(12)
-    FFTCP = compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz)
-    if !isnothing(chan)
-        publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
-    end
-    FFTCLp = compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz)
-    if !isnothing(chan)
-        publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
-    end
-    # elseif QS_Rcc_FW == 2
-    #     distance_method = "RCC" # RCC AVG MIN
-    #     FFTCP = compute_rows_Rcc_P(circulant_centers, distance_method)
-    #     FFTCLp = compute_rows_Rcc_Lp(circulant_centers, distance_method)
+    if QS_Rcc_FW == 1
+        FFTCP = compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz)
+        if !isnothing(chan)
+            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        end
+        FFTCLp = compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz)
+        if !isnothing(chan)
+            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        end
+    elseif QS_Rcc_FW == 2
+        FFTCP = compute_rows_Rcc_P(circulant_centers)
+        if !isnothing(chan)
+            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        end
+        FFTCLp = compute_rows_Rcc_Lp(circulant_centers)
+        if !isnothing(chan)
+            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        end
     # else
     #     FFTCP = compute_rows_Taylor_P(circulant_centers)
     #     FFTCLp = compute_rows_Taylor_Lp(circulant_centers)
-    # end
+    end
     return FFTCP, FFTCLp
 end
 
@@ -102,12 +110,12 @@ function store_circulant(row_P, Nx, Ny, Nz)
     i1z = 1:Nz
     i2z = Nz+2:2*Nz
     i3z = Nz:-1:2
-    Circ = zeros(Nx, Ny, Nz)
+    Circ = zeros(ComplexF64, Nx, Ny, Nz)
     for cont in range(1, length(row_P))
         m, n, k = from_1D_to_3D(Nx, Ny, cont)
         Circ[m, n, k] = row_P[cont]
     end
-    Cout = zeros(2 * Nx, 2 * Ny, 2 * Nz)
+    Cout = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
     Cout[i1x, i1y, i1z] = Circ[i1x, i1y, i1z]
     Cout[i2x, i1y, i1z] = Circ[i3x, i1y, i1z]
     Cout[i1x, i2y, i1z] = Circ[i1x, i3y, i1z]

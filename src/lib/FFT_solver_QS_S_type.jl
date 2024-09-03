@@ -4,6 +4,10 @@ include("build_Yle_S.jl")
 include("compute_Z_self.jl")
 include("gmres_custom.jl")
 include("utility.jl")
+include("compute_Matrix_vector.jl")
+include("compute_Circulant_Lp_Rcc.jl")
+include("compute_Circulant_P_sup_Rcc.jl")
+
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled::Bool)
     freq = freq .* escalings["freq"]
@@ -23,38 +27,43 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     invP::SparseMatrixCSC{Float64,Int64} = sparse(1:ns, 1:ns, 1 ./ diagonals["P"], ns, ns)
     PVector::Vector{FFTW.cFFTWPlan{ComplexF64,-1,true,3,Tuple{Int64,Int64,Int64}}} = []
     PLIVector::Vector{AbstractFFTs.ScaledPlan{ComplexF64,FFTW.cFFTWPlan{ComplexF64,1,true,3,UnitRange{Int64}},Float64}} = []
-    # ChiVector::Vector{Array{ComplexF64, 3}}=[]
-    for cont = 1:3
-        Nx::Int64 = size(FFTCLp[cont, 1], 1) ÷ 2
-        Ny::Int64 = size(FFTCLp[cont, 1], 2) ÷ 2
-        Nz::Int64 = size(FFTCLp[cont, 1], 3) ÷ 2
-        padded_CircKt = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
-        push!(PVector, plan_fft!(padded_CircKt, flags=FFTW.MEASURE))
-        push!(PLIVector, plan_ifft!(FFTCLp[cont, 1], flags=FFTW.MEASURE))
-        # push!(ChiVector, padded_CircKt)
-    end
-
-    # P2Vector = Matrix{FFTW.cFFTWPlan{ComplexF64, -1, false, 3, Tuple{Int64, Int64, Int64}}}(undef, 3, 3)
     P2Vector = Matrix{Any}(undef, 3, 3)
     PLI2Vector = Matrix{AbstractFFTs.ScaledPlan{ComplexF64,FFTW.cFFTWPlan{ComplexF64,1,true,3,UnitRange{Int64}},Float64}}(undef, 3, 3)
     Chi2Vector = Matrix{Array{ComplexF64,3}}(undef, 3, 3)
-    for cont1 = 1:3
-        for cont2 = cont1:3
-            Nx::Int64 = size(FFTCP[cont1, cont2], 1) ÷ 2
-            Ny::Int64 = size(FFTCP[cont1, cont2], 2) ÷ 2
-            Nz::Int64 = size(FFTCP[cont1, cont2], 3) ÷ 2
+    if QS_Rcc_FW == 1
+        # ChiVector::Vector{Array{ComplexF64, 3}}=[]
+        for cont = 1:3
+            Nx::Int64 = size(FFTCLp[cont, 1], 1) ÷ 2
+            Ny::Int64 = size(FFTCLp[cont, 1], 2) ÷ 2
+            Nz::Int64 = size(FFTCLp[cont, 1], 3) ÷ 2
             padded_CircKt = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
-            #Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
-            if cont1 != cont2
-                P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
-                Chi2Vector[cont1, cont2] = padded_CircKt
-            else
-                P2Vector[cont1, cont2] = plan_fft!(padded_CircKt, flags=FFTW.MEASURE)
-            end
-            # P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
-            PLI2Vector[cont1, cont2] = plan_ifft!(FFTCP[cont1, cont2], flags=FFTW.MEASURE)
-            # Chi2Vector[cont1, cont2] = padded_CircKt
+            push!(PVector, plan_fft!(padded_CircKt, flags=FFTW.MEASURE))
+            push!(PLIVector, plan_ifft!(FFTCLp[cont, 1], flags=FFTW.MEASURE))
+            # push!(ChiVector, padded_CircKt)
         end
+
+        println("plan1")
+
+        # P2Vector = Matrix{FFTW.cFFTWPlan{ComplexF64, -1, false, 3, Tuple{Int64, Int64, Int64}}}(undef, 3, 3)
+        for cont1 = 1:3
+            for cont2 = cont1:3
+                Nx::Int64 = size(FFTCP[cont1, cont2], 1) ÷ 2
+                Ny::Int64 = size(FFTCP[cont1, cont2], 2) ÷ 2
+                Nz::Int64 = size(FFTCP[cont1, cont2], 3) ÷ 2
+                padded_CircKt = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
+                #Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
+                if cont1 != cont2
+                    P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+                    Chi2Vector[cont1, cont2] = padded_CircKt
+                else
+                    P2Vector[cont1, cont2] = plan_fft!(padded_CircKt, flags=FFTW.MEASURE)
+                end
+                # P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+                PLI2Vector[cont1, cont2] = plan_ifft!(FFTCP[cont1, cont2], flags=FFTW.MEASURE)
+                # Chi2Vector[cont1, cont2] = padded_CircKt
+            end
+        end
+        println("plan2")
     end
 
     resProd = Array{ComplexF64}(undef, 2 * m)
@@ -62,12 +71,49 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     # tn = Array{ComplexF64}(undef, m + ns + n)
     tn = zeros(ComplexF64, m + ns + n, 1)
 
-    @floop for k = 1:nfreq
+    for k = 1:nfreq
+        if QS_Rcc_FW==2
+            FFTCLp_rebuilted=compute_Circulant_Lp_Rcc(FFTCLp,escalings,freq[k]/escalings["freq"]);
+            FFTCP_rebuilted=compute_Circulant_P_sup_Rcc(FFTCP,escalings,freq[k]/escalings["freq"]);
+            PVector = []
+            PLIVector = []
+            for cont = 1:3
+                Nx::Int64 = size(FFTCLp_rebuilted[cont, 1], 1) ÷ 2
+                Ny::Int64 = size(FFTCLp_rebuilted[cont, 1], 2) ÷ 2
+                Nz::Int64 = size(FFTCLp_rebuilted[cont, 1], 3) ÷ 2
+                padded_CircKt = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
+                push!(PVector, plan_fft!(padded_CircKt, flags=FFTW.MEASURE))
+                push!(PLIVector, plan_ifft!(FFTCLp_rebuilted[cont, 1], flags=FFTW.MEASURE))
+                # push!(ChiVector, padded_CircKt)
+            end
+
+            println("plan1")
+
+            for cont1 = 1:3
+                for cont2 = cont1:3
+                    Nx::Int64 = size(FFTCP_rebuilted[cont1, cont2], 1) ÷ 2
+                    Ny::Int64 = size(FFTCP_rebuilted[cont1, cont2], 2) ÷ 2
+                    Nz::Int64 = size(FFTCP_rebuilted[cont1, cont2], 3) ÷ 2
+                    padded_CircKt = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
+                    #Chi = ifft(FFTCP_rebuilted[cont1, cont2] .* fft(padded_CircKt))
+                    if cont1 != cont2
+                        P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+                        Chi2Vector[cont1, cont2] = padded_CircKt
+                    else
+                        P2Vector[cont1, cont2] = plan_fft!(padded_CircKt, flags=FFTW.MEASURE)
+                    end
+                    # P2Vector[cont1, cont2] = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+                    PLI2Vector[cont1, cont2] = plan_ifft!(FFTCP_rebuilted[cont1, cont2], flags=FFTW.MEASURE)
+                    # Chi2Vector[cont1, cont2] = padded_CircKt
+                end
+            end
+            println("plan2")
+        # elseif QS_Rcc_FW==3
+        #     FFTCLp_rebuilted=compute_Circulant_Lp_FW(FFTCLp,escalings,freq(k)/escalings["freq"]);
+        #     FFTCP_rebuilted=compute_Circulant_P_sup_FW(FFTCP,escalings,freq(k)/escalings["freq"]);
+        end
         if is_stopped_computation(id, chan)
             return false
-        end
-        if !isnothing(chan)
-            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
         end
         Yle::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = build_Yle_S(lumped_elements, [], ports, escalings, n, w[k] / escalings["freq"], ports_scatter_value)
         Z_self::Vector{ComplexF64} = compute_Z_self(diagonals["R"], diagonals["Cd"], w[k])
@@ -92,7 +138,9 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             # is[n1] = 1 * escalings["Is"]
             is[n2] = -1 * escalings["Is"]
             precond_3_3_Kt!(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, vec(is), tn, resProd)
-            # products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector,ChiVector, Chi2Vector)
+            println("end precond 3 3 kt")
+            #ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
+            # products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector)
             # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
             # x0 = Vrest[:,c1]
             #prob = LinearProblem(prodts, vec(tn))
@@ -101,8 +149,8 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
 
                 #sol = solve(prob, KrylovJL_GMRES())
 
-
-                V::Vector{ComplexF64}, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                println("start gmres")
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
                 if is_stopped_computation(id, chan)
                     return false
                 end
@@ -140,20 +188,35 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #     println("RHS all zeros, number of iterations: "*string(length(resvec)))
                 # end
             else
-                #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
+                println("start gmres")
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                if is_stopped_computation(id, chan)
+                    return false
+                end
+                
+                tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
+                if commentsEnabled
+                    if (flag == 0)
+                        println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
+                    end
+
+                    if (flag == 1)
+                        println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
+                    end
+                end
             end
 
-            @reduce Vrest[:, c1] = V
-            @reduce is[n1] = 0
-            @reduce is[n2] = 0
+            Vrest[:, c1] = V
+            is[n1] = 0
+            is[n2] = 0
             for c2::Int64 = c1:size(ports["port_nodes"], 1)
                 n3::Int64 = convert(Int32, ports["port_nodes"][c2, 1])
                 n4::Int64 = convert(Int32, ports["port_nodes"][c2, 2])
                 if c1 == c2
-                    @reduce S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - ports_scatter_value) / ports_scatter_value
+                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - ports_scatter_value) / ports_scatter_value
                 else
-                    @reduce S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / ports_scatter_value
-                    @reduce S[c2, c1, k] = S[c1, c2, k]
+                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / ports_scatter_value
+                    S[c2, c1, k] = S[c1, c2, k]
                 end
             end
         end

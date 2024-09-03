@@ -1,4 +1,5 @@
 {
+    "solverType": 1,
     "solverAlgoParams": {
         "innerIteration": 100,
         "outerIteration": 1,

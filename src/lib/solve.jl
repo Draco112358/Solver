@@ -251,7 +251,7 @@ function isMaterialConductor(materialName::String, materials)::Bool
     return material["conductivity"] > 0.0
 end
 
-function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing, commentsEnabled=true)
+function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id; chan=nothing, commentsEnabled=true)
     try
         mesherDict = mesherOutput
         inputDict = solverInput
@@ -313,7 +313,7 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
         # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
         # tol[ind_low_freq] .= 1e-7
         GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
-        QS_Rcc_FW = 2 # 1 QS, 2 Rcc, 3 Taylor
+        QS_Rcc_FW = solverType # 1 QS, 2 Rcc, 3 Taylor
         use_escalings = 1
         println("create_volumes_mapping_v2")
         mapping_vols, num_centri = create_volumes_mapping_v2(grids)
@@ -375,9 +375,13 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, id; chan=nothing
         if (commentsEnabled == true)
             publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
         end
-    catch ex
-        if ex isa OutOfMemoryError
+    catch e
+        if e isa OutOfMemoryError
             publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+        else
+            error_msg = sprint(showerror, e)
+            st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
+            @warn "Trouble doing things:\n$(error_msg)\n$(st)"
         end
     end
 
