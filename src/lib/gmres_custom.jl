@@ -1,7 +1,7 @@
 include("compute_Matrix_vector.jl")
 include("utility.jl")
 
-function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, id, chan)
+function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, id, chan, portIndex)
     m = size(b, 1)
     n = m
     if restarted
@@ -94,9 +94,10 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         w[1] = -beta
         initercount=0
         for initer = 1:inner
-
+            println("start inner iteration number -> ",initer)
+            tic = time()
             if is_stopped_computation(id, chan)
-                return x, flag, relres, iter, resvec, true
+                return x, flag, relres, iter, resvec
             end
 
             initercount = initercount + 1
@@ -237,7 +238,8 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
                     end
                 end
             end
-            
+            println("normr_act -> ", normr_act)
+            println("tolb -> ", tolb)
             if normr_act <= normrmin
                 normrmin = normr_act
                 imin = outiter
@@ -249,6 +251,10 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
                 flag = 3
                 break
             end
+            if !isnothing(chan) && initer == 1
+                publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
+            end
+            println("end inner iteration number -> ",time() - tic)
         end
         
         if (initercount == 0)

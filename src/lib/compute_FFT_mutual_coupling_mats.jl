@@ -6,7 +6,8 @@ include("compute_rows_Rcc_P.jl")
 function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, Nz, QS_Rcc_FW, id, chan)
     # FFTCP, FFTCLp = Array{Array{ComplexF64}}(undef, 3, 3), nothing
     # if QS_Rcc_FW == 1
-    FFTW.set_num_threads(12)
+    FFTW.set_num_threads(Base.Threads.nthreads()*2)
+    #FFTW.set_num_threads(1)
     if QS_Rcc_FW == 1
         FFTCP = compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz)
         if !isnothing(chan)

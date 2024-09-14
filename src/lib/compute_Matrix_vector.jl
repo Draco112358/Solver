@@ -1,6 +1,6 @@
 using MKL
 
-function ComputeMatrixVector(x::Array{ComplexF64}, w::Float64, incidence_selection::Dict, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
+function ComputeMatrixVector(x, w::Float64, incidence_selection::Dict, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
     m = size(incidence_selection["A"], 1)
     ns = size(incidence_selection["Gamma"], 2)
     I = @view x[1:m]
@@ -79,7 +79,7 @@ function ComputeMatrixVector(x::Array{ComplexF64}, w::Float64, incidence_selecti
     mul!(Gamma_v2, incidence_selection["Gamma"], Q)
     Y3 .= Y3 +  lmul!(1im * w, Gamma_v2)
     MatrixVector = precond_3_3_vector(lu, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], w, vec(Y1), vec(Y2), vec(Y3), resProd)
-    
+    println("compute matrix vector")
     return MatrixVector    
 end
 

@@ -42,8 +42,6 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             # push!(ChiVector, padded_CircKt)
         end
 
-        println("plan1")
-
         # P2Vector = Matrix{FFTW.cFFTWPlan{ComplexF64, -1, false, 3, Tuple{Int64, Int64, Int64}}}(undef, 3, 3)
         for cont1 = 1:3
             for cont2 = cont1:3
@@ -63,7 +61,6 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 # Chi2Vector[cont1, cont2] = padded_CircKt
             end
         end
-        println("plan2")
     end
 
     resProd = Array{ComplexF64}(undef, 2 * m)
@@ -87,8 +84,6 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 # push!(ChiVector, padded_CircKt)
             end
 
-            println("plan1")
-
             for cont1 = 1:3
                 for cont2 = cont1:3
                     Nx::Int64 = size(FFTCP_rebuilted[cont1, cont2], 1) ÷ 2
@@ -107,7 +102,6 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                     # Chi2Vector[cont1, cont2] = padded_CircKt
                 end
             end
-            println("plan2")
         # elseif QS_Rcc_FW==3
         #     FFTCLp_rebuilted=compute_Circulant_Lp_FW(FFTCLp,escalings,freq(k)/escalings["freq"]);
         #     FFTCP_rebuilted=compute_Circulant_P_sup_FW(FFTCP,escalings,freq(k)/escalings["freq"]);
@@ -140,7 +134,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             precond_3_3_Kt!(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, vec(is), tn, resProd)
             println("end precond 3 3 kt")
             #ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
-            # products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector)
+            # products_law = x ->   ComputeMatrixVector(x , w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector);
             # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
             # x0 = Vrest[:,c1]
             #prob = LinearProblem(prodts, vec(tn))
@@ -150,7 +144,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #sol = solve(prob, KrylovJL_GMRES())
 
                 println("start gmres")
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
                 if is_stopped_computation(id, chan)
                     return false
                 end
@@ -165,7 +159,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                         println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
                     end
                 end
-                #V, info = IterativeSolvers.gmres!(x0, prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=false)
+                #V, info = IterativeSolvers.gmres!(x0, prodts, tn; reltol=GMRES_settings["tol"][k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
                 # V, info = IterativeSolvers.gmres(prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=false)
                 #println(info)
 
@@ -188,8 +182,8 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #     println("RHS all zeros, number of iterations: "*string(length(resvec)))
                 # end
             else
-                println("start gmres")
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan)
+                println("start gmres Rcc")
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
                 if is_stopped_computation(id, chan)
                     return false
                 end
