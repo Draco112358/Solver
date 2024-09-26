@@ -359,7 +359,7 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id; 
         #     return Dict("id" => id, "isStopped" => true)
         # end
         println("gmres")
-        out = FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
+        out = @time FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
         println("data publish")
         if (out == false)
             return false

@@ -31,7 +31,6 @@ function ComputeMatrixVector(x, w::Float64, incidence_selection::Dict, FFTCP, FF
     A_view = @view resProd[1:size(incidence_selection["A"],1)]
     mul!(A_view, incidence_selection["A"], Phi)
     Y1 =   lmul!(1im * w,Y1) + DZ .* I + A_view
-    
     # ---------------- P * Q ---------------------------------------------
     Y2 = zeros(ComplexF64,ns)
     Y3 = zeros(ComplexF64,size(Yle,1))
@@ -79,7 +78,7 @@ function ComputeMatrixVector(x, w::Float64, incidence_selection::Dict, FFTCP, FF
     mul!(Gamma_v2, incidence_selection["Gamma"], Q)
     Y3 .= Y3 +  lmul!(1im * w, Gamma_v2)
     MatrixVector = precond_3_3_vector(lu, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], w, vec(Y1), vec(Y2), vec(Y3), resProd)
-    println("compute matrix vector")
+    #println("compute matrix vector")
     return MatrixVector    
 end
 

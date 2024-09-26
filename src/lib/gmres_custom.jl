@@ -94,7 +94,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
         w[1] = -beta
         initercount=0
         for initer = 1:inner
-            println("start inner iteration number -> ",initer)
+            #println("start inner iteration number -> ",initer)
             tic = time()
             if is_stopped_computation(id, chan)
                 return x, flag, relres, iter, resvec
@@ -238,8 +238,8 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
                     end
                 end
             end
-            println("normr_act -> ", normr_act)
-            println("tolb -> ", tolb)
+            #println("normr_act -> ", normr_act)
+            #println("tolb -> ", tolb)
             if normr_act <= normrmin
                 normrmin = normr_act
                 imin = outiter
@@ -251,10 +251,10 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFT
                 flag = 3
                 break
             end
-            if !isnothing(chan) && initer == 1
+            if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
                 publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
             end
-            println("end inner iteration number -> ",time() - tic)
+            #println("end inner iteration number -> ",time() - tic)
         end
         
         if (initercount == 0)

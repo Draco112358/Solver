@@ -132,7 +132,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             # is[n1] = 1 * escalings["Is"]
             is[n2] = -1 * escalings["Is"]
             precond_3_3_Kt!(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, vec(is), tn, resProd)
-            println("end precond 3 3 kt")
+            #println("end precond 3 3 kt")
             #ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
             # products_law = x ->   ComputeMatrixVector(x , w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector);
             # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
@@ -143,7 +143,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
 
                 #sol = solve(prob, KrylovJL_GMRES())
 
-                println("start gmres")
+                #println("start gmres")
                 V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
                 if is_stopped_computation(id, chan)
                     return false
