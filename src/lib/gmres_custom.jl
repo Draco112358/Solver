@@ -1,7 +1,7 @@
 include("compute_Matrix_vector.jl")
 include("utility.jl")
 
-function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, tensor_struct, DZ, Yle, expansions, expansions_struct, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, id, chan, portIndex, plan_ifft_struct, plan_fft_struct, zero_padded)
+function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, id, chan, portIndex)
     m = size(b, 1)
     n = m
     if restarted
@@ -48,7 +48,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
     minupdated = 0;
     warned = false;
 
-    r = b - ComputeMatrixVector(x , wk, incidence_selection, tensor_struct, DZ, Yle, expansions, expansions_struct, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, plan_ifft_struct, plan_fft_struct, zero_padded);
+    r = b - ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector);
     normr = norm(r)
     if normr <= tolb
         x::Union{Vector{ComplexF64}, Vector{Float64}} .= xmin
@@ -94,7 +94,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
         w[1] = -beta
         initercount=0
         for initer = 1:inner
-            println("start inner iteration number -> ",initer)
+            #println("start inner iteration number -> ",initer)
             tic = time()
             if is_stopped_computation(id, chan)
                 return x, 99, 0, [outiter, initer], 0
@@ -118,7 +118,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
             
             
             # Apply A to v.
-            v = ComputeMatrixVector(v , wk, incidence_selection, tensor_struct, DZ, Yle, expansions, expansions_struct, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, plan_ifft_struct, plan_fft_struct, zero_padded);
+            v = ComputeMatrixVector(v , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector);
             #println(norm(v))
             # Form Pj*Pj-1*...P1*Av.
             for k = 1:initer
@@ -198,7 +198,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
                     end
                     xm += additive
                 end
-                r = b - ComputeMatrixVector(xm , wk, incidence_selection, tensor_struct, DZ, Yle, expansions, expansions_struct, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, plan_ifft_struct, plan_fft_struct, zero_padded);
+                r = b - ComputeMatrixVector(xm , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector);
                 if norm(r) <= tol * n2b
                     x = xm
                     flag = 0
@@ -238,8 +238,8 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
                     end
                 end
             end
-            println("normr_act -> ", normr_act)
-            println("tolb -> ", tolb)
+            #println("normr_act -> ", normr_act)
+            #println("tolb -> ", tolb)
             if normr_act <= normrmin
                 normrmin = normr_act
                 imin = outiter
@@ -254,7 +254,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
             if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
                 publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
             end
-            println("end inner iteration number -> ",time() - tic)
+            #println("end inner iteration number -> ",time() - tic)
         end
         
         if (initercount == 0)
@@ -281,7 +281,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, ten
                 x += additive
             end
             xmin = x
-            r = b - ComputeMatrixVector(x , wk, incidence_selection, tensor_struct, DZ, Yle, expansions, expansions_struct, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector, plan_ifft_struct, plan_fft_struct, zero_padded);
+            r = b - ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector);
             minv_r = r
             normr_act = norm(minv_r)
             r = minv_r
@@ -337,5 +337,4 @@ function scalarsign(d)
     #println(sgn)
     return sgn
 end
-
 
