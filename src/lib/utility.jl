@@ -9,7 +9,7 @@ end
 function is_stopped_computation(id::String, chan)
     if length(filter(i -> i == id, stopComputation)) > 0
         filter!(i -> i != id, stopComputation)
-        publish_data(Dict("id" => id, "isStopped" => true), "solver_results", chan)
+        #publish_data(Dict("id" => id, "isStopped" => true), "solver_results", chan)
         return true
     end
     return false
