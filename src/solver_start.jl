@@ -22,7 +22,7 @@ const commentsEnabled = []
 function force_compile2()
   println("------ Precompiling routes...wait for solver to be ready ---------")
   data = open(JSON.parse, "first_run_data.json")
-  doSolving(data["mesherOutput"], data["solverInput"], data["solverAlgoParams"], data["solverType"], "init"; commentsEnabled=false)
+  doSolving(data["mesherOutput"], data["solverInput"], data["solverAlgoParams"], data["solverType"], "init", aws, aws_bucket_name; commentsEnabled=false)
   println("SOLVER READY")
 end
 
@@ -53,7 +53,7 @@ function receive()
               if (data["message"] == "solving")
                 # mesherOutput = JSON.parsefile(data["body"]["mesherFileId"])
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
-                Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"]; chan)
+                Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"

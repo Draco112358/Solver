@@ -7,7 +7,7 @@ include("From_3D_to_1D.jl")
 include("utility.jl")
 
 using MKL
-using JSON
+using JSON, AWSS3
 using MLUtils: unsqueeze
 function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id; partial=false, freqIndex=nothing)
     z = [[[[0.1, 0.0]]]]
@@ -251,7 +251,7 @@ function isMaterialConductor(materialName::String, materials)::Bool
     return material["conductivity"] > 0.0
 end
 
-function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id; chan=nothing, commentsEnabled=true)
+function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     try
         mesherDict = mesherOutput
         inputDict = solverInput
@@ -368,12 +368,14 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id; 
         if is_stopped_computation(id, chan)
             return false
         end
-
-        if !isnothing(chan)
-            publish_data(Dict("computation_completed" => true, "id" => id), "solver_feedback", chan)
-        end
         if (commentsEnabled == true)
-            publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
+            #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
+            filename = id * "_results.json"
+            resultsToStoreOnS3 = dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id)
+            s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            if !isnothing(chan)
+                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
+            end
         end
     catch e
         if e isa OutOfMemoryError
