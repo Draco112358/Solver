@@ -14,7 +14,7 @@ function find_voxels_le_pp(nodi_centri, lumped_elements, nodes, nodes_red)
 end
 
 function nodes_find_rev(Nodes_inp_coord, nodi_centri, node_to_skip)
-    indici = sortperm(vec(distfcm(Nodes_inp_coord, nodi_centri)))
+    indici = sortperm(vec(distfcm1(Nodes_inp_coord, nodi_centri)))
     if indici[1] != node_to_skip
         nodes = indici[1]
     else
@@ -24,7 +24,7 @@ function nodes_find_rev(Nodes_inp_coord, nodi_centri, node_to_skip)
 end
 
 
-function distfcm(center, data)
+function distfcm1(center, data)
     out = zeros(size(center, 1), size(data, 1))
     if size(center[1][1], 2) > 1
         for k in range(1,size(center[1][1], 1))

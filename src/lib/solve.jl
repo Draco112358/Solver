@@ -5,6 +5,10 @@ include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 include("From_3D_to_1D.jl")
 include("utility.jl")
+include("iter_solver_QS_S_type.jl")
+include("find_nodes_ports_or_le.jl")
+include("calcola_P.jl")
+include("calcola_Lp.jl")
 
 using MKL
 using JSON, AWSS3
@@ -388,3 +392,98 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
     end
 
 end
+
+function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
+    try
+        inputDict = solverInput
+        unit = solverInput["unit"]
+        escal = getEscalFrom(unit)
+        nodi_coord = hcat(nodi_coord...)
+        ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
+
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+
+        freq = inputDict["frequencies"]
+
+        n_freq = length(freq)
+        println("reading ports")
+
+        ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
+
+        println("reading ports completed")
+        #SIGNALS = [el for el in inputDict["signals"]]
+
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+
+        # # START SETTINGS--------------------------------------------
+        # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
+        # tol[ind_low_freq] .= 1e-7
+        GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
+        ind_low_freq = findall(x -> x < 1e5, freq)
+        GMRES_settings["tol"][ind_low_freq] .= 1e-8
+        QS_Rcc_FW = solverType # 1 QS, 2 Rcc, 3 Taylor
+        use_Zs_in = true
+
+        println("P and Lp")
+        P_data = calcola_P(superfici, escalings, QS_Rcc_FW)
+        if !isnothing(chan)
+            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        end
+        Lp_data = calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
+        if !isnothing(chan)
+            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+
+        println("gmres")
+        out = iter_solver_QS_S_type(
+            freq, escalings, incidence_selection, P_data, Lp_data,
+                ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled
+        )
+        println("data publish")
+        if (out == false)
+            return false
+        end
+
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if (commentsEnabled == true)
+            #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
+            filename = id * "_results.json"
+            resultsToStoreOnS3 = dump_json_data(out[:Z], out[:S], out[:Y], length(inputDict["ports"]), id)
+            s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            if !isnothing(chan)
+                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
+            end
+        end
+    catch e
+        if e isa OutOfMemoryError
+            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+        else
+            error_msg = sprint(showerror, e)
+            st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
+            @warn "Trouble doing things:\n$(error_msg)\n$(st)"
+        end
+    end
+
+end
+
+# DotEnv.load!()
+
+# aws_access_key_id = ENV["AWS_ACCESS_KEY_ID"]
+# aws_secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]
+# aws_region = ENV["AWS_DEFAULT_REGION"]
+# aws_bucket_name = ENV["AWS_BUCKET_NAME"]
+# creds = AWSCredentials(aws_access_key_id, aws_secret_access_key)
+# aws = global_aws_config(; region=aws_region, creds=creds)
+# mesherOutput = download_json_gz(aws, aws_bucket_name, "417782681790578896_mesh.json.gz")
+# surface = download_json_gz(aws, aws_bucket_name, "417782681790578896_surface.json.gz")
+# data = Dict{String, Any}("solverAlgoParams" => Dict{String, Any}("innerIteration" => 100, "convergenceThreshold" => 0.0001, "outerIteration" => 1), "mesherFileId" => "417778305446445264_mesh.json.gz", "id" => "417778305446445264", "storage" => "local", "solverType" => 2, "solverInput" => Dict{String, Any}("lumped_elements" => Any[Dict{String, Any}("isSelected" => false, "name" => "lumped-1", "outputElement" => Any[1.5, 0, 1.05], "inputElement" => Any[1.5, 0, 0.05], "value" => 0, "category" => "lumped", "type" => 1, "rlcParams" => Dict{String, Any}("capacitance" => 0, "inductance" => 0, "resistance" => 50)), Dict{String, Any}("isSelected" => true, "name" => "lumped-2", "outputElement" => Any[1.5, 5, 1.05], "inputElement" => Any[1.5, 5, 0.05], "value" => 0, "category" => "lumped", "type" => 1, "rlcParams" => Dict{String, Any}("capacitance" => 0, "inductance" => 0, "resistance" => 50))], "materials" => Any[Dict{String, Any}("name" => "antennaMaterial", "permeability" => 1, "coll" => Dict{String, Any}("name" => "Materials"), "id" => "408755738118193360", "color" => "#f8b054", "conductivity" => 58000000, "permittivity" => 1, "ts" => Dict{String, Any}("isoString" => "2024-09-11T18:18:19.150Z")), Dict{String, Any}("name" => "antennaDielMaterial", "permeability" => 1, "coll" => Dict{String, Any}("name" => "Materials"), "id" => "408755797380563147", "color" => "#bcbcbc", "conductivity" => 0, "permittivity" => 5, "ts" => Dict{String, Any}("isoString" => "2024-09-11T18:19:15.650Z"))], "ports_scattering_value" => 50, "unit" => "mm", "ports" => Any[Dict{String, Any}("isSelected" => false, "name" => "port-1", "outputElement" => Any[1.5, 0, 1.05], "inputElement" => Any[1.5, 0, 0.05], "category" => "port"), Dict{String, Any}("isSelected" => false, "name" => "port-2", "outputElement" => Any[1.5, 5, 1.05], "inputElement" => Any[1.5, 5, 0.05], "category" => "port")], "frequencies" => Any[100, 316.2277660168379, 1000, 3162.2776601683795, 10000, 31622.776601683792, 100000, 316227.7660168379, 1000000, 3.1622776601683795e6, 10000000, 3.162277660168379e7, 100000000, 3.1622776601683795e8, 1000000000]))
+# doSolvingRis(mesherOutput["incidence_selection"], mesherOutput["volumi"], surface, mesherOutput["nodi_coord"], mesherOutput["escalings"], data["solverInput"], data["solverAlgoParams"], 2, "417782681790578896", aws, aws_bucket_name)

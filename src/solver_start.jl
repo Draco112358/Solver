@@ -37,23 +37,22 @@ function receive()
       AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
           publish_data(Dict("target" => "solver", "status" => "starting"), "server_init", chan)
           force_compile2()
-          # EXCG_DIRECT = "MyDirectExcg"
-          # @assert exchange_declare(chan1, EXCG_DIRECT, EXCHANGE_TYPE_DIRECT)
           println(" [*] Waiting for messages. To exit press CTRL+C")
           # 3. Declare a queue
           management_queue = "management_solver"
-          #queue_bind(chan, "mesher_results", EXCG_DIRECT, "mesher_results")
 
           # 4. Setup function to receive message
           on_receive_management = (msg) -> begin
               basic_ack(chan, msg.delivery_tag)
               data = JSON.parse(String(msg.data))
-              #data = String(msg.data)
               println(data["message"])
               if (data["message"] == "solving")
-                # mesherOutput = JSON.parsefile(data["body"]["mesherFileId"])
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
+              elseif data["message"] == "solving ris"
+                mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
+                surface = download_json_gz(aws, aws_bucket_name, "417782681790578896_surface.json.gz")
+                Threads.@spawn doSolvingRis(mesherOutput["incidence_selection"], mesherOutput["volumi"], surface, mesherOutput["nodi_coord"], mesherOutput["escalings"], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"

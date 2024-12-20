@@ -1,2 +1,5 @@
 /.vscode
 /Manifest.toml
+/.env
+.DS_Store
+src/.DS_Store
