@@ -55,6 +55,13 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
                 :P => P_data[:P] .* exp.(-1im * beta * P_data[:R_cc])
             )
         else
+            P_rebuilted = P_data
+            Lp_rebuilted = Lp_data
+            diag_Lp = vcat(
+                    diag(real.(Lp_data[:Lp_x])),
+                    diag(real.(Lp_data[:Lp_y])),
+                    diag(real.(Lp_data[:Lp_z]))
+                )
             if keeped_diag == 0
                 diag_Lp = vcat(
                     diag(real.(Lp_data[:Lp_x])),
