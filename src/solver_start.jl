@@ -51,7 +51,7 @@ function receive()
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "solving ris"
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
-                surface = download_json_gz(aws, aws_bucket_name, "417782681790578896_surface.json.gz")
+                surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
                 Threads.@spawn doSolvingRis(mesherOutput["incidence_selection"], mesherOutput["volumi"], surface, mesherOutput["nodi_coord"], mesherOutput["escalings"], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0

@@ -22,7 +22,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
     if QS_Rcc_FW >= 2
         Rx = zeros(mx, mx)
-        for m in 1:mx
+        Threads.@threads for m in 1:mx
             for n in m:mx
                 Rx[m, n] = norm(volumi["centri"][m, :] .- volumi["centri"][n, :])
                 Rx[n, m] = Rx[m, n]
@@ -30,7 +30,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
         end
 
         Ry = zeros(my, my)
-        for m in 1:my
+        Threads.@threads for m in 1:my
             for n in m:my
                 Ry[m, n] = norm(volumi["centri"][m + mx, :] .- volumi["centri"][n + mx, :])
                 Ry[n, m] = Ry[m, n]
@@ -38,7 +38,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
         end
 
         Rz = zeros(mz, mz)
-        for m in 1:mz
+        Threads.@threads for m in 1:mz
             for n in m:mz
                 Rz[m, n] = norm(volumi["centri"][m + mx + my, :] .- volumi["centri"][n + mx + my, :])
                 Rz[n, m] = Rz[m, n]
@@ -48,7 +48,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
     Lp_x = zeros(mx, mx)
 
-    for m in 1:mx
+    Threads.@threads for m in 1:mx
         Lp_x[m, m] = Compute_Lp_Self(volumi["coordinate"][m, :], 1) * escalings["Lp"]
 
         for n in m+1:mx
@@ -63,7 +63,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
     Lp_y = zeros(my, my)
 
-    for m in 1:my
+    Threads.@threads for m in 1:my
         Lp_y[m, m] = Compute_Lp_Self(volumi["coordinate"][m + mx, :], 2) * escalings["Lp"]
 
         for n in m+1:my
@@ -78,7 +78,7 @@ function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
     Lp_z = zeros(mz, mz)
 
-    for m in 1:mz
+    Threads.@threads for m in 1:mz
         Lp_z[m, m] = Compute_Lp_Self(volumi["coordinate"][m + mx + my, :], 3) * escalings["Lp"]
 
         for n in m+1:mz

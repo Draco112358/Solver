@@ -16,17 +16,16 @@ function calcola_P(superfici, escalings, QS_Rcc_FW)
     R_cc = []
     if QS_Rcc_FW >= 2
         R_cc = zeros(nsup, nsup)
-        for m in 1:nsup
+        Threads.@threads for m in 1:nsup
             for n in m:nsup
                 R_cc[m, n] = norm(superfici["centri"][m, :] - superfici["centri"][n, :])
                 R_cc[n, m] = R_cc[m, n]
             end
         end
     end
-
     P = zeros(nsup, nsup)
 
-    for m in 1:nsup
+    Threads.@threads for m in 1:nsup
         for n in m:nsup
             integ, _ = Song_P_improved_Ivana_strategy(superfici["estremi_celle"][m, :], superfici["estremi_celle"][n, :], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
             P[m, n] = 1 / (4 * π * eps0 * superfici["S"][m] * superfici["S"][n]) * integ * escalings["P"]

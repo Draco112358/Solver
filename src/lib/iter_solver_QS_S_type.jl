@@ -87,7 +87,9 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
         )
         # Compute inverse Cd for dielectric indices
         invCd = zeros(ComplexF64, length(volumi["Cd"]))
-        invCd[Int64.(volumi["indici_dielettrici"])] .= 1 ./ (1im * w[k] * volumi["Cd"][Int64.(volumi["indici_dielettrici"])])
+        if !isempty(volumi["indici_dielettrici"])
+            invCd[Int64.(volumi["indici_dielettrici"])] .= 1 ./ (1im * w[k] * volumi["Cd"][Int64.(volumi["indici_dielettrici"])])
+        end
 
         # Check use_Zs_in and compute Z_self
         if use_Zs_in == 1

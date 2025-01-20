@@ -133,19 +133,37 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
         if is_point_v1
             if supp_x2 == 0  # line of volume 2 along x
                 integ = V1 * V2 / a2 * integ_line_point([x2v[1], x2v[end]], yc2, zc2, xc1, yc1, zc1)
+                if isnan(integ)
+                    println("1.integ = ", integ)
+                end
             elseif supp_y2 == 0  # line of volume 2 along y
                 integ = V1 * V2 / b2 * integ_line_point([y2v[1], y2v[end]], xc2, zc2, yc1, xc1, zc1)
+                if isnan(integ)
+                    println("2.integ = ", integ)
+                end
             else  # line of volume 2 along z
                 integ = V1 * V2 / c2 * integ_line_point([z2v[1], z2v[end]], xc2, yc2, zc1, xc1, yc1)
+                if isnan(integ)
+                    println("3.integ = ", integ)
+                end
             end
             used_form = 2
         else
             if supp_x1 == 0  # line of volume 1 along x
                 integ = V1 * V2 / a1 * integ_line_point([x1v[1], x1v[end]], yc1, zc1, xc2, yc2, zc2)
+                if isnan(integ)
+                    println("4.integ = ", integ)
+                end
             elseif supp_y1 == 0  # line of volume 1 along y
                 integ = V1 * V2 / b1 * integ_line_point([y1v[1], y1v[end]], xc1, zc1, yc2, xc2, zc2)
+                if isnan(integ)
+                    println("5.integ = ", integ)
+                end
             else  # line of volume 1 along z
                 integ = V1 * V2 / c1 * integ_line_point([z1v[1], z1v[end]], xc1, yc1, zc2, xc2, yc2)
+                if isnan(integ)
+                    println("6.integ = ", integ)
+                end
             end
             used_form = 2
         end
@@ -157,19 +175,37 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
         if is_point_v1  # point-surface case
             if supp_x2 == 1  # surface of volume 2 in yz plane
                 integ = V1 * a2 * integ_point_sup(zc1, yc1, xc1, [z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2)
+                if isnan(integ)
+                    println("7.integ = ", integ)
+                end
             elseif supp_y2 == 1  # surface of volume 2 in xz plane
                 integ = V1 * b2 * integ_point_sup(xc1, zc1, yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+                if isnan(integ)
+                    println("8.integ = ", integ)
+                end
             else  # surface of volume 2 in xy plane
                 integ = V1 * c2 * integ_point_sup(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+                if isnan(integ)
+                    println("9.integ = ", integ)
+                end
             end
             used_form = 3
         elseif is_point_v2  # point-surface case
             if supp_x1 == 1  # surface of volume 1 in yz plane
                 integ = V2 * a1 * integ_point_sup(zc2, yc2, xc2, [z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1)
+                if isnan(integ)
+                    println("10.integ = ", integ)
+                end
             elseif supp_y1 == 1  # surface of volume 1 in xz plane
                 integ = V2 * b1 * integ_point_sup(xc2, zc2, yc2, [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
+                if isnan(integ)
+                    println("11.integ = ", integ)
+                end
             else  # surface of volume 1 in xy plane
                 integ = V2 * c1 * integ_point_sup(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
+                if isnan(integ)
+                    println("12.integ = ", integ)
+                end
             end
             used_form = 3
         else  # line-line case
@@ -177,31 +213,58 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
                 used_form = 5
                 if supp_y2 == 1 && supp_z2 == 1  # parallel lines
                     integ = b1 * c1 * b2 * c2 * integ_line_line_parall([x1v[1], x1v[end]], yc1, zc1, [x2v[1], x2v[end]], yc2, zc2)
+                    if isnan(integ)
+                        println("13.integ = ", integ)
+                    end
                     used_form = 4
                 elseif supp_x2 == 1 && supp_z2 == 1  # orthogonal lines
                     integ = b1 * c1 * a2 * c2 * integ_line_line_ortho_xy([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], zc2)
+                    if isnan(integ)
+                        println("14.integ = ", integ)
+                    end
                 else
                     integ = b1 * c1 * a2 * b2 * integ_line_line_ortho_xy([x1v[1], x1v[end]], zc1, yc1, xc2, [z2v[1], z2v[end]], yc2)
+                    if isnan(integ)
+                        println("15.integ = ", integ)
+                    end
                 end
             elseif supp_x1 == 1 && supp_z1 == 1
                 used_form = 5
                 if supp_x2 == 1 && supp_z2 == 1  # parallel lines
                     integ = a1 * c1 * a2 * c2 * integ_line_line_parall([y1v[1], y1v[end]], xc1, zc1, [y2v[1], y2v[end]], xc2, zc2)
+                    if isnan(integ)
+                        println("16.integ = ", integ)
+                    end
                     used_form = 4
                 elseif supp_x2 == 1 && supp_y2 == 1  # orthogonal lines
                     integ = a1 * c1 * a2 * b2 * integ_line_line_ortho_xy([y1v[1], y1v[end]], zc1, xc1, yc2, [z2v[1], z2v[end]], xc2)
+                    if isnan(integ)
+                        println("17.integ = ", integ)
+                    end
                 else
                     integ = a1 * c1 * b2 * c2 * integ_line_line_ortho_xy([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], zc2)
+                    if isnan(integ)
+                        println("18.integ = ", integ)
+                    end
                 end
             else
                 used_form = 5
                 if supp_x2 == 1 && supp_y2 == 1  # parallel lines
                     integ = a1 * b1 * a2 * b2 * integ_line_line_parall([z1v[1], z1v[end]], xc1, yc1, [z2v[1], z2v[end]], xc2, yc2)
+                    if isnan(integ)
+                        println("19.integ = ", integ)
+                    end
                     used_form = 4
                 elseif supp_x2 == 1 && supp_z2 == 1  # orthogonal lines
                     integ = a1 * b1 * a2 * c2 * integ_line_line_ortho_xy([z1v[1], z1v[end]], yc1, xc1, zc2, [y2v[1], y2v[end]], xc2)
+                    if isnan(integ)
+                        println("20.integ = ", integ)
+                    end
                 else
                     integ = a1 * b1 * b2 * c2 * integ_line_line_ortho_xy([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], yc2)
+                    if isnan(integ)
+                        println("21.integ = ", integ)
+                    end
                 end
             end
         end
@@ -213,9 +276,15 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
     
         if is_point_v1  # point-volume case
             integ = a1 * b1 * c1 * integ_point_vol(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+            if isnan(integ)
+                println("22.integ = ", integ)
+            end
             used_form = 6
         elseif is_point_v2  # point-volume case
             integ = a2 * b2 * c2 * integ_point_vol(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+            if isnan(integ)
+                println("23.integ = ", integ)
+            end
             used_form = 6
         else  # line-surface case
             used_form = 7
@@ -223,42 +292,120 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
                 if supp_x1 == 1  # bar1 is a surface in y-z plane
                     if supp_x2 == 0  # bar2 is a line along x
                         integ = a1 * b2 * c2 * integ_line_surf_ortho([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+                        if isnan(integ)
+                            println("24.integ = ", integ)
+                        end
                         used_form = 8
                     elseif supp_y2 == 0  # bar2 is a line along y
                         integ = a1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
+                        if isnan(integ)
+                            println("25.integ = ", integ)
+                        end
                     else  # bar2 is a line along z
                         integ = a1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
+                        if isnan(integ)
+                            println("26.integ = ", integ)
+                        end
                     end
                 elseif supp_y1 == 1  # bar1 is a surface in x-z plane
                     if supp_x2 == 0  # bar2 is a line along x
                         integ = b1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
+                        if isnan(integ)
+                            println("27.integ = ", integ)
+                        end
                     elseif supp_y2 == 0  # bar2 is a line along y
                         integ = b1 * a2 * c2 * integ_line_surf_ortho([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
+                        if isnan(integ)
+                            println("28.integ = ", integ)
+                        end
                         used_form = 8
                     else  # bar2 is a line along z
                         integ = b1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
+                        if isnan(integ)
+                            println("29.integ = ", integ)
+                        end
                     end
                 else  # bar1 is a surface in x-y plane
                     if supp_x2 == 0  # bar2 is a line along x
                         integ = c1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
+                        if isnan(integ)
+                            println("30.integ = ", integ)
+                        end
                     elseif supp_y2 == 0  # bar2 is a line along y
                         integ = c1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, zc2)
+                        if isnan(integ)
+                            println("31.integ = ", integ)
+                            # println("[y1v[1], y1v[end]]", [y1v[1], y1v[end]])
+                            # println("[x1v[1], x1v[end]]", [x1v[1], x1v[end]])
+                            # println("zc1", zc1)
+                            # println("[y2v[1], y2v[end]]", [y2v[1], y2v[end]])
+                            # println("xc2", xc2)
+                            # println("zc2", zc2)
+                        end
                     else  # bar2 is a line along z
                         integ = c1 * a2 * b2 * integ_line_surf_ortho([z2v[1], z2v[end]], xc2, yc2, zc1, [x1v[1], x1v[end]], [y1v[1], y1v[end]])
+                        if isnan(integ)
+                            println("32.integ = ", integ)
+                        end
                         used_form = 8
                     end
                 end
             else  # bar2 is a surface
                 if supp_x2 == 1  # bar2 is a surface in y-z plane
-                    if supp_x1 == 0  # bar1 is a line along x
+
+                    if supp_x1 == 0  # bar 1 is a line along x
                         integ = a2 * b1 * c1 * integ_line_surf_ortho([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+                        if isnan(integ)
+                            println("33.integ = ", integ)
+                        end
                         used_form = 8
-                    elseif supp_y1 == 0  # bar1 is a line along y
+                    elseif supp_y1 == 0  # bar 1 is a line along y
                         integ = a2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
-                    else  # bar1 is a line along z
+                        if isnan(integ)
+                            println("34.integ = ", integ)
+                        end
+                    else  # bar 1 is a line along z
                         integ = a2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
+                        if isnan(integ)
+                            println("35.integ = ", integ)
+                        end
                     end
-                # Remaining conditions are handled similarly
+                elseif supp_y2 == 1  # bar2 is a surface in x-z plane
+                    if supp_x1 == 0  # bar 1 is a line along x
+                        integ = b2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2, [x1v[1], x1v[end]], zc1, yc1)
+                        if isnan(integ)
+                            println("36.integ = ", integ)
+                        end
+                    elseif supp_y1 == 0  # bar 1 is a line along y
+                        integ = b2 * a1 * c1 * integ_line_surf_ortho([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
+                        if isnan(integ)
+                            println("37.integ = ", integ)
+                        end
+                        used_form = 8
+                    else  # bar 1 is a line along z
+                        integ = b2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc2, [z1v[1], z1v[end]], xc1, yc1)
+                        if isnan(integ)
+                            println("38.integ = ", integ)
+                        end
+                    end
+                else  # bar2 is a surface in x-y plane
+                    if supp_x1 == 0  # bar 1 is a line along x
+                        integ = c2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
+                        if isnan(integ)
+                            println("39.integ = ", integ)
+                        end
+                    elseif supp_y1 == 0  # bar 1 is a line along y
+                        integ = c2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [x2v[1], x2v[end]], zc2, [y1v[1], y1v[end]], xc1, zc1)
+                        if isnan(integ)
+                            println("40.integ = ", integ)
+                        end
+                    else  # bar 1 is a line along z
+                        integ = c2 * a1 * b1 * integ_line_surf_ortho([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], [y2v[1], y2v[end]])
+                        if isnan(integ)
+                            println("41.integ = ", integ)
+                        end
+                        used_form = 8
+                    end
                 end
             end
         end
@@ -278,45 +425,90 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
             used_form = 9
             if supp_x1 == 0  # bar1 is a line along x
                 integ = b1 * c1 * integ_line_vol([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], [x1v[1], x1v[end]], yc1, zc1)
+                if isnan(integ)
+                    println("42.integ = ", integ)
+                end
             elseif supp_y1 == 0  # bar1 is a line along y
                 integ = a1 * c1 * integ_line_vol([y2v[1], y2v[end]], [x2v[1], x2v[end]], [z2v[1], z2v[end]], [y1v[1], y1v[end]], xc1, zc1)
+                if isnan(integ)
+                    println("43.integ = ", integ)
+                end
             else  # bar1 is a line along z
                 integ = a1 * b1 * integ_line_vol([z2v[1], z2v[end]], [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z1v[1], z1v[end]], xc1, yc1)
+                if isnan(integ)
+                    println("44.integ = ", integ)
+                end
             end
         elseif is_line_v2 == 1  # bar2 is a line
             used_form = 9
             if supp_x2 == 0  # bar2 is a line along x
                 integ = b2 * c2 * integ_line_vol([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], [x2v[1], x2v[end]], yc2, zc2)
+                if isnan(integ)
+                    println("45.integ = ", integ)
+                end
             elseif supp_y2 == 0  # bar2 is a line along y
                 integ = a2 * c2 * integ_line_vol([y1v[1], y1v[end]], [x1v[1], x1v[end]], [z1v[1], z1v[end]], [y2v[1], y2v[end]], xc2, zc2)
+                if isnan(integ)
+                    println("46.integ = ", integ)
+                end
             else  # bar2 is a line along z
                 integ = a2 * b2 * integ_line_vol([z1v[1], z1v[end]], [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z2v[1], z2v[end]], xc2, yc2)
+                if isnan(integ)
+                    println("47.integ = ", integ)
+                end
             end
         else  # surface-surface case
             used_form = 10
             if supp_x1 == 1  # bar1 is a surface in yz plane
                 if supp_x2 == 1  # bar2 is a surface in yz plane
                     integ = a1 * a2 * integ_surf_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+                    if isnan(integ)
+                        println("48.integ = ", integ)
+                    end
                 elseif supp_y2 == 1  # bar2 is a surface in xz plane
                     integ = a1 * b2 * integ_surf_surf_ortho([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, [x2v[1], x2v[end]])
+                    if isnan(integ)
+                        println("49.integ = ", integ)
+                    end
                 else  # bar2 is a surface in xy plane
                     integ = a1 * c2 * integ_surf_surf_ortho([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, [x2v[1], x2v[end]])
+                    if isnan(integ)
+                        println("50.integ = ", integ)
+                    end
                 end
             elseif supp_y1 == 1  # bar1 is a surface in xz plane
                 if supp_x2 == 1  # bar2 is a surface in yz plane
                     integ = b1 * a2 * integ_surf_surf_ortho([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, [y2v[1], y2v[end]])
+                    if isnan(integ)
+                        println("51.integ = ", integ)
+                    end
                 elseif supp_y2 == 1  # bar2 is a surface in xz plane
                     integ = b1 * b2 * integ_surf_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+                    if isnan(integ)
+                        println("52.integ = ", integ)
+                    end
                 else  # bar2 is a surface in xy plane
                     integ = b1 * c2 * integ_surf_surf_ortho([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, [y2v[1], y2v[end]])
+                    if isnan(integ)
+                        println("53.integ = ", integ)
+                    end
                 end
             else  # bar1 is a surface in xy plane
                 if supp_x2 == 1  # bar2 is a surface in yz plane
                     integ = c1 * a2 * integ_surf_surf_ortho([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, [z2v[1], z2v[end]])
+                    if isnan(integ)
+                        println("54.integ = ", integ)
+                    end
                 elseif supp_y2 == 1  # bar2 is a surface in xz plane
                     integ = c1 * b2 * integ_surf_surf_ortho([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, [z2v[1], z2v[end]])
+                    if isnan(integ)
+                        println("55.integ = ", integ)
+                    end
                 else  # bar2 is a surface in xy plane
                     integ = c1 * c2 * integ_surf_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+                    if isnan(integ)
+                        println("56.integ = ", integ)
+                    end
                 end
             end
         end
@@ -326,25 +518,46 @@ function Song_improved_Ivana_strategy(volume_1, volume_2, epsilon1, epsilon2, ep
         if supp_x1 == 1  # bar1 is a surface in yz plane
             integ = a1 * integ_vol_surf([y2v[1], y2v[end]], [z2v[1], z2v[end]], [x2v[1], x2v[end]], 
                                         [y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1)
+            if isnan(integ)
+                println("57.integ = ", integ)
+            end
         elseif supp_y1 == 1  # bar1 is a surface in xz plane
             integ = b1 * integ_vol_surf([x2v[1], x2v[end]], [z2v[1], z2v[end]], [y2v[1], y2v[end]], 
                                         [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
+                                        if isnan(integ)
+                                            println("58.integ = ", integ)
+                                        end
         elseif supp_z1 == 1  # bar1 is a surface in xy plane
             integ = c1 * integ_vol_surf([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], 
                                         [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
+                                        if isnan(integ)
+                                            println("59.integ = ", integ)
+                                        end
         elseif supp_x2 == 1  # bar2 is a surface in yz plane
             integ = a2 * integ_vol_surf([y1v[1], y1v[end]], [z1v[1], z1v[end]], [x1v[1], x1v[end]], 
                                         [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+                                        if isnan(integ)
+                                            println("60.integ = ", integ)
+                                        end
         elseif supp_y2 == 1  # bar2 is a surface in xz plane
             integ = b2 * integ_vol_surf([x1v[1], x1v[end]], [z1v[1], z1v[end]], [y1v[1], y1v[end]], 
                                         [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+                                        if isnan(integ)
+                                            println("61.integ = ", integ)
+                                        end
         elseif supp_z2 == 1  # bar2 is a surface in xy plane
             integ = c2 * integ_vol_surf([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], 
                                         [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+                                        if isnan(integ)
+                                            println("62.integ = ", integ)
+                                        end
         end
     else  # volume-volume case
         used_form = 12
         integ = integ_vol_vol([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+        if isnan(integ)
+            println("63.integ = ", integ)
+        end
     end
 
     # Return `integ` and `used_form` values
@@ -501,7 +714,7 @@ function integ_line_line_ortho_xy(x1v, y1, z1, x2, y2v, z2)
                 term2 = 0.0
             end
 
-            term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
+            term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
 
             sol += (-1)^(c1 + c2 + 1) * (term1 + term2 + term3)
         end
@@ -537,11 +750,11 @@ function integ_point_vol(x1, y1, z1, x2v, y2v, z2v)
                     term3 = 0.0
                 end
 
-                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
+                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
 
-                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) / (abs(y1 - y2) * R))
+                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) , (abs(y1 - y2) * R))
 
-                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) / (abs(x1 - x2) * R))
+                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) , (abs(x1 - x2) * R))
 
                 sol += (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4 + term5 + term6)
             end
@@ -578,11 +791,11 @@ function integ_line_surf_ortho(x1v, y1, z1, x2, y2v, z2v)
                     term3 = 0.0
                 end
 
-                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
+                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
 
-                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) / (abs(y1 - y2) * R))
+                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) , (abs(y1 - y2) * R))
 
-                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) / (abs(x1 - x2) * R))
+                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) , (abs(x1 - x2) * R))
 
                 sol += (-1)^(c1 + c2 + c3) * (term1 + term2 + term3 + term4 + term5 + term6)
             end
@@ -614,7 +827,7 @@ function integ_line_surf_para(x1v, y1v, z1, x2v, y2, z2)
                     term2 = 0.0
                 end
 
-                term3 = -(x1 - x2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
+                term3 = -(x1 - x2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
 
                 term4 = -(y1 - y2) / 2 * R
 
