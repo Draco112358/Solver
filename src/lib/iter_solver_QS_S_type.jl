@@ -86,7 +86,8 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
             lumped_elements[:C]
         )
         # Compute inverse Cd for dielectric indices
-        invCd = zeros(ComplexF64, length(volumi["Cd"]))
+        length_cd = !isempty(volumi["indici_dielettrici"]) ? length(volumi["Cd"]) : length(volumi["R"])
+        invCd = zeros(ComplexF64, length_cd)
         if !isempty(volumi["indici_dielettrici"])
             invCd[Int64.(volumi["indici_dielettrici"])] .= 1 ./ (1im * w[k] * volumi["Cd"][Int64.(volumi["indici_dielettrici"])])
         end
