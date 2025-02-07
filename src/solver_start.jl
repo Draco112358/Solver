@@ -50,9 +50,13 @@ function receive()
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "solving ris"
-                mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
+                mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
+                println(typeof(mesherOutput))
+                #mesherOutput = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
-                Threads.@spawn doSolvingRis(mesherOutput["incidence_selection"], mesherOutput["volumi"], surface, mesherOutput["nodi_coord"], mesherOutput["escalings"], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
+                println(typeof(surface))
+                #surface = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["surfaceFileId"])
+                Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"

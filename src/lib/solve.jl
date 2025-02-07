@@ -398,9 +398,9 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         inputDict = solverInput
         unit = solverInput["unit"]
         escal = getEscalFrom(unit)
-        nodi_coord = hcat(nodi_coord...)
+        #nodi_coord = hcat(nodi_coord...)
         ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
-
+        println("scatter ", ports_scatter_value)
         # if is_stopped_computation(id, chan)
         #     return false
         # end
@@ -409,9 +409,10 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
 
         n_freq = length(freq)
         println("reading ports")
-
+        println(size(nodi_coord))
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
-
+        println("port_nodes ", ports[:port_nodes])
+        println("lumped_nodes ", lumped_elements[:le_nodes])
         println("reading ports completed")
         #SIGNALS = [el for el in inputDict["signals"]]
 

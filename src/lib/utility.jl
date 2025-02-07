@@ -1,4 +1,4 @@
-using AMQPClient, JSON, GZip, AWSS3, AWS, CodecZlib
+using AMQPClient, JSON, GZip, AWSS3, AWS, CodecZlib, Serialization
 
 function publish_data(result::Dict, queue::String, chan)
     data = convert(Vector{UInt8}, codeunits(JSON.json(result)))
@@ -26,22 +26,60 @@ function read_gzipped_json_file(file_path::String) :: Dict
     return JSON.parse(data2)
 end
 
+# function download_json_gz(aws_config, bucket, key)
+#     response = s3_get(aws_config, bucket, key)
+#     content = transcode(GzipDecompressor, response)
+#     GZip.open(key*".tmp.gz", "w") do f
+#       write(f, content)
+#     end
+#     s = IOBuffer()
+#     file = gzopen(key*".tmp.gz")
+#     while !eof(file)
+#       write(s, readline(file))
+#     end
+#     close(file)
+#     Base.Filesystem.rm(key*".tmp.gz", force=true)
+#     data2 = String(take!(s))
+#     return JSON.parse(data2)
+#   end
+
 function download_json_gz(aws_config, bucket, key)
+    # Get the gzipped response from S3
     response = s3_get(aws_config, bucket, key)
-    content = transcode(GzipDecompressor, response)
-    GZip.open(key*".tmp.gz", "w") do f
-      write(f, content)
+    
+    # Write the response directly to a temporary file.
+    tmp_filename = key * ".tmp.gz"
+    open(tmp_filename, "w") do f
+      write(f, response)
     end
+
+    # Open the temporary file for reading with gzip decompression.
     s = IOBuffer()
-    file = gzopen(key*".tmp.gz")
+    file = gzopen(tmp_filename)
     while !eof(file)
+      println("Reading chunk")  
       write(s, readline(file))
     end
     close(file)
-    Base.Filesystem.rm(key*".tmp.gz", force=true)
+    rm(tmp_filename, force=true)
+    println("Reading chunk completed")
     data2 = String(take!(s))
     return JSON.parse(data2)
-  end
+end
+
+function download_serialized_data(aws_config, bucket, key)
+    # Get the gzipped response from S3
+    response = s3_get(aws_config, bucket, key)
+    # Wrap the byte data in an IOBuffer
+    io = IOBuffer(response)
+    # Deserialize the variable
+    variable = Dict(Serialization.deserialize(io))
+    for (key, value) in variable
+        println(key)
+    end
+    return variable
+end
+
 
   function get_solverInput_from_s3(aws, aws_bucket_name::String, fileName::String)
     resposnse_dict = Dict()

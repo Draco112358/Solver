@@ -130,7 +130,7 @@ function build_Yle_S_new(lumped_elements, grounding_nodes, ports, escalings, n, 
     end
     
     # Build the sparse matrix
-    Yle = sparse(ind_r[1:cont], ind_c[1:cont], vals[1:cont] * escalings["Yle"], n, n)
+    Yle = sparse(ind_r[1:cont], ind_c[1:cont], vals[1:cont] * escalings[:Yle], n, n)
     return Yle
 end
 

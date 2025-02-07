@@ -3,17 +3,17 @@ using MKL
 function ComputeMatrixVectorNew(x, w, incidence_selection,
     P_data, Lp_data, Z_self, Yle, invZ, invP, F, resProd)
 
-    m = size(incidence_selection["A"], 1)
-    ns = size(incidence_selection["Gamma"], 2)
+    m = size(incidence_selection[:A], 1)
+    ns = size(incidence_selection[:Gamma], 2)
 
     # Extract vectors from x
     I = x[1:m]
     Q = x[m+1:m+ns]
     Phi = x[m+ns+1:end]
 
-    mx = incidence_selection["mx"]
-    my = incidence_selection["my"]
-    mz = incidence_selection["mz"]
+    mx = incidence_selection[:mx]
+    my = incidence_selection[:my]
+    mz = incidence_selection[:mz]
 
     # Initialize Y1
     Y1 = zeros(ComplexF64, m)
@@ -22,17 +22,17 @@ function ComputeMatrixVectorNew(x, w, incidence_selection,
     Y1[mx+my+1:mx+my+mz] .= Lp_data[:Lp_z] * I[mx+my+1:mx+my+mz]
 
     # Update Y1 with additional terms
-    Y1 .= 1im * w * Y1 .+ Z_self .* I .+ incidence_selection["A"] * Phi
+    Y1 .= 1im * w * Y1 .+ Z_self .* I .+ incidence_selection[:A] * Phi
 
     # Compute Y2
-    Y2 = P_data[:P] * Q .- transpose(incidence_selection["Gamma"]) * Phi
+    Y2 = P_data[:P] * Q .- transpose(incidence_selection[:Gamma]) * Phi
 
     # Compute Y3
-    Y3 = -transpose(incidence_selection["A"]) * I .+ Yle * Phi .+ 1im * w * (incidence_selection["Gamma"] * Q)
+    Y3 = -transpose(incidence_selection[:A]) * I .+ Yle * Phi .+ 1im * w * (incidence_selection[:Gamma] * Q)
 
     # Combine results
     MatrixVector = precond_3_3_vector(
-        F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], w, Y1, Y2, Y3
+        F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], w, Y1, Y2, Y3
     )
 
     return MatrixVector

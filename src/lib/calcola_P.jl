@@ -28,7 +28,7 @@ function calcola_P(superfici, escalings, QS_Rcc_FW)
     Threads.@threads for m in 1:nsup
         for n in m:nsup
             integ, _ = Song_P_improved_Ivana_strategy(superfici["estremi_celle"][m, :], superfici["estremi_celle"][n, :], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
-            P[m, n] = 1 / (4 * π * eps0 * superfici["S"][m] * superfici["S"][n]) * integ * escalings["P"]
+            P[m, n] = 1 / (4 * π * eps0 * superfici["S"][m] * superfici["S"][n]) * integ * escalings[:P]
             P[n, m] = P[m, n]
         end
     end
