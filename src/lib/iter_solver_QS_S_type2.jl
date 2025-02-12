@@ -1,37 +1,32 @@
 using MKL
 using SparseArrays, IterativeSolvers, LinearAlgebra, LinearMaps, FLoops
-include("compute_Matrix_vector_new.jl")
-include("build_Yle_S_new.jl")
+include("compute_Matrix_vector_new2.jl")
+include("gmres_custom_new2.jl")
+include("build_Yle_S_new2.jl")
 
-
-function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data,ports,lumped_elements,GMRES_settings,volumi,use_Zs_in,QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled)
-    freq = freq .* escalings[:freq]
+function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp_data, ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled)
+    freq .= freq .* escalings[:freq]
     # GMRES settings ----------------------------
-
     Inner_Iter::Int64 = GMRES_settings["Inner_Iter"]
     #Outer_Iter = GMRES_settings.Outer_Iter
     # -------------------------------------------
-    mx=incidence_selection[:mx]
-    my=incidence_selection[:my]
-    mz=incidence_selection[:mz]
-    m=mx+my+mz
-    #incidence_selection[:A] = hcat(incidence_selection[:A]...)
-    #incidence_selection[:Gamma] = hcat(incidence_selection[:Gamma]...)
+    mx = incidence_selection[:mx]
+    my = incidence_selection[:my]
+    mz = incidence_selection[:mz]
+    m = mx + my + mz
     n::Int64 = size(incidence_selection[:A], 2)
     ns::Int64 = size(incidence_selection[:Gamma], 2)
     w = 2 .* pi .* freq
     nfreq = length(w)
-    is = zeros(Float64, n, 1)
-    S = zeros(ComplexF64, size(ports[:port_nodes], 1), size(ports[:port_nodes], 1), length(freq))
+    is = zeros(Float64, n)
+    S = zeros(ComplexF64, size(ports[:port_nodes], 1), size(ports[:port_nodes], 1), nfreq)
     Vrest = zeros(ComplexF64, m + n + ns, size(ports[:port_nodes], 1))
-    invP::SparseMatrixCSC{Float64,Int64} = sparse(1:ns, 1:ns, 1 ./ diag(P_data[:P]), ns, ns)
-    R_chiusura=ports_scatter_value;
-    keeped_diag=0;
-    invCd=zeros(m,1);
+    invP::SparseMatrixCSC{Float64, Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
+    R_chiusura = ports_scatter_value
+    keeped_diag = 0
+    invCd = zeros(ComplexF64, m)
 
     resProd = Array{ComplexF64}(undef, 2 * m)
-    # resProd = zeros(ComplexF64, 2*m,1)
-    # tn = Array{ComplexF64}(undef, m + ns + n)
     tn = zeros(ComplexF64, m + ns + n)
 
     for k = 1:nfreq
@@ -57,11 +52,6 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
         else
             P_rebuilted = P_data
             Lp_rebuilted = Lp_data
-            diag_Lp = vcat(
-                    diag(real.(Lp_data[:Lp_x])),
-                    diag(real.(Lp_data[:Lp_y])),
-                    diag(real.(Lp_data[:Lp_z]))
-                )
             if keeped_diag == 0
                 diag_Lp = vcat(
                     diag(real.(Lp_data[:Lp_x])),
@@ -72,7 +62,7 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
             end
         end
         # Build Yle
-        Yle = build_Yle_S_new(
+        Yle = build_Yle_S_new2(
             lumped_elements,
             [],
             ports,
@@ -107,67 +97,34 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
             Z_self = volumi[:R] .+ invCd
         end
 
-        invZ=sparse(1:m, 1:m,1 ./ (Z_self+1im*w[k]*diag_Lp), m, m);
+        invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
         # --------------------- preconditioner ------------------------
-        SS::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
-        F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64,Int64} = lu(SS)
+        SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
+        F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
         # --------------------------------------------------------------
         for c1::Int64 = 1:size(ports[:port_nodes], 1)
             n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
             n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
             is[n1] = escalings[:Is]
-            # is[n1] = 1 * escalings[:Is]
             is[n2] = -1.0 * escalings[:Is]
             tn = precond_3_3_Kt!(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], m, ns, vec(is), tn, resProd)
-            #println("end precond 3 3 kt")
-            #ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
-            products_law = x ->   ComputeMatrixVectorNew(x,w[k],incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+            products_law = x -> ComputeMatrixVectorNew2(x, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd)
             prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
-            x0 = Vrest[:,c1]
-            #prob = LinearProblem(prodts, vec(tn))
-            #TODO: vedere perché il codice nell'if è lo stesso che nell'else, a cosa serve l'if allora?
-            if QS_Rcc_FW == 1
-                V, flag, relres, iter, resvec = gmres_custom_new(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
-                if flag == 99
-                    return false
-                end
-                
-                tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
-                if commentsEnabled
-                    if (flag == 0)
-                        println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
-                    end
+            x0 = Vrest[:, c1]
+            V, flag, relres, iter, resvec = gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
+            if flag == 99
+                return false
+            end
 
-                    if (flag == 1)
-                        println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
-                    end
+            tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
+            if commentsEnabled
+                if (flag == 0)
+                    println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
                 end
 
-                # V, info = IterativeSolvers.gmres!(x0, prodts, tn; reltol=GMRES_settings["tol"][k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
-                # if commentsEnabled
-                #     println(info)
-                # end
-            else
-                println("start gmres Rcc")
-                V, flag, relres, iter, resvec = gmres_custom_new(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
-                if flag == 99
-                    return false
+                if (flag == 1)
+                    println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
                 end
-                
-                tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
-                if commentsEnabled
-                    if (flag == 0)
-                        println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
-                    end
-
-                    if (flag == 1)
-                        println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
-                    end
-                end
-                # V, info = IterativeSolvers.gmres!(x0, prodts, tn; reltol=GMRES_settings["tol"][k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
-                # if commentsEnabled
-                #     println(info)
-                # end
             end
 
             Vrest[:, c1] = V
@@ -177,9 +134,9 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
                 n3::Int64 = convert(Int64, ports[:port_nodes][c2, 1])
                 n4::Int64 = convert(Int64, ports[:port_nodes][c2, 2])
                 if c1 == c2
-                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - R_chiusura) / R_chiusura
+                    S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4]) - R_chiusura) / R_chiusura
                 else
-                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / R_chiusura
+                    S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4])) / R_chiusura
                 end
                 S[c2, c1, k] = S[c1, c2, k]
             end
@@ -187,7 +144,7 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
         if !isnothing(chan)
             publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
         end
-        if (commentsEnabled == true)
+        if commentsEnabled
             partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
             publish_data(partial_res, "solver_results", chan)
         end
@@ -198,46 +155,38 @@ function iter_solver_QS_S_type(freq,escalings,incidence_selection,P_data,Lp_data
     out[:Y] = s2y(S, R_chiusura)
     out[:f] = freq ./ escalings[:freq]
     return out
-
 end
-
 
 function precond_3_3_Kt!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
     n3 = length(X3)
-    i1 = range(1, stop=n1)
-    i2 = range(n1 + 1, stop=n1 + n2)
-    i3 = range(n1 + n2 + 1, stop=n1 + n2 + n3)
+    i1 = 1:n1
+    i2 = n1 + 1:n1 + n2
+    i3 = n1 + n2 + 1:n1 + n2 + n3
 
-    # Y = zeros(ComplexF64, n1 + n2 + n3, 1)
     M5 = F \ X3
 
-    # Yi1 = @view Y[i1]
     A_view = @view resProd[1:size(A, 1)]
-    invZ_view = @view resProd[size(resProd, 1)-size(invZ, 1)+1:end]
+    invZ_view = @view resProd[size(resProd, 1) - size(invZ, 1) + 1:end]
     mul!(A_view, A, M5)
     mul!(invZ_view, invZ, A_view)
     Y[i1] .= lmul!(-1.0, invZ_view)
-    # Yi2 = @view Y[i2]
-    Gamma_view = @view resProd[size(resProd, 1)-size(Gamma, 2)+1:end]
+    Gamma_view = @view resProd[size(resProd, 1) - size(Gamma, 2) + 1:end]
     mul!(Gamma_view, transpose(Gamma), M5)
     invP_view = @view resProd[1:size(invP, 1)]
     mul!(invP_view, invP, Gamma_view)
     Y[i2] .= invP_view
-    # Yi3 = @view Y[i3]
     Y[i3] .= M5
 
     return Y
 end
-
 
 function s2z(S, Zo)
     num_ports = size(S)[1]
     nfreq = size(S)[3]
     Z = zeros(ComplexF64, num_ports, num_ports, nfreq)
     Id = Matrix{Int64}(I, num_ports, num_ports)
-    for cont in range(1, stop=nfreq)
+    for cont in 1:nfreq
         Z[:, :, cont] = Zo * ((Id - 1.0 * S[:, :, cont]) \ (Id + S[:, :, cont]))
-        #Z[:, :, cont] = ((Id - 1.0 * S[:, :, cont]) \ (Id + S[:, :, cont]))
     end
     return Z
 end
@@ -247,9 +196,8 @@ function s2y(S, Zo)
     nfreq = size(S)[3]
     Y = zeros(ComplexF64, num_ports, num_ports, nfreq)
     Id = Matrix{Int64}(I, num_ports, num_ports)
-    for cont in range(1, stop=nfreq)
+    for cont in 1:nfreq
         Y[:, :, cont] = Zo * ((Id + S[:, :, cont]) \ (Id - 1.0 * S[:, :, cont]))
-        #Y[:, :, cont] = ((Id + S[:, :, cont]) \ (Id - 1.0 * S[:, :, cont]))
     end
     return Y
 end

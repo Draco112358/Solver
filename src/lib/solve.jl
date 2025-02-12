@@ -5,10 +5,10 @@ include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 include("From_3D_to_1D.jl")
 include("utility.jl")
-include("iter_solver_QS_S_type.jl")
+include("iter_solver_QS_S_type2.jl")
 include("find_nodes_ports_or_le.jl")
 include("calcola_P.jl")
-include("calcola_Lp.jl")
+include("calcola_Lp2.jl")
 
 using MKL
 using JSON, AWSS3
@@ -417,7 +417,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         #SIGNALS = [el for el in inputDict["signals"]]
 
         # if is_stopped_computation(id, chan)
-        #     return false
+        #     return falses
         # end
 
         # # START SETTINGS--------------------------------------------
@@ -434,7 +434,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         if !isnothing(chan)
             publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
         end
-        Lp_data = calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW)
+        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         if !isnothing(chan)
             publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
         end
@@ -443,7 +443,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         # end
 
         println("gmres")
-        out = iter_solver_QS_S_type(
+        out = iter_solver_QS_S_type2(
             freq, escalings, incidence_selection, P_data, Lp_data,
                 ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled
         )
