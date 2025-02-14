@@ -36,7 +36,7 @@ function receive()
       # 2. Create a channel to send messages
       AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
           publish_data(Dict("target" => "solver", "status" => "starting"), "server_init", chan)
-          force_compile2()
+          #force_compile2()
           println(" [*] Waiting for messages. To exit press CTRL+C")
           # 3. Declare a queue
           management_queue = "management_solver"
@@ -50,13 +50,22 @@ function receive()
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "solving ris"
-                mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
-                println(typeof(mesherOutput))
-                #mesherOutput = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["mesherFileId"])
-                surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
-                println(typeof(surface))
-                #surface = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["surfaceFileId"])
-                Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
+                if data["body"]["mesherType"] === "backend"
+                  mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
+                  println(typeof(mesherOutput))
+                  surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
+                  println(typeof(surface))
+                  Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
+                else
+                  mesherOutput = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["mesherFileId"], data["body"]["mesherType"])
+                  surface = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["surfaceFileId"], data["body"]["mesherType"])
+                  mesherOutput["incidence_selection"]["Gamma"] = convertSparseMatrixFromJavascriptToJulia(mesherOutput["incidence_selection"]["Gamma"])
+                  mesherOutput["incidence_selection"]["A"] = convertSparseMatrixFromJavascriptToJulia(mesherOutput["incidence_selection"]["A"])
+                  mesherOutput["nodi_coord"] = transpose(hcat(mesherOutput["nodi_coord"]...))
+                  mesherOutput["volumi"]["coordinate"] = transpose(hcat(mesherOutput["volumi"]["coordinate"]...))
+                  mesherOutput = deep_symbolize_keys(mesherOutput)
+                  Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
+                end
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"

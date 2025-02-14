@@ -74,18 +74,19 @@ function download_serialized_data(aws_config, bucket, key)
     io = IOBuffer(response)
     # Deserialize the variable
     variable = Dict(Serialization.deserialize(io))
-    for (key, value) in variable
-        println(key)
-    end
     return variable
 end
 
 
-  function get_solverInput_from_s3(aws, aws_bucket_name::String, fileName::String)
+  function get_solverInput_from_s3(aws, aws_bucket_name::String, fileName::String, mesherType)
     resposnse_dict = Dict()
     if (s3_exists(aws, aws_bucket_name, fileName))
         response = s3_get(aws, aws_bucket_name, fileName)
-        resposnse_dict = to_standard_dict(response)
+        if mesherType == "backend"
+            resposnse_dict = to_standard_dict(response)
+        else
+            resposnse_dict = JSON.parse(String(response))
+        end
     end
     return resposnse_dict
 end
@@ -100,5 +101,30 @@ function to_standard_dict(data)
     else
         # For other types, return as is
         return data
+    end
+end
+
+function convertSparseMatrixFromJavascriptToJulia(sparseMatrixJavascript)
+    values_js = Float64.(sparseMatrixJavascript["_values"])
+    index_js  = sparseMatrixJavascript["_index"]
+    ptr_js    = sparseMatrixJavascript["_ptr"]
+    m, n    = sparseMatrixJavascript["_size"]
+    # Julia uses 1-based indexing so adjust the indices:
+    row_julia    = [i + 1 for i in index_js]
+    col_ptr_julia = [p + 1 for p in ptr_js]
+    sparseMatrixJulia = SparseMatrixCSC(m, n, col_ptr_julia, row_julia, values_js)
+    return sparseMatrixJulia
+end
+
+function deep_symbolize_keys(x)
+    if x isa AbstractDict
+        # Create a new Dict with Symbol keys and recursively converted values.
+        return Dict(Symbol(k) => deep_symbolize_keys(v) for (k, v) in x)
+    elseif x isa AbstractVector
+        # Recursively process arrays in case they contain dictionaries.
+        return [deep_symbolize_keys(item) for item in x]
+    else
+        # Return any other value unchanged.
+        return x
     end
 end
