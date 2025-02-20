@@ -25,11 +25,41 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
     R_chiusura = ports_scatter_value
     keeped_diag = 0
     invCd = zeros(ComplexF64, m)
-
+    not_switched = true
     resProd = Array{ComplexF64}(undef, 2 * m)
     tn = zeros(ComplexF64, m + ns + n)
 
     for k = 1:nfreq
+        if freq[k]/escalings[:freq] >= 1e8 && not_switched
+
+            keeped_diag = 0
+            not_switched = false
+
+            freq = freq./escalings[:freq]
+            w = 2 .* pi .* freq
+            volumi[:R] = volumi[:R]./escalings[:R]
+            volumi[:Zs_part] = volumi[:Zs_part]./escalings[:R]
+            if !isempty(volumi[:indici_dielettrici])
+                volumi[:Cd] = volumi[:Cd]./escalings[:Cd]
+            end
+            P_data[:P] = P_data[:P]./escalings[:P]
+            invP = spdiagm(1.0 ./ diag(P_data[:P]))
+
+            Lp_data[:Lp_x] = Lp_data[:Lp_x]./escalings[:Lp]
+            Lp_data[:Lp_y] = Lp_data[:Lp_y]./escalings[:Lp]
+            Lp_data[:Lp_z] = Lp_data[:Lp_z]./escalings[:Lp]
+            Vrest[1:m, :] = Vrest[1:m, :]./escalings[:Is]
+            Vrest[m + 1:m + ns, :] = Vrest[m + 1:m + ns, :]./escalings[:Cd]
+
+            escalings[:Lp] = 1.0
+            escalings[:R] = 1.0
+            escalings[:Cd] = 1.0
+            escalings[:P] = 1.0
+            escalings[:Is] = 1.0
+            escalings[:freq] = 1.0
+            escalings[:Yle] = 1.0
+            escalings[:time] = 1.0
+        end
         if QS_Rcc_FW == 2
             mu0 = 4 * π * 1e-7
             eps0 = 8.854187816997944e-12
@@ -85,10 +115,9 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
         # Check use_Zs_in and compute Z_self
         if use_Zs_in == 1
             # Compute Zs
-            Zs = real.(sqrt(1im * w[k]) .* volumi[:Zs_part])
+            Zs = real.(sqrt(1im * w[k]/escalings[:freq]) .* volumi[:Zs_part])
             indR = findall(x -> volumi[:R][x] > Zs[x], 1:length(volumi[:R]))
             indZs = setdiff(1:length(volumi[:R]), indR)
-            # Initialize Z_self
             Z_self = zeros(ComplexF64, length(volumi[:R]))
             Z_self[indR] .= volumi[:R][indR]
             Z_self[indZs] .= Zs[indZs]
