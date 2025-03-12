@@ -374,9 +374,10 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
         end
         if (commentsEnabled == true)
             #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
-            filename = id * "_results.json"
+            filename = id * "_results.json.gz"
             resultsToStoreOnS3 = dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id)
-            s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
             if !isnothing(chan)
                 publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
             end
@@ -457,9 +458,10 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         # end
         if (commentsEnabled == true)
             #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
-            filename = id * "_results.json"
+            filename = id * "_results.json.gz"
             resultsToStoreOnS3 = dump_json_data(out[:Z], out[:S], out[:Y], length(inputDict["ports"]), id)
-            s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
+            #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
             if !isnothing(chan)
                 publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
             end

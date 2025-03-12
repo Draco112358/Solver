@@ -78,7 +78,7 @@ function download_serialized_data(aws_config, bucket, key)
 end
 
 
-  function get_solverInput_from_s3(aws, aws_bucket_name::String, fileName::String, mesherType)
+function get_solverInput_from_s3(aws, aws_bucket_name::String, fileName::String, mesherType)
     resposnse_dict = Dict()
     if (s3_exists(aws, aws_bucket_name, fileName))
         response = s3_get(aws, aws_bucket_name, fileName)
@@ -90,6 +90,8 @@ end
     end
     return resposnse_dict
 end
+
+
 
 function to_standard_dict(data)
     if isa(data, OrderedCollections.LittleDict)
@@ -128,3 +130,17 @@ function deep_symbolize_keys(x)
         return x
     end
 end
+
+function saveOnS3GZippedResults(fileName::String, data::Dict, aws_config, bucket_name)
+    res_id = fileName*"_results.json.gz"
+    if(s3_exists(aws_config, bucket_name, res_id))
+      s3_delete(aws_config, bucket_name, res_id)
+    end
+    upload_json_gz(aws_config, bucket_name, res_id, data)
+    return res_id
+  end
+  
+  function upload_json_gz(aws_config, bucket_name, file_name, data_to_save)
+    dato_compresso = transcode(GzipCompressor, JSON.json(data_to_save))
+    s3_put(aws_config, bucket_name, file_name, dato_compresso)
+  end

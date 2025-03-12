@@ -70,6 +70,19 @@ function receive()
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"
                 push!(stopComputation, data["id"])
+              elseif data["message"] == "get results"
+                res = download_json_gz(aws, aws_bucket_name, data["body"]["fileId"])
+                matrixZ = JSON.parse(res["matrices"]["matrix_Z"])
+                matrixS = JSON.parse(res["matrices"]["matrix_S"])
+                matrixY = JSON.parse(res["matrices"]["matrix_Y"])
+                dataToReturn = Dict(
+                  data["body"]["portIndex"] => Dict(
+                    "matrix_Z_data" => matrixZ[data["body"]["portIndex"]+1],
+                    "matrix_S_data" => matrixS[data["body"]["portIndex"]+1],
+                    "matrix_Y_data" => matrixY[data["body"]["portIndex"]+1],
+                  )
+                )
+                publish_data(dataToReturn, "solver_results", chan)
               end
           end
 
