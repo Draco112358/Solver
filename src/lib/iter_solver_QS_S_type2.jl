@@ -173,10 +173,10 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
         if !isnothing(chan)
             publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
         end
-        if commentsEnabled
-            partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
-            publish_data(partial_res, "solver_results", chan)
-        end
+        # if commentsEnabled
+        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
+        #     publish_data(partial_res, "solver_results", chan)
+        # end
     end
     out::Dict = Dict()
     out[:S] = S

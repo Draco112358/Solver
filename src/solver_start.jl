@@ -76,12 +76,14 @@ function receive()
                 matrixS = JSON.parse(res["matrices"]["matrix_S"])
                 matrixY = JSON.parse(res["matrices"]["matrix_Y"])
                 dataToReturn = Dict(
-                  data["body"]["portIndex"] => Dict(
-                    "matrix_Z_data" => matrixZ[data["body"]["portIndex"]+1],
-                    "matrix_S_data" => matrixS[data["body"]["portIndex"]+1],
-                    "matrix_Y_data" => matrixY[data["body"]["portIndex"]+1],
+                  "portIndex" => data["body"]["portIndex"],
+                  "results" => Dict(
+                    "matrixZ" => matrixZ[data["body"]["portIndex"]+1],
+                    "matrixS" => matrixS[data["body"]["portIndex"]+1],
+                    "matrixY" => matrixY[data["body"]["portIndex"]+1],
                   )
                 )
+                println(dataToReturn)
                 publish_data(dataToReturn, "solver_results", chan)
               end
           end
