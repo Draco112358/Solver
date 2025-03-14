@@ -457,9 +457,18 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         #     return false
         # end
         if (commentsEnabled == true)
-            #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
-            filename = id * "_results.json.gz"
             resultsToStoreOnS3 = dump_json_data(out[:Z], out[:S], out[:Y], length(inputDict["ports"]), id)
+            dataToReturn = Dict(
+                "portIndex" => 0,
+                "partial" => false,
+                "results" => Dict(
+                    "matrixZ" => JSON.parse(resultsToStoreOnS3["matrices"]["matrix_Z"])[1],
+                    "matrixS" => JSON.parse(resultsToStoreOnS3["matrices"]["matrix_S"])[1],
+                    "matrixY" => JSON.parse(resultsToStoreOnS3["matrices"]["matrix_Y"])[1],
+                )
+            )
+            publish_data(dataToReturn, "solver_results", chan)
+            filename = id * "_results.json.gz"
             saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
             #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
             if !isnothing(chan)

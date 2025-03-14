@@ -83,7 +83,7 @@ function receive()
                     "matrixY" => matrixY[data["body"]["portIndex"]+1],
                   )
                 )
-                println(dataToReturn)
+                #println(dataToReturn)
                 publish_data(dataToReturn, "solver_results", chan)
               end
           end
