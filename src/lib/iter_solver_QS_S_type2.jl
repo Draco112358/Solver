@@ -185,7 +185,7 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
                     "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
                 )
             )
-            publish_data(dataToReturn, "solver_results", chan)
+            #publish_data(dataToReturn, "solver_results", chan)
         end
     end
     out::Dict = Dict()
