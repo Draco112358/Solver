@@ -219,7 +219,17 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         end
         if (commentsEnabled == true)
             partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports["port_nodes"], 1), id; partial=true, freqIndex=k)
-            publish_data(partial_res, "solver_results", chan)
+            dataToReturn = Dict(
+                "portIndex" => 0,
+                "partial" => true,
+                "freqIndex" => partial_res["freqIndex"],
+                "results" => Dict(
+                    "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
+                    "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
+                    "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
+                )
+            )
+            publish_data(dataToReturn, "solver_results", chan)
         end
     end
     out::Dict = Dict()
