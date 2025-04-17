@@ -9,6 +9,17 @@ include("iter_solver_QS_S_type2.jl")
 include("find_nodes_ports_or_le.jl")
 include("calcola_P.jl")
 include("calcola_Lp2.jl")
+include("genera_segnale_esponenziale.jl")
+include("genera_segnale_Gaussiano_modulato.jl")
+include("genera_segnale_sinusoidale.jl")
+include("crea_freqs.jl")
+include("build_trapezoidal_pulse.jl")
+include("compute_fields_components.jl")
+include("computeVs.jl")
+include("fft_UAq.jl")
+include("genera_punti_circonferenza.jl")
+include("get_punti_oss_3D.jl")
+include("iter_solver_E_Gaussian_Is_type.jl")
 
 using MKL
 using JSON, AWSS3
@@ -495,6 +506,203 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         end
     end
 
+end
+
+function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
+    try
+        N_circ = 100
+        N_circ_3D = 50
+        time_delay_vs = 0.0
+        f0=0.0
+        dev_stand=0.0
+        tr=0.0
+        power=0.0
+        if signal_type_E == "exponential"
+            f0=0
+            dev_stand=0;
+    
+            time_delay_vs=3e-9;
+            tw = 50*0.1/3e8;
+            power=4.0;
+            vs, tr = genera_segnale_esponenziale(tw, power, times, time_delay_vs)
+        elseif signal_type_E == "gaussian_modulated"
+            tr=0;
+            power=0;
+            
+            time_delay_vs=3e-9;
+            f0=1e9;
+            dev_stand=10/(4*pi)*1e-9;
+            vs = genera_segnale_Gaussiano_modulato(f0, dev_stand, times, time_delay_vs)
+        elseif signal_type_E == "sinusoidal"
+            tr=0;
+            dev_stand=0;
+            power=0;
+            time_delay_vs=3e-9;
+            f0=1e8;
+            vs = genera_segnale_sinusoidale(f0, times, time_delay_vs)
+        end
+        ind_freq_interest = ind_freq_interest .+ 1
+        freq_vs_is=crea_freqs(times);
+        freq = freq_vs_is[ind_freq_interest];
+        n_freq = length(freq)
+        inputDict = solverInput
+        unit = solverInput["unit"]
+        escal = getEscalFrom(unit)
+        ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
+        println("scatter ", ports_scatter_value)
+
+        println("reading ports")
+        println(size(nodi_coord))
+        ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
+        println("port_nodes ", ports[:port_nodes])
+        println("lumped_nodes ", lumped_elements[:le_nodes])
+        println("reading ports completed")
+        
+        GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
+        ind_low_freq = findall(x -> x < 1e5, freq)
+        GMRES_settings["tol"][ind_low_freq] .= 1e-8
+        QS_Rcc_FW = solverType # 1 QS, 2 Rcc, 3 Taylor
+        use_Zs_in = true
+
+        is_matrix = zeros(size(ports[:port_start], 1), length(times))
+        for (index, signal_type) in enumerate(ports[:signals_port])
+            if signal_type != "no_signal"
+                vs = getSignalbasedOn(signal_type, times)
+                is_matrix[index, :] = vs
+            end
+        end
+        #is=getSignalbasedOn()
+
+        println("P and Lp")
+        P_data = calcola_P(superfici, escalings, QS_Rcc_FW)
+        if !isnothing(chan)
+            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        end
+        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
+        if !isnothing(chan)
+            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
+        A = sparse(row_indices, col_indices, nz_values)
+        E,K,H,E_theta_v,E_phi_v = compute_fields_components(phi, theta, e_theta, e_phi)
+        #println(E)
+        #println(K)
+        Vs=computeVs(times,time_delay_vs,signal_type_E,volumi,nodi_coord,E,K,A,tr,power,dev_stand,f0,ind_freq_interest);
+
+        Is = zeros(ComplexF64, size(ports[:port_nodes], 1), n_freq)
+        for k in 1:size(ports[:port_nodes], 1)
+            Trasformata=fft_UAq(times, is_matrix[k, :])
+            Is[k,:]=Trasformata[2, ind_freq_interest]
+        end
+
+        dump(baricentro)
+
+        punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);
+        punti_zx=genera_punti_circonferenza(r_circ,N_circ,baricentro,2);
+        punti_yz=genera_punti_circonferenza(r_circ,N_circ,baricentro,3);
+
+        centri_oss=[punti_xy;punti_zx;punti_yz];
+        centri_oss_3D, distanze_3D, theta_vals, x_grid, y_grid, z_grid = get_punti_oss_3D(r_circ, N_circ_3D, baricentro);
+
+        println("gmres")
+        out = iter_solver_E_Gaussian_Is_type(
+            freq, escalings, incidence_selection, P_data, Lp_data,
+                ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs, Is, centri_oss, centri_oss_3D, id, chan, commentsEnabled
+        )
+        println("data publish")
+        if (out == false)
+            return false
+        end
+
+        println(out)
+
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if (commentsEnabled == true)
+            resultsToStoreOnS3 = Dict(
+                "Vp" => JSON.json(complex_matrix_to_float_array_matrix(out["Vp"])),
+                "Ex" => JSON.json(complex_matrix_to_float_array_matrix(out["Ex"])),
+                "Ey" => JSON.json(complex_matrix_to_float_array_matrix(out["Ey"])),
+                "Ez" => JSON.json(complex_matrix_to_float_array_matrix(out["Ez"])),
+                "Ex_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Ex_3D"])),
+                "Ey_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Ey_3D"])),
+                "Ez_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Ez_3D"])),
+                "Hx_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hx_3D"])),
+                "Hy_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hy_3D"])),
+                "Hz_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hz_3D"])),
+                "f" => JSON.json(out["f"])
+            )
+            # publish_data(dataToReturn, "solver_results", chan)
+            filename = id * "_results.json.gz"
+            saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
+            #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
+            if !isnothing(chan)
+                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
+            end
+        end
+    catch e
+        if e isa OutOfMemoryError
+            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+        else
+            error_msg = sprint(showerror, e)
+            st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
+            @warn "Trouble doing things:\n$(error_msg)\n$(st)"
+        end
+    end
+
+end
+
+function getSignalbasedOn(signal_type, times)
+    if signal_type == "exponential"
+        f0=0
+        dev_stand=0;
+
+        time_delay_vs=3e-9;
+        tw = 50*0.1/3e8;
+        power=4.0;
+        vs, tr = genera_segnale_esponenziale(tw, power, times, time_delay_vs)
+        return vs
+    elseif signal_type == "gaussian_modulated"
+        tr=0;
+        power=0;
+        
+        time_delay_vs=3e-9;
+        f0=1e9;
+        dev_stand=10/(4*pi)*1e-9;
+        vs = genera_segnale_Gaussiano_modulato(f0, dev_stand, times, time_delay_vs)
+        return vs
+    elseif signal_type == "sinusoidal"
+        tr=0;
+        dev_stand=0;
+        power=0;
+        time_delay_vs=3e-9;
+        f0=1e8;
+        vs = genera_segnale_sinusoidale(f0, times, time_delay_vs)
+        return vs
+    elseif signal_type == "trapezoidal_pulse"
+        Amplitude=1e-9;
+        initial_delay_time=2e-9;
+        high_level_time=10e-9;
+        raise_time=10e-9;
+        falling_time=10e-9;
+        vs = build_trapezoidal_pulse(initial_delay_time, Amplitude, high_level_time, raise_time, falling_time, times)
+        return vs
+    end
+end
+
+function complex_matrix_to_float_array_matrix(complex_matrix::Matrix{ComplexF64})
+    rows, cols = size(complex_matrix)
+    float_array_matrix = Array{Array{Float64, 1}, 2}(undef, rows, cols)
+    for i in 1:rows
+        for j in 1:cols
+            float_array_matrix[i, j] = [real(complex_matrix[i, j]), imag(complex_matrix[i, j])]
+        end
+    end
+    return float_array_matrix
 end
 
 # DotEnv.load!()

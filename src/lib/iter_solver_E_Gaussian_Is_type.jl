@@ -10,7 +10,7 @@ include("compute_E_field_Gauss.jl")
 include("compute_H_field_Gauss.jl")
 
 function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_data, Lp_data, ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs,Is,centri_oss,centri_oss_3D, id, chan, commentsEnabled)
-    
+    dump(Vs)
     num_oss = size(centri_oss, 1)
     num_oss_3D = size(centri_oss_3D, 1)
     ordine_int = 3
@@ -35,22 +35,21 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
     ns::Int64 = size(incidence_selection[:Gamma], 2)
     w = 2 .* pi .* freq
     nfreq = length(w)
-    is = zeros(Float64, n)
-
+    is = zeros(ComplexF64, n)
     out = Dict(
-        "Vp" => zeros(size(ports, 1), length(freq)),
-        "Vrest" => zeros(m + n + ns),
-        "Ex" => zeros(num_oss, length(freq)),
-        "Ey" => zeros(num_oss, length(freq)),
-        "Ez" => zeros(num_oss, length(freq)),
-        "Ex_3D" => zeros(num_oss_3D, length(freq)),
-        "Ey_3D" => zeros(num_oss_3D, length(freq)),
-        "Ez_3D" => zeros(num_oss_3D, length(freq)),
-        "Hx_3D" => zeros(num_oss_3D, length(freq)),
-        "Hy_3D" => zeros(num_oss_3D, length(freq)),
-        "Hz_3D" => zeros(num_oss_3D, length(freq)),
+        "Vp" => zeros(ComplexF64, size(ports[:port_start], 1), length(freq)),
+        "Ex" => zeros(ComplexF64, num_oss, length(freq)),
+        "Ey" => zeros(ComplexF64, num_oss, length(freq)),
+        "Ez" => zeros(ComplexF64, num_oss, length(freq)),
+        "Ex_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+        "Ey_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+        "Ez_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+        "Hx_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+        "Hy_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+        "Hz_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
         "f" => zeros(length(freq))
     )
+    Vrest = zeros(m+n+ns)
 
     invP::SparseMatrixCSC{Float64, Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
     R_chiusura = ports_scatter_value
@@ -87,8 +86,9 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
             Lp_data[:Lp_x] = Lp_data[:Lp_x]./escalings[:Lp]
             Lp_data[:Lp_y] = Lp_data[:Lp_y]./escalings[:Lp]
             Lp_data[:Lp_z] = Lp_data[:Lp_z]./escalings[:Lp]
-            Vrest[1:m, :] = Vrest[1:m, :]./escalings[:Is]
-            Vrest[m + 1:m + ns, :] = Vrest[m + 1:m + ns, :]./escalings[:Cd]
+
+            Vrest[1:m] = Vrest[1:m]./escalings[:Is]
+            Vrest[m + 1:m + ns] = Vrest[m + 1:m + ns]./escalings[:Cd]
 
             escalings[:Lp] = 1.0
             escalings[:R] = 1.0
@@ -168,16 +168,17 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
         invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
         # --------------------- preconditioner ------------------------
         SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
+        dump(SS)
         F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
         # --------------------------------------------------------------
-        for c1::Int64 = 1:size(ports[:port_nodes], 1)
+        for c1 in 1:size(ports[:port_nodes], 1)
             n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
             n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
             is[n1] = Is[c1,k]*escalings[:Is]
             is[n2] = -1.0*Is[c1,k]* escalings[:Is]
         end
         tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
-        V, flag, relres, iter, resvec = gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
+        V, flag, relres, iter, resvec = gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
         if flag == 99
             return false
         end
@@ -192,52 +193,37 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
                 println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
             end
         end
-        Vrest[:, c1] = V
+        Vrest = V
         # is[n1] = 0
         # is[n2] = 0
-        for c2::Int64 = c1:size(ports[:port_nodes], 1)
-            n3::Int64 = convert(Int64, ports[:port_nodes][c2, 1])
-            n4::Int64 = convert(Int64, ports[:port_nodes][c2, 2])
-            if c1 == c2
-                S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4]) - R_chiusura) / R_chiusura
-            else
-                S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4])) / R_chiusura
-            end
-            S[c2, c1, k] = S[c1, c2, k]
+        for c1 in 1:size(ports[:port_nodes], 1)
+            n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
+            n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
+            out["Vp"][c1, k] = V[m+ns+n1] - V[m+ns+n2]
         end
         I = V[1:m]./escalings[:Is]
         J = I ./ volumi[:S]
-        sigma = (V[m+1:m+ns]./transpose(superfici[:S]))/escalings[:Cd]
+        dump(J)
+        sigma = (V[m+1:m+ns]./transpose(superfici["S"]))/escalings[:Cd]
         beta = 2*pi*freq[k]/escalings[:freq]*sqrt(eps0*mu0)
-        hc = compute_Ec_Gauss(superfici[:estremi_celle], superfici[:normale], centri_oss, ordine_int, beta)
-        hc_3D = compute_Ec_Gauss(superfici[:estremi_celle], superfici[:normale], centri_oss_3D, ordine_int, beta)
+        hc = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
+        println("hc completed")
+        hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta)
+        println("hc_3D completed")
         ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta)
+        println("ha completed")
         ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta)
-
+        println("ha_3D completed")
         Lambda_x=compute_lambda_numeric(centri_oss_3D,volumi,incidence_selection,[unitario zeroo zeroo],ordine_int,beta);
+        println("Lambda_x completed")
         Lambda_y=compute_lambda_numeric(centri_oss_3D,volumi,incidence_selection,[zeroo unitario zeroo],ordine_int,beta);
+        println("Lambda_y completed")
         Lambda_z=compute_lambda_numeric(centri_oss_3D,volumi,incidence_selection,[zeroo zeroo unitario],ordine_int,beta);
+        println("Lambda_z completed")
 
         out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k]/escalings[:freq]);
         out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k]/escalings[:freq]);
         out["Hx_3D"][:, k], out["Hy_3D"][:, k], out["Hz_3D"][:, k] = compute_H_field_Gauss(Lambda_x, Lambda_y, Lambda_z, I);
-        # if !isnothing(chan)
-        #     publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
-        # end
-        # if commentsEnabled
-        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
-        #     dataToReturn = Dict(
-        #         "portIndex" => 0,
-        #         "partial" => true,
-        #         "freqIndex" => partial_res["freqIndex"],
-        #         "results" => Dict(
-        #             "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
-        #             "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
-        #             "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
-        #         )
-        #     )
-        #     #publish_data(dataToReturn, "solver_results", chan)
-        # end
     end
     return out
 end

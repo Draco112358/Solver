@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_Ar_Gauss(barre::Matrix{Float64}, centriOss::Matrix{Float64}, ordine::Int, beta::Float64)
+function compute_Ar_Gauss(barre, centriOss, ordine, beta)
     numCentri = size(centriOss, 1)
     numBarre = size(barre, 1)
 
@@ -58,7 +58,7 @@ function compute_ha(xo::Float64, x_vect_bar::Vector{Float64}, yo::Float64, y_vec
     ri[8, :] = [xi2[4], yi2[4], zi2[4]]
 
     # nuovo approccio
-    rmi = 0.125 * sum(ri, dims=1)
+    rmi = vec(0.125 * sum(ri, dims=1))
     rai = 0.125 * (-ri[1, :] + ri[2, :] + ri[4, :] - ri[3, :] - ri[5, :] + ri[6, :] + ri[8, :] - ri[7, :])
     rbi = 0.125 * (-ri[1, :] - ri[2, :] + ri[4, :] + ri[3, :] - ri[5, :] - ri[6, :] + ri[8, :] + ri[7, :])
     rci = 0.125 * (-ri[1, :] - ri[2, :] - ri[4, :] - ri[3, :] + ri[5, :] + ri[6, :] + ri[8, :] + ri[7, :])
@@ -117,17 +117,30 @@ end
 
 function qrule(n::Int)
     iter = 2
-    m = div(n + 1, 2)
+    m = trunc((n + 1) / 2)
     e1 = n * (n + 1)
     mm = 4 * m - 1
     t = (pi / (4 * n + 2)) * (3:4:mm)
     nn = (1 - (1 - 1 / n) / (8 * n * n))
     xo = nn * cos.(t)
-    for kk in 1:iter
+    den = []
+    d1 = []
+    dpn = []
+    d2pn = []
+    d3pn = []
+    d4pn = []
+    u = []
+    v = []
+    h = []
+    p = []
+    dp = []
+    pk = []
+    
+    for kk = 1:iter
         pkm1 = zeros(size(xo))
         pkm1[1:size(xo, 1)] .= 1
         pk = xo
-        for k in 2:n
+        for k = 2:n
             t1 = xo .* pk
             pkp1 = t1 - pkm1 - (t1 - pkm1) / k + t1
             pkm1 = pk
@@ -141,27 +154,28 @@ function qrule(n::Int)
         d4pn = (6 * xo .* d3pn + (6 - e1) .* d2pn) ./ den
         u = pk ./ dpn
         v = d2pn ./ dpn
-        h = -u .* (1 .+ (0.5 * u) .* (v + u .* (v .^ 2 - u .* d3pn ./ (3 * dpn))))
+        h = -u .* (1 .+ (0.5 * u) .* (v + u .* (v .* v - u .* d3pn ./ (3 * dpn))))
         p = pk + h .* (dpn + (0.5 * h) .* (d2pn + (h / 3) .* (d3pn + 0.25 * h .* d4pn)))
         dp = dpn + h .* (d2pn + (0.5 * h) .* (d3pn + h .* d4pn / 3))
         h = h - p ./ dp
         xo = xo + h
     end
-    bp = zeros(Float64, n)
-    wf = zeros(Float64, n)
+    bp = zeros(1, n)
+    wf = zeros(1, n)
     bp[1:size(xo, 1)] .= -xo .- h
     fx = d1 - h .* e1 .* (pk + (h / 2) .* (dpn + (h / 3) .* (
         d2pn + (h / 4) .* (d3pn + (0.2 * h) .* d4pn))))
-    wf[1:size(xo, 1)] .= 2 * (1 .- bp[1:size(xo, 1)] .^ 2) ./ (fx .^ 2)
+    wf[1:size(xo, 1)] .= 2 * (1 .- bp[1:size(xo, 1)] .^ 2) ./ (fx .* fx)
     if (m + m) > n
-        bp[m] = 0.0
+        bp[Int64(m)] = 0
     end
     if !((m + m) == n)
         m = m - 1
     end
     jj = 1:m
-    n1j = n + 1 .- jj
-    bp[n1j] .= -bp[jj]
-    wf[n1j] .= wf[jj]
-    return bp, wf
+    n1j = (n + 1) .- jj
+    bp[Int64.(n1j)] .= -bp[Int64.(jj)]
+    wf[Int64.(n1j)] .= wf[Int64.(jj)]
+
+    return vec(bp), vec(wf)
 end
