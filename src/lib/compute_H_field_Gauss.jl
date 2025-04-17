@@ -1,4 +1,4 @@
-function compute_H_field_Gauss(Lambda_x::Float64, Lambda_y::Float64, Lambda_z::Float64, I::Float64)
+function compute_H_field_Gauss(Lambda_x, Lambda_y, Lambda_z, I)
 
     mu0 = 4 * pi * 1e-7
     eps0 = 8.854187816997944e-12

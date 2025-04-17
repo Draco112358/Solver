@@ -66,6 +66,21 @@ function receive()
                   mesherOutput = deep_symbolize_keys(mesherOutput)
                   Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
                 end
+              elseif data["message"] == "solving electric fields"
+                if data["body"]["mesherType"] === "backend"
+                  mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
+                  surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
+                  Threads.@spawn doSolvingElectricFields(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["theta"], data["body"]["phi"], data["body"]["e_theta"], data["body"]["e_phi"], data["body"]["baricentro"], data["body"]["r_circ"], data["body"]["times"], data["body"]["signal_type_E"], data["body"]["ind_freq_interest"], data["body"]["id"], aws, aws_bucket_name; chan)
+                else
+                  mesherOutput = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["mesherFileId"], data["body"]["mesherType"])
+                  surface = get_solverInput_from_s3(aws, aws_bucket_name, data["body"]["surfaceFileId"], data["body"]["mesherType"])
+                  mesherOutput["incidence_selection"]["Gamma"] = convertSparseMatrixFromJavascriptToJulia(mesherOutput["incidence_selection"]["Gamma"])
+                  mesherOutput["incidence_selection"]["A"] = convertSparseMatrixFromJavascriptToJulia(mesherOutput["incidence_selection"]["A"])
+                  mesherOutput["nodi_coord"] = transpose(hcat(mesherOutput["nodi_coord"]...))
+                  mesherOutput["volumi"]["coordinate"] = transpose(hcat(mesherOutput["volumi"]["coordinate"]...))
+                  mesherOutput = deep_symbolize_keys(mesherOutput)
+                  Threads.@spawn doSolvingElectricFields(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["theta"], data["body"]["phi"], data["body"]["e_theta"], data["body"]["e_phi"], data["body"]["baricentro"], data["body"]["r_circ"], data["body"]["times"], data["body"]["signal_type_E"], data["body"]["ind_freq_interest"], data["body"]["id"], aws, aws_bucket_name; chan)
+                end
               elseif data["message"] == "stop"
                 stop_condition[] = 1.0
               elseif data["message"] == "stop_computation"
@@ -81,9 +96,17 @@ function receive()
                     "matrixZ" => matrixZ[data["body"]["portIndex"]+1],
                     "matrixS" => matrixS[data["body"]["portIndex"]+1],
                     "matrixY" => matrixY[data["body"]["portIndex"]+1],
-                  )
+                  ),
+                  "simulationType" => "matrix"
                 )
                 #println(dataToReturn)
+                publish_data(dataToReturn, "solver_results", chan)
+              elseif data["message"] == "get results electric fields"
+                res = download_json_gz(aws, aws_bucket_name, data["body"]["fileId"])
+                dataToReturn = Dict(
+                  "results" => res,
+                  "simulationType" => "electric fields"
+                )
                 publish_data(dataToReturn, "solver_results", chan)
               end
           end

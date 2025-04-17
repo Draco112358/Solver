@@ -1,4 +1,4 @@
-function genera_punti_circonferenza(r::Float64, N::Int, baricentro::Vector{Float64}, cases::Int)
+function genera_punti_circonferenza(r, N, baricentro, cases)
     angolo = collect(LinRange(0, 2*pi, N))
   
     A = r * cos.(angolo)

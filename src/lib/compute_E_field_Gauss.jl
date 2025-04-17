@@ -1,4 +1,4 @@
-function compute_E_field_Gauss(indx::Vector{Int}, indy::Vector{Int}, indz::Vector{Int}, centriOsservazione::Matrix{Float64}, hc::Array{Float64, 3}, ha::Matrix{Float64}, J::Vector{ComplexF64}, sigma::Float64, f::Float64)
+function compute_E_field_Gauss(indx, indy, indz, centriOsservazione, hc, ha, J, sigma, f)
 
     numCentri = size(centriOsservazione, 1)
 

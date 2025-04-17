@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi, incidence_selection, vers_punti_oss::Matrix{Float64}, ordine_int::Int, beta::Float64)
+function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_punti_oss, ordine_int, beta)
 
     N = size(volumi[:coordinate], 1)
 
@@ -58,14 +58,14 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi, incidence_se
     return Lambda
 end
 
-function compute_hi(barra::Vector{Float64}, centro_oss::Vector{Float64}, scelta::String, rootkx::Vector{Float64}, wekx::Vector{Float64}, beta::Float64)
+function compute_hi(barra, centro_oss, scelta, rootkx, wekx, beta)
 
-    xi1 = barra[1:4]
-    yi1 = barra[2:4:16]
-    zi1 = barra[3:4:16]
-    xi2 = barra[13:16]
-    yi2 = barra[14:4:24]
-    zi2 = barra[15:4:24]
+    xi1 = [barra[1], barra[4], barra[7], barra[10]]
+    yi1 = [barra[2], barra[5], barra[8], barra[11]]
+    zi1 = [barra[3], barra[6], barra[9], barra[12]]
+    xi2 = [barra[13], barra[16], barra[19], barra[22]]
+    yi2 = [barra[14], barra[17], barra[20], barra[23]]
+    zi2 = [barra[15], barra[18], barra[21], barra[24]]
 
     #  vectors pointing to the vertices of the quadrilateral i
     ri = zeros(ComplexF64, 8, 3)
@@ -80,7 +80,7 @@ function compute_hi(barra::Vector{Float64}, centro_oss::Vector{Float64}, scelta:
     ri[8, :] = [xi2[4], yi2[4], zi2[4]]
 
     # nuovo approccio
-    rmi = 0.125 * sum(ri, dims=1)
+    rmi = vec(0.125 * sum(ri, dims=1))
     rai = 0.125 * (-ri[1, :] + ri[2, :] + ri[4, :] - ri[3, :] - ri[5, :] + ri[6, :] + ri[8, :] - ri[7, :])
     rbi = 0.125 * (-ri[1, :] - ri[2, :] + ri[4, :] + ri[3, :] - ri[5, :] - ri[6, :] + ri[8, :] + ri[7, :])
     rci = 0.125 * (-ri[1, :] - ri[2, :] - ri[4, :] - ri[3, :] + ri[5, :] + ri[6, :] + ri[8, :] + ri[7, :])
@@ -144,17 +144,30 @@ function compute_hi(barra::Vector{Float64}, centro_oss::Vector{Float64}, scelta:
         sum_a1 += wekx[a1] * sum_b1
     end
     integral = 1e-7 * sum_a1
+    return integral
 end
 
 function qrule(n::Int)
     iter = 2
-    m = fix((n + 1) / 2)
+    m = trunc((n + 1) / 2)
     e1 = n * (n + 1)
     mm = 4 * m - 1
     t = (pi / (4 * n + 2)) * (3:4:mm)
     nn = (1 - (1 - 1 / n) / (8 * n * n))
     xo = nn * cos.(t)
-
+    den = []
+    d1 = []
+    dpn = []
+    d2pn = []
+    d3pn = []
+    d4pn = []
+    u = []
+    v = []
+    h = []
+    p = []
+    dp = []
+    pk = []
+    
     for kk = 1:iter
         pkm1 = zeros(size(xo))
         pkm1[1:size(xo, 1)] .= 1
@@ -186,15 +199,15 @@ function qrule(n::Int)
         d2pn + (h / 4) .* (d3pn + (0.2 * h) .* d4pn))))
     wf[1:size(xo, 1)] .= 2 * (1 .- bp[1:size(xo, 1)] .^ 2) ./ (fx .* fx)
     if (m + m) > n
-        bp[m] = 0
+        bp[Int64(m)] = 0
     end
     if !((m + m) == n)
         m = m - 1
     end
     jj = 1:m
     n1j = (n + 1) .- jj
-    bp[n1j] .= -bp[jj]
-    wf[n1j] .= wf[jj]
+    bp[Int64.(n1j)] .= -bp[Int64.(jj)]
+    wf[Int64.(n1j)] .= wf[Int64.(jj)]
 
     return vec(bp), vec(wf)
 end

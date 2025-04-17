@@ -1,10 +1,15 @@
 using LinearAlgebra
 
-function compute_Ec_Gauss(barre::Matrix{Float64}, normale::Matrix{Float64}, centriOss::Matrix{Float64}, ordine::Int, beta::Float64)
+function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta)
     num_barre = size(barre, 1)
     num_centri_oss = size(centriOss, 1)
     hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
 
+    for i in eachindex(normale)
+        normale[i] = convert(Vector{Float64}, normale[i])
+    end
+
+    normale = hcat(normale...)
     for cont in 1:num_barre
         if abs(normale[cont, 1]) > 1e-10
             perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
@@ -34,7 +39,7 @@ function compute_Ec_Gauss(barre::Matrix{Float64}, normale::Matrix{Float64}, cent
     return hc
 end
 
-function compute_hcz_xy(barra::Vector{Float64}, centriOss::Vector{Float64}, ordine::Int, beta::Float64)
+function compute_hcz_xy(barra, centriOss, ordine, beta)
     numCentri = size(centriOss, 1) # Julia's size on a vector gives a tuple, so we don't need the second dimension
     x1 = minimum(barra[[1, 4, 7, 10]])
     x2 = maximum(barra[[1, 4, 7, 10]])
@@ -63,15 +68,15 @@ function compute_hcz_xy(barra::Vector{Float64}, centriOss::Vector{Float64}, ordi
             delta_z = (z - zp)
             R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
             G_1 = delta_z * (1/R^3 + 1im * beta/R^2) * exp(-1im * beta * R)
-            res1_1 += wy[a2] * G_1
+            res1_1 .+= wy[a2] * G_1
         end
-        res2_1 += wx[a1] * h3 * res1_1
+        res2_1 .+= wx[a1] * h3 * res1_1
     end
     res2_1 = h1 * res2_1
-    return res2_1
+    return res2_1[1]
 end
 
-function compute_hcx_xy(barra::Vector{Float64}, centriOss::Vector{Float64}, ordine::Int, beta::Float64)
+function compute_hcx_xy(barra, centriOss, ordine, beta)
     numCentri = size(centriOss, 1)
     x1 = minimum(barra[[1, 4, 7, 10]])
     x2 = maximum(barra[[1, 4, 7, 10]])
@@ -100,60 +105,75 @@ function compute_hcx_xy(barra::Vector{Float64}, centriOss::Vector{Float64}, ordi
             delta_z = (z - zp)
             R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
             G_1 = delta_x * (1/R^3 + 1im * beta/R^2) * exp(-1im * beta * R)
-            res1_1 += wy[a2] * G_1
+            res1_1 .+= wy[a2] * G_1
         end
-        res2_1 += wx[a1] * h3 * res1_1
+        res2_1 .+= wx[a1] * h3 * res1_1
     end
     res2_1 = h1 * res2_1
-    return res2_1
+    return res2_1[1]
 end
 
 function qrule(n::Int)
     iter = 2
-    m = div(n + 1, 2)
+    m = trunc((n + 1) / 2)
     e1 = n * (n + 1)
     mm = 4 * m - 1
     t = (pi / (4 * n + 2)) * (3:4:mm)
-    nn = (1 - (1 - 1/n) / (8 * n * n))
+    nn = (1 - (1 - 1 / n) / (8 * n * n))
     xo = nn * cos.(t)
-    for kk in 1:iter
+    den = []
+    d1 = []
+    dpn = []
+    d2pn = []
+    d3pn = []
+    d4pn = []
+    u = []
+    v = []
+    h = []
+    p = []
+    dp = []
+    pk = []
+    
+    for kk = 1:iter
         pkm1 = zeros(size(xo))
-        pkm1[1:length(xo)] .= 1
-        pk = copy(xo)
-        for k in 2:n
+        pkm1[1:size(xo, 1)] .= 1
+        pk = xo
+        for k = 2:n
             t1 = xo .* pk
-            pkp1 = t1 .- pkm1 .- (t1 .- pkm1) ./ k .+ t1
-            pkm1 = copy(pk)
+            pkp1 = t1 - pkm1 - (t1 - pkm1) / k + t1
+            pkm1 = pk
             pk = pkp1
         end
         den = 1 .- xo .^ 2
-        d1 = n * (pkm1 .- xo .* pk)
+        d1 = n * (pkm1 - xo .* pk)
         dpn = d1 ./ den
-        d2pn = (2 .* xo .* dpn .- e1 .* pk) ./ den
-        d3pn = (4 * xo .* d2pn .+ (2 .- e1) .* dpn) ./ den
-        d4pn = (6 * xo .* d3pn .+ (6 .- e1) .* d2pn) ./ den
+        d2pn = (2 .* xo .* dpn - e1 .* pk) ./ den
+        d3pn = (4 * xo .* d2pn + (2 - e1) .* dpn) ./ den
+        d4pn = (6 * xo .* d3pn + (6 - e1) .* d2pn) ./ den
         u = pk ./ dpn
         v = d2pn ./ dpn
-        h = -u .* (1 .+ (0.5 .* u) .* (v .+ u .* (v .^ 2 .- u .* d3pn ./ (3 .* dpn))))
-        p = pk .+ h .* (dpn .+ (0.5 .* h) .* (d2pn .+ (h ./ 3) .* (d3pn .+ 0.25 .* h .* d4pn)))
-        dp = dpn .+ h .* (d2pn .+ (0.5 .* h) .* (d3pn .+ h .* d4pn ./ 3))
-        h = h .- p ./ dp
-        xo = xo .+ h
+        h = -u .* (1 .+ (0.5 * u) .* (v + u .* (v .* v - u .* d3pn ./ (3 * dpn))))
+        p = pk + h .* (dpn + (0.5 * h) .* (d2pn + (h / 3) .* (d3pn + 0.25 * h .* d4pn)))
+        dp = dpn + h .* (d2pn + (0.5 * h) .* (d3pn + h .* d4pn / 3))
+        h = h - p ./ dp
+        xo = xo + h
     end
     bp = zeros(1, n)
     wf = zeros(1, n)
-    bp[1:length(xo)] .= -xo .- h
-    fx = d1 .- h .* e1 .* (pk .+ (h ./ 2) .* (dpn .+ (h ./ 3) .* d2pn .+ (h ./ 4) .* (d3pn .+ (0.2 .* h) .* d4pn)))
-    wf[1:length(xo)] .= 2 .* (1 .- bp[1:length(xo)] .^ 2) ./ (fx .^ 2)
+    bp[1:size(xo, 1)] .= -xo .- h
+    fx = d1 - h .* e1 .* (pk + (h / 2) .* (dpn + (h / 3) .* (
+        d2pn + (h / 4) .* (d3pn + (0.2 * h) .* d4pn))))
+    wf[1:size(xo, 1)] .= 2 * (1 .- bp[1:size(xo, 1)] .^ 2) ./ (fx .* fx)
     if (m + m) > n
-        bp[m] = 0
+        bp[Int64(m)] = 0
     end
     if !((m + m) == n)
         m = m - 1
     end
     jj = 1:m
-    n1j = n + 1 .- jj
-    bp[n1j] .= -bp[jj]
-    wf[n1j] .= wf[jj]
-    return vec(bp), vec(wf) # Return as vectors
+    n1j = (n + 1) .- jj
+    bp[Int64.(n1j)] .= -bp[Int64.(jj)]
+    wf[Int64.(n1j)] .= wf[Int64.(jj)]
+
+    return vec(bp), vec(wf)
 end

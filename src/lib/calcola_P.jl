@@ -62,7 +62,7 @@ function calcola_P(superfici, escalings, QS_Rcc_FW)
         end
         # Al termine di ogni blocco, cedi il controllo per consentire l'invio dei heartbeat
         sleep(0)
-        println("block: ", round(m_end/block_size2), " / ", round(nsup/block_size1))
+        println("block: ", round(m_end/block_size2), " / ", round(nsup/block_size2))
     end
 
 

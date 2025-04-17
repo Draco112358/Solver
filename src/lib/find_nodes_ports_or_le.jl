@@ -3,6 +3,7 @@ include("distfcm.jl")
 function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coord, escal)
     input_positions = []
     output_positions = []
+    signals_port = []
 
     for port_object in port_objects
         #@assert length(port_object["inputElement"]) == 3
@@ -17,11 +18,14 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         opos[2] = port_object["outputElement"][2] * escal
         opos[3] = port_object["outputElement"][3] * escal
         push!(output_positions, opos)
+
+        push!(signals_port, haskey(port_object, "signal") ? port_object["signal"] : "no_signal")
     end
     ports = Dict(
         :port_start => input_positions,
         :port_end => output_positions,
         :port_nodes => zeros(1,1),
+        :signals_port => signals_port
     )
     input_positions_lumped = []
     output_positions_lumped = []
@@ -31,6 +35,7 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
     L_values = []
     C_values = []
     N_LUMPED_ELEMENTS = length(lumped_elements_objects)
+    signals_lumped = []
     if N_LUMPED_ELEMENTS == 0
         lumped_elements = Dict(
             :le_start => [],
@@ -39,7 +44,8 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
             :R => [],
             :C => [],
             :L => [],
-            :type => []
+            :type => [],
+            :signals_lumped => [],
         )
         #@assert length(input_positions_lumped) == N_LUMPED_ELEMENTS && length(output_positions_lumped) == N_LUMPED_ELEMENTS && length(values) == N_LUMPED_ELEMENTS && length(types) == N_LUMPED_ELEMENTS
     else
@@ -64,10 +70,13 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
             push!(L_values, haskey(lumped_element_object["rlcParams"], "inductance") ? lumped_element_object["rlcParams"]["inductance"] : 0.0)
 
             push!(C_values, haskey(lumped_element_object["rlcParams"], "capacitance") ? lumped_element_object["rlcParams"]["capacitance"] : 0.0)
+
+            push!(signals_lumped, haskey(lumped_element_object, "signal") ? lumped_element_object["signal"] : "no_signal")
         end
 
         #@assert length(input_positions_lumped) == N_LUMPED_ELEMENTS && length(output_positions_lumped) == N_LUMPED_ELEMENTS && length(values) == N_LUMPED_ELEMENTS && length(types) == N_LUMPED_ELEMENTS && length(R_values) == N_LUMPED_ELEMENTS && length(L_values) == N_LUMPED_ELEMENTS && length(C_values) == N_LUMPED_ELEMENTS
-
+        println(signals_lumped)
+        println(signals_port)
         lumped_elements = Dict(
             :le_start => input_positions_lumped,
             :le_end => output_positions_lumped,
@@ -75,7 +84,8 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
             :R => R_values,
             :C => C_values,
             :L => L_values,
-            :type => types
+            :type => types,
+            :signals_lumped => signals_lumped
         )
     end
     Np = size(ports[:port_start], 1)

@@ -1,6 +1,6 @@
 using Interpolations
 
-function build_trapezoidal_pulse(initial_delay_time::Float64, A::Float64, high_level_time::Float64, raise_time::Float64, falling_time::Float64, time_vect::Vector{Float64})
+function build_trapezoidal_pulse(initial_delay_time::Float64, A::Float64, high_level_time::Float64, raise_time::Float64, falling_time::Float64, time_vect)
 
     # Find indices
     index_start_rise_time = findfirst(time -> time >= initial_delay_time, time_vect)
