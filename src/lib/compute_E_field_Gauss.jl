@@ -10,9 +10,9 @@ function compute_E_field_Gauss(indx, indy, indz, centriOsservazione, hc, ha, J, 
     Ecy = zeros(ComplexF64, numCentri)
     Ecz = zeros(ComplexF64, numCentri)
     for cont = 1:numCentri
-        Ecx[cont] = sum(sigma .* hc[:, 1, cont]) / (4 * pi * eps0)
-        Ecy[cont] = sum(sigma .* hc[:, 2, cont]) / (4 * pi * eps0)
-        Ecz[cont] = sum(sigma .* hc[:, 3, cont]) / (4 * pi * eps0)
+        Ecx[cont] = sum(sigma .* squeeze(hc[:, 1, cont])) / (4 * pi * eps0)
+        Ecy[cont] = sum(sigma .* squeeze(hc[:, 2, cont]) )/ (4 * pi * eps0)
+        Ecz[cont] = sum(sigma .* squeeze(hc[:, 3, cont])) / (4 * pi * eps0)
     end
 
     Arx = zeros(ComplexF64, numCentri)
@@ -30,4 +30,8 @@ function compute_E_field_Gauss(indx, indy, indz, centriOsservazione, hc, ha, J, 
     Ez = -1im * 2 * pi * f * Arz + Ecz
 
     return Ex, Ey, Ez
+end
+
+function squeeze(A)
+    return reshape(A, size(A)[[i for i in 1:ndims(A) if size(A, i) > 1]])  # Removes singleton dimensions
 end

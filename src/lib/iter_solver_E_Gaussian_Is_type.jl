@@ -10,7 +10,6 @@ include("compute_E_field_Gauss.jl")
 include("compute_H_field_Gauss.jl")
 
 function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_data, Lp_data, ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs,Is,centri_oss,centri_oss_3D, id, chan, commentsEnabled)
-    dump(Vs)
     num_oss = size(centri_oss, 1)
     num_oss_3D = size(centri_oss_3D, 1)
     ordine_int = 3
@@ -168,7 +167,6 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
         invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
         # --------------------- preconditioner ------------------------
         SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
-        dump(SS)
         F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
         # --------------------------------------------------------------
         for c1 in 1:size(ports[:port_nodes], 1)
@@ -177,6 +175,7 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
             is[n1] = Is[c1,k]*escalings[:Is]
             is[n2] = -1.0*Is[c1,k]* escalings[:Is]
         end
+        
         tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
         V, flag, relres, iter, resvec = gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
         if flag == 99
@@ -194,8 +193,6 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
             end
         end
         Vrest = V
-        # is[n1] = 0
-        # is[n2] = 0
         for c1 in 1:size(ports[:port_nodes], 1)
             n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
             n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
@@ -203,8 +200,10 @@ function iter_solver_E_Gaussian_Is_type(freq, escalings, incidence_selection, P_
         end
         I = V[1:m]./escalings[:Is]
         J = I ./ volumi[:S]
-        dump(J)
-        sigma = (V[m+1:m+ns]./transpose(superfici["S"]))/escalings[:Cd]
+
+
+        
+        sigma = (V[m+1:m+ns]./superfici["S"])/escalings[:Cd]
         beta = 2*pi*freq[k]/escalings[:freq]*sqrt(eps0*mu0)
         hc = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
         println("hc completed")

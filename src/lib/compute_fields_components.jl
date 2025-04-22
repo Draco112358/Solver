@@ -5,8 +5,6 @@ function compute_fields_components(phi, tetha, E_theta, E_phi)
          sin(tetha)*sin(phi) cos(tetha)*sin(phi)  cos(phi);
          cos(tetha)          -sin(tetha)          0]
 
-         #println(T)
-
     K = T * [1; 0; 0]
     E = T * [0; E_theta; E_phi]
     E_theta_v = T * [0; E_theta; 0]

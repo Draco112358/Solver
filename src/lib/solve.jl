@@ -587,9 +587,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         # end
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
         A = sparse(row_indices, col_indices, nz_values)
-        E,K,H,E_theta_v,E_phi_v = compute_fields_components(phi, theta, e_theta, e_phi)
-        #println(E)
-        #println(K)
+        E,K,H,E_theta_v,E_phi_v = compute_fields_components(theta, phi, e_theta, e_phi)
         Vs=computeVs(times,time_delay_vs,signal_type_E,volumi,nodi_coord,E,K,A,tr,power,dev_stand,f0,ind_freq_interest);
 
         Is = zeros(ComplexF64, size(ports[:port_nodes], 1), n_freq)
@@ -597,8 +595,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             Trasformata=fft_UAq(times, is_matrix[k, :])
             Is[k,:]=Trasformata[2, ind_freq_interest]
         end
-
-        dump(baricentro)
 
         punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);
         punti_zx=genera_punti_circonferenza(r_circ,N_circ,baricentro,2);
