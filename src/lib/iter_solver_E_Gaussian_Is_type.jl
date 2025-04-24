@@ -227,41 +227,21 @@ function iter_solver_E_Gaussian_Is_type(
 
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
 		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
-        
-		task_hc = Threads.@spawn compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
-		task_hc_3D = Threads.@spawn compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta)
 
-		# Funzioni per la computazione di Ar Gauss
-		task_ha    = Threads.@spawn compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta)
-		task_ha_3D = Threads.@spawn compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta)
-
-		# Funzioni per la computazione di lambda numerico
-		task_Lambda_x = Threads.@spawn compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario, zeroo, zeroo], ordine_int, beta)
-		task_Lambda_y = Threads.@spawn compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo, unitario, zeroo], ordine_int, beta)
-		task_Lambda_z = Threads.@spawn compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo, zeroo, unitario], ordine_int, beta)
-
-		# Recupera i risultati da ogni task
-		hc       = fetch(task_hc)
-		hc_3D    = fetch(task_hc_3D)
-		ha       = fetch(task_ha)
-		ha_3D    = fetch(task_ha_3D)
-		Lambda_x = fetch(task_Lambda_x)
-		Lambda_y = fetch(task_Lambda_y)
-		Lambda_z = fetch(task_Lambda_z)
-		# hc       = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
-		# println("hc completed")
-		# hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta)
-		# println("hc_3D completed")
-		# ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta)
-		# println("ha completed")
-		# ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta)
-		# println("ha_3D completed")
-		# Lambda_x = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, beta)
-		# println("Lambda_x completed")
-		# Lambda_y = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, beta)
-		# println("Lambda_y completed")
-		# Lambda_z = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, beta)
-		# println("Lambda_z completed")
+		hc = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
+		println("hc completed")
+		hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta)
+		println("hc_3D completed")
+		ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta)
+		println("ha completed")
+		ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta)
+		println("ha_3D completed")
+		Lambda_x = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, beta)
+		println("Lambda_x completed")
+		Lambda_y = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, beta)
+		println("Lambda_y completed")
+		Lambda_z = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, beta)
+		println("Lambda_z completed")
 
 		out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k] / escalings[:freq])
 		out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k] / escalings[:freq])

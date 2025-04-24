@@ -6,7 +6,7 @@ function compute_Ar_Gauss(barre, centriOss, ordine, beta)
 
     ha = zeros(ComplexF64, numBarre, numCentri)
 
-    for cont in 1:numBarre
+    Base.Threads.@threads for cont in 1:numBarre
         barra = barre[cont, :]
 
         xb = barra[[1, 4, 7, 10, 13, 16, 19, 22]]

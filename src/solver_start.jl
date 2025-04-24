@@ -102,9 +102,31 @@ function receive()
                 #println(dataToReturn)
                 publish_data(dataToReturn, "solver_results", chan)
               elseif data["message"] == "get results electric fields"
+                freq_index = data["body"]["freq_index"]
                 res = download_json_gz(aws, aws_bucket_name, data["body"]["fileId"])
+                println(size(JSON.parse(res["Ex"])))
+                resultsToPublish = Dict(
+                      "Vp" => res["Vp"],
+                      "Ex" => JSON.json(JSON.parse(res["Ex"])[freq_index]),
+                      "Ey" => JSON.json(JSON.parse(res["Ey"])[freq_index]),
+                      "Ez" => JSON.json(JSON.parse(res["Ez"])[freq_index]),
+                      "Ex_3D" => JSON.json(JSON.parse(res["Ex_3D"])[freq_index]),
+                      "Ey_3D" => JSON.json(JSON.parse(res["Ey_3D"])[freq_index]),
+                      "Ez_3D" => JSON.json(JSON.parse(res["Ez_3D"])[freq_index]),
+                      "Hx_3D" => JSON.json(JSON.parse(res["Hx_3D"])[freq_index]),
+                      "Hy_3D" => JSON.json(JSON.parse(res["Hy_3D"])[freq_index]),
+                      "Hz_3D" => JSON.json(JSON.parse(res["Hz_3D"])[freq_index]),
+                      "centri_oss_3D" => res["centri_oss_3D"],
+                      "distanze_3D" => res["distanze_3D"],
+                      "theta_vals" => res["theta_vals"],
+                      "x_grid" => res["x_grid"],
+                      "y_grid" => res["y_grid"],
+                      "z_grid" => res["z_grid"],
+                      "baricentro" => res["baricentro"],
+                      "f" => res["f"]
+                )
                 dataToReturn = Dict(
-                  "results" => res,
+                  "results" => resultsToPublish,
                   "simulationType" => "electric fields"
                 )
                 publish_data(dataToReturn, "solver_results", chan)

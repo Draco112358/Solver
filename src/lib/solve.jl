@@ -613,8 +613,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             return false
         end
 
-        println(out)
-
         # if is_stopped_computation(id, chan)
         #     return false
         # end
@@ -630,6 +628,13 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
                 "Hx_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hx_3D"])),
                 "Hy_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hy_3D"])),
                 "Hz_3D" => JSON.json(complex_matrix_to_float_array_matrix(out["Hz_3D"])),
+                "centri_oss_3D" => JSON.json(transpose(centri_oss_3D)),
+                "distanze_3D" => JSON.json(distanze_3D),
+                "theta_vals" => JSON.json(theta_vals),
+                "x_grid" => JSON.json(transpose(x_grid)),
+                "y_grid" => JSON.json(transpose(y_grid)),
+                "z_grid" => JSON.json(transpose(z_grid)),
+                "baricentro" => JSON.json(baricentro),
                 "f" => JSON.json(out["f"])
             )
             # publish_data(dataToReturn, "solver_results", chan)

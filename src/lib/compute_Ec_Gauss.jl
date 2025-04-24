@@ -10,7 +10,7 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta)
     end
 
     normale = hcat(normale...)
-    for cont in 1:num_barre
+    Base.Threads.@threads for cont in 1:num_barre
         if abs(normale[cont, 1]) > 1e-10
             perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
             perm2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]

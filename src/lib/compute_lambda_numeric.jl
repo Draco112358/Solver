@@ -15,7 +15,7 @@ function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_pun
 
     rootkx, wekx = qrule(ordine_int)
 
-    for m = 1:M
+    Base.Threads.@threads for m = 1:M
         for n = 1:N
 
             scelta = ""
