@@ -552,7 +552,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         println("scatter ", ports_scatter_value)
 
         println("reading ports")
-        println(size(nodi_coord))
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
         println("port_nodes ", ports[:port_nodes])
         println("lumped_nodes ", lumped_elements[:le_nodes])
