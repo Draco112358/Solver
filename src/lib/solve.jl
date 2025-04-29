@@ -614,7 +614,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
                 ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs, Is, centri_oss, centri_oss_3D, id, chan, commentsEnabled
         )
         println("data publish")
-        println(out)
         if (out == false)
             return false
         end

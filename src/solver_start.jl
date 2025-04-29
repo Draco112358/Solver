@@ -127,7 +127,8 @@ function receive()
                 )
                 dataToReturn = Dict(
                   "results" => resultsToPublish,
-                  "simulationType" => "electric fields"
+                  "simulationType" => "electric fields",
+                  "id" => data["body"]["id"]
                 )
                 publish_data(dataToReturn, "solver_results", chan)
               end
