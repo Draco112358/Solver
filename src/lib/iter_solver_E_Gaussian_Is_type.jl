@@ -230,31 +230,59 @@ function iter_solver_E_Gaussian_Is_type(
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
 		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
 
-		hc = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta)
+		hc = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, beta, id, chan)
+		if hc == false
+			return false
+		end
+		println("hc")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback", chan)
         end
-		hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta)
+		hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta, id, chan)
+		if hc_3D == false
+			return false
+		end
+		println("hc_3D")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback", chan)
         end
-		ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta)
+		ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta, id, chan)
+		if ha == false
+			return false
+		end
+		println("ha")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback", chan)
         end
-		ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta)
+		ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta, id, chan)
+		if ha_3D == false
+			return false
+		end
+		println("ha_3D")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 4, "electric_fields_results_name" => "Lambda_x", "id" => id), "solver_feedback", chan)
         end
-		Lambda_x = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, beta)
+		Lambda_x = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, beta, id, chan)
+		if Lambda_x == false
+			return false
+		end
+		println("Lambda_x")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 5, "electric_fields_results_name" => "Lambda_y", "id" => id), "solver_feedback", chan)
         end
-		Lambda_y = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, beta)
+		Lambda_y = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, beta, id, chan)
+		if Lambda_y == false
+			return false
+		end
+		println("Lambda_y")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 6, "electric_fields_results_name" => "Lambda_z", "id" => id), "solver_feedback", chan)
         end
-		Lambda_z = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, beta)
+		Lambda_z = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, beta, id, chan)
+		if Lambda_z == false
+			return false
+		end
+		println("Lambda_z")
 		if !isnothing(chan)
             publish_data(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback", chan)
         end

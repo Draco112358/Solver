@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta)
+function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, id, chan)
     num_barre = size(barre, 1)
     num_centri_oss = size(centriOss, 1)
     hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
@@ -36,7 +36,11 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta)
             end
         end
     end
-    return hc
+    if is_stopped_computation(id, chan)
+        return false
+    else
+        return hc
+    end
 end
 
 function compute_hcz_xy(barra, centriOss, ordine, beta)

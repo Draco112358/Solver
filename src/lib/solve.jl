@@ -456,13 +456,16 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         if !isnothing(chan)
             publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
         end
+        if is_stopped_computation(id, chan)
+            return false
+        end
         Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         if !isnothing(chan)
             publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
         end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
+        if is_stopped_computation(id, chan)
+            return false
+        end
 
         println("gmres")
         out = iter_solver_QS_S_type2(
@@ -577,13 +580,16 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         if !isnothing(chan)
             publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
         end
+        if is_stopped_computation(id, chan)
+            return false
+        end
         Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         if !isnothing(chan)
             publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
         end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
+        if is_stopped_computation(id, chan)
+            return false
+        end
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
         A = sparse(row_indices, col_indices, nz_values)
         E,K,H,E_theta_v,E_phi_v = compute_fields_components(theta, phi, e_theta, e_phi)
@@ -608,6 +614,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
                 ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs, Is, centri_oss, centri_oss_3D, id, chan, commentsEnabled
         )
         println("data publish")
+        println(out)
         if (out == false)
             return false
         end

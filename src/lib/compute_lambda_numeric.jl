@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_punti_oss, ordine_int, beta)
+function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_punti_oss, ordine_int, beta, id, chan)
 
     N = size(volumi[:coordinate], 1)
 
@@ -17,7 +17,6 @@ function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_pun
 
     Base.Threads.@threads for m = 1:M
         for n = 1:N
-
             scelta = ""
 
             if abs(vers_celle[n, 1]) > 1e-5
@@ -54,8 +53,11 @@ function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_pun
 
         end
     end
-
-    return Lambda
+    if is_stopped_computation(id, chan)
+        return false
+    else
+        return Lambda
+    end
 end
 
 function compute_hi(barra, centro_oss, scelta, rootkx, wekx, beta)

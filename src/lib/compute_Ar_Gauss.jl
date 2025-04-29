@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_Ar_Gauss(barre, centriOss, ordine, beta)
+function compute_Ar_Gauss(barre, centriOss, ordine, beta, id, chan)
     numCentri = size(centriOss, 1)
     numBarre = size(barre, 1)
 
@@ -25,8 +25,11 @@ function compute_Ar_Gauss(barre, centriOss, ordine, beta)
             ha[cont, cc] = compute_ha(x_o, x_bar, y_o, y_bar, z_o, z_bar, ordine, beta)
         end
     end
-
-    return ha
+    if is_stopped_computation(id, chan)
+        return false
+    else
+        return ha
+    end
 end
 
 function compute_ha(xo::Float64, x_vect_bar::Vector{Float64}, yo::Float64, y_vect_bar::Vector{Float64}, zo::Float64, z_vect_bar::Vector{Float64}, ordine::Int, beta::Float64)
