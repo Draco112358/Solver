@@ -46,6 +46,9 @@ function receive()
               basic_ack(chan, msg.delivery_tag)
               data = JSON.parse(String(msg.data))
               println(data["message"])
+              if data["message"] == "ping"
+                publish_data(Dict("target" => "solver", "status" => "ready"), "server_init", chan)
+              end
               if (data["message"] == "solving")
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
@@ -156,6 +159,14 @@ Base.exit_on_sigint(false)
 try
   receive()
 catch ex
+  #nuova connessione con il broker per avvisare il client che il solver è stato stoppato
+  connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
+    AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
+      publish_data(Dict("target" => "solver", "status" => "idle"), "server_init", chan)
+    end
+  end
+  sleep(2)
+  println("Shutdown initiated. The 'idle' status should have been published.")
   if ex isa InterruptException
       println("Interrupted")
   else
