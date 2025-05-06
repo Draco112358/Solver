@@ -600,7 +600,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             Trasformata=fft_UAq(times, is_matrix[k, :])
             Is[k,:]=Trasformata[2, ind_freq_interest]
         end
-
+        r_circ = r_circ*escal
+        baricentro = baricentro .* escal
         punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);
         punti_zx=genera_punti_circonferenza(r_circ,N_circ,baricentro,2);
         punti_yz=genera_punti_circonferenza(r_circ,N_circ,baricentro,3);

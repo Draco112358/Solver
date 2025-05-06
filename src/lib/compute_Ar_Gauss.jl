@@ -6,25 +6,33 @@ function compute_Ar_Gauss(barre, centriOss, ordine, beta, id, chan)
 
     ha = zeros(ComplexF64, numBarre, numCentri)
 
-    Base.Threads.@threads for cont in 1:numBarre
-        barra = barre[cont, :]
-
-        xb = barra[[1, 4, 7, 10, 13, 16, 19, 22]]
-        yb = barra[[2, 5, 8, 11, 14, 17, 20, 23]]
-        zb = barra[[3, 6, 9, 12, 15, 18, 21, 24]]
-
-        x_bar = [minimum(xb), maximum(xb)]
-        y_bar = [minimum(yb), maximum(yb)]
-        z_bar = [minimum(zb), maximum(zb)]
-
-        for cc in 1:numCentri
-            x_o = centriOss[cc, 1]
-            y_o = centriOss[cc, 2]
-            z_o = centriOss[cc, 3]
-
-            ha[cont, cc] = compute_ha(x_o, x_bar, y_o, y_bar, z_o, z_bar, ordine, beta)
+    block_size = 100
+    for m_block in 1:block_size:numBarre
+        m_end = min(m_block + block_size - 1, numBarre)
+        Base.Threads.@threads for cont in m_block:m_end
+            barra = barre[cont, :]
+    
+            xb = barra[[1, 4, 7, 10, 13, 16, 19, 22]]
+            yb = barra[[2, 5, 8, 11, 14, 17, 20, 23]]
+            zb = barra[[3, 6, 9, 12, 15, 18, 21, 24]]
+    
+            x_bar = [minimum(xb), maximum(xb)]
+            y_bar = [minimum(yb), maximum(yb)]
+            z_bar = [minimum(zb), maximum(zb)]
+    
+            for cc in 1:numCentri
+                x_o = centriOss[cc, 1]
+                y_o = centriOss[cc, 2]
+                z_o = centriOss[cc, 3]
+    
+                ha[cont, cc] = compute_ha(x_o, x_bar, y_o, y_bar, z_o, z_bar, ordine, beta)
+            end
         end
+        sleep(0)
+        println("block Ar : ", round(m_end/block_size), " / ", round(numBarre/block_size))
     end
+
+    
     if is_stopped_computation(id, chan)
         return false
     else

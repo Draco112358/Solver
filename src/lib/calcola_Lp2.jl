@@ -23,13 +23,13 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         Rz = Matrix{Float64}(undef, mz, mz)
 
         # Dimensione del blocco (da regolare in base alle esigenze)
-        block_size = 500
+        block_size = 200
 
         # Suddividiamo il ciclo sul parametro m in blocchi
-        Threads.@threads for m_block in 1:block_size:mx
+        for m_block in 1:block_size:mx
             m_end = min(m_block + block_size - 1, mx)
             
-            for m in m_block:m_end
+            Threads.@threads for m in m_block:m_end
                 for n in m:mx
                     dist = norm(view(volumi[:centri], m, :) .- view(volumi[:centri], n, :))
                     Rx[m, n] = dist
@@ -42,18 +42,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
             println("block Lp1 : ", round(m_end/block_size), " / ", round(mx/block_size))
         end
 
-        # Threads.@threads for m in 1:mx
-        #     for n in m:mx
-        #         dist = norm(volumi[:centri][m, :] .- volumi[:centri][n, :])
-        #         Rx[m, n] = dist
-        #         Rx[n, m] = dist
-        #     end
-        # end
-
-        Threads.@threads for m_block in 1:block_size:my
+        for m_block in 1:block_size:my
             m_end = min(m_block + block_size - 1, my)
             
-            for m in m_block:m_end
+            Threads.@threads for m in m_block:m_end
                 for n in m:my
                     dist = norm(view(volumi[:centri], m + mx, :) .- view(volumi[:centri], n + mx, :))
                     Ry[m, n] = dist
@@ -66,18 +58,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
             println("block Lp2 : ", round(m_end/block_size), " / ", round(my/block_size))
         end
 
-        # Threads.@threads for m in 1:my
-        #     for n in m:my
-        #         dist = norm(volumi[:centri][m + mx, :] .- volumi[:centri][n + mx, :])
-        #         Ry[m, n] = dist
-        #         Ry[n, m] = dist
-        #     end
-        # end
-
-        Threads.@threads for m_block in 1:block_size:mz
+        for m_block in 1:block_size:mz
             m_end = min(m_block + block_size - 1, mz)
             
-            for m in m_block:m_end
+            Threads.@threads for m in m_block:m_end
                 for n in m:mz
                     dist = norm(view(volumi[:centri], m + mx + my, :) .- view(volumi[:centri], n + mx + my, :))
                     Rz[m, n] = dist
@@ -89,14 +73,6 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
             sleep(0)
             println("block Lp3 : ", round(m_end/block_size), " / ", round(mz/block_size))
         end
-
-        # Threads.@threads for m in 1:mz
-        #     for n in m:mz
-        #         dist = norm(volumi[:centri][m + mx + my, :] .- volumi[:centri][n + mx + my, :])
-        #         Rz[m, n] = dist
-        #         Rz[n, m] = dist
-        #     end
-        # end
     end
 
     Lp_x = Matrix{Float64}(undef, mx, mx)
@@ -104,13 +80,13 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
     Lp_z = Matrix{Float64}(undef, mz, mz)
 
     # Dimensione del blocco (da regolare in base alle esigenze)
-    block_size = 500
+    block_size = 200
 
     # Suddividiamo il ciclo sul parametro m in blocchi
-    Threads.@threads for m_block in 1:block_size:mx
+    for m_block in 1:block_size:mx
         m_end = min(m_block + block_size - 1, mx)
         
-        for m in m_block:m_end
+        Threads.@threads for m in m_block:m_end
             Lp_x[m, m] = Compute_Lp_Self2(volumi[:coordinate][m, :], 1) * escalings[:Lp]
 
             for n in m+1:mx
@@ -129,25 +105,11 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         println("block Lp4 : ", round(m_end/block_size), " / ", round(mx/block_size))
     end
 
-    # Threads.@threads for m in 1:mx
-    #     Lp_x[m, m] = Compute_Lp_Self2(volumi[:coordinate][m, :], 1) * escalings[:Lp]
-
-    #     for n in m+1:mx
-    #         integ, _ = Song_improved_Ivana_strategy2(
-    #             volumi[:coordinate][m, :], volumi[:coordinate][n, :],
-    #             epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
-    #         )
-    #         value = 1e-7 / (volumi[:S][m] * volumi[:S][n]) * integ * escalings[:Lp]
-    #         Lp_x[m, n] = value
-    #         Lp_x[n, m] = value
-    #     end
-    # end
-
     # Suddividiamo il ciclo sul parametro m in blocchi
-    Threads.@threads for m_block in 1:block_size:my
+    for m_block in 1:block_size:my
         m_end = min(m_block + block_size - 1, my)
         
-        for m in m_block:m_end
+        Threads.@threads for m in m_block:m_end
             Lp_y[m, m] = Compute_Lp_Self2(volumi[:coordinate][m + mx, :], 2) * escalings[:Lp]
 
             for n in m+1:my
@@ -166,25 +128,11 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         println("block Lp5 : ", round(m_end/block_size), " / ", round(my/block_size))
     end
 
-    # Threads.@threads for m in 1:my
-    #     Lp_y[m, m] = Compute_Lp_Self2(volumi[:coordinate][m + mx, :], 2) * escalings[:Lp]
-
-    #     for n in m+1:my
-    #         integ, _ = Song_improved_Ivana_strategy2(
-    #             volumi[:coordinate][m + mx, :], volumi[:coordinate][n + mx, :],
-    #             epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
-    #         )
-    #         value = 1e-7 / (volumi[:S][m + mx] * volumi[:S][n + mx]) * integ * escalings[:Lp]
-    #         Lp_y[m, n] = value
-    #         Lp_y[n, m] = value
-    #     end
-    # end
-
     # Suddividiamo il ciclo sul parametro m in blocchi
-    Threads.@threads for m_block in 1:block_size:mz
+    for m_block in 1:block_size:mz
         m_end = min(m_block + block_size - 1, mz)
         
-        for m in m_block:m_end
+        Threads.@threads for m in m_block:m_end
             Lp_z[m, m] = Compute_Lp_Self2(volumi[:coordinate][m + mx + my, :], 3) * escalings[:Lp]
 
             for n in m+1:mz
@@ -202,20 +150,6 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         sleep(0)
         println("block Lp6 : ", round(m_end/block_size), " / ", round(mz/block_size))
     end
-
-    # Threads.@threads for m in 1:mz
-    #     Lp_z[m, m] = Compute_Lp_Self2(volumi[:coordinate][m + mx + my, :], 3) * escalings[:Lp]
-
-    #     for n in m+1:mz
-    #         integ, _ = Song_improved_Ivana_strategy2(
-    #             volumi[:coordinate][m + mx + my, :], volumi[:coordinate][n + mx + my, :],
-    #             epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
-    #         )
-    #         value = 1e-7 / (volumi[:S][m + mx + my] * volumi[:S][n + mx + my]) * integ * escalings[:Lp]
-    #         Lp_z[m, n] = value
-    #         Lp_z[n, m] = value
-    #     end
-    # end
     
     return Dict(
         :Lp_x => Lp_x,

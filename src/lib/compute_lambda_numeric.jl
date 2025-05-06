@@ -15,44 +15,53 @@ function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_pun
 
     rootkx, wekx = qrule(ordine_int)
 
-    Base.Threads.@threads for m = 1:M
-        for n = 1:N
-            scelta = ""
+    block_size = 10
 
-            if abs(vers_celle[n, 1]) > 1e-5
-
-                if abs(vers_punti_oss[m, 1]) > 1e-5
-                    scelta = "xx"
-                elseif abs(vers_punti_oss[m, 2]) > 1e-5
-                    scelta = "yx"
+    for m_block in 1:block_size:M
+        m_end = min(m_block + block_size - 1, M)
+        Base.Threads.@threads for m = m_block:m_end
+            for n = 1:N
+                scelta = ""
+    
+                if abs(vers_celle[n, 1]) > 1e-5
+    
+                    if abs(vers_punti_oss[m, 1]) > 1e-5
+                        scelta = "xx"
+                    elseif abs(vers_punti_oss[m, 2]) > 1e-5
+                        scelta = "yx"
+                    else
+                        scelta = "zx"
+                    end
+    
+                elseif abs(vers_celle[n, 2]) > 1e-5
+    
+                    if abs(vers_punti_oss[m, 1]) > 1e-5
+                        scelta = "xy"
+                    elseif abs(vers_punti_oss[m, 2]) > 1e-5
+                        scelta = "yy"
+                    else
+                        scelta = "zy"
+                    end
+    
                 else
-                    scelta = "zx"
+                    if abs(vers_punti_oss[m, 1]) > 1e-5
+                        scelta = "xz"
+                    elseif abs(vers_punti_oss[m, 2]) > 1e-5
+                        scelta = "yz"
+                    else
+                        scelta = "zz"
+                    end
                 end
-
-            elseif abs(vers_celle[n, 2]) > 1e-5
-
-                if abs(vers_punti_oss[m, 1]) > 1e-5
-                    scelta = "xy"
-                elseif abs(vers_punti_oss[m, 2]) > 1e-5
-                    scelta = "yy"
-                else
-                    scelta = "zy"
-                end
-
-            else
-                if abs(vers_punti_oss[m, 1]) > 1e-5
-                    scelta = "xz"
-                elseif abs(vers_punti_oss[m, 2]) > 1e-5
-                    scelta = "yz"
-                else
-                    scelta = "zz"
-                end
+    
+                Lambda[m, n] = compute_hi(volumi[:coordinate][n, :], punti_oss[m, :], scelta, rootkx, wekx, beta) / volumi[:S][n]
+    
             end
-
-            Lambda[m, n] = compute_hi(volumi[:coordinate][n, :], punti_oss[m, :], scelta, rootkx, wekx, beta) / volumi[:S][n]
-
         end
+        sleep(0)
+        println("block Lambda : ", round(m_end/block_size), " / ", round(M/block_size))
     end
+
+    
     if is_stopped_computation(id, chan)
         return false
     else

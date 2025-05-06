@@ -9,33 +9,43 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, id, chan)
         normale[i] = convert(Vector{Float64}, normale[i])
     end
 
+    block_size = 100
     normale = hcat(normale...)
-    Base.Threads.@threads for cont in 1:num_barre
-        if abs(normale[cont, 1]) > 1e-10
-            perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
-            perm2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]
-            for cc in 1:num_centri_oss
-                hc[cont, 1, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
-                hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [2, 3, 1]], ordine, beta)
-                hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
-            end
-        elseif abs(normale[cont, 2]) > 1e-10
-            perm = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
-            perm2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
-            for cc in 1:num_centri_oss
-                hc[cont, 1, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
-                hc[cont, 2, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
-                hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [3, 1, 2]], ordine, beta)
-            end
-        else
-            perm = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
-            for cc in 1:num_centri_oss
-                hc[cont, 1, cc] = compute_hcx_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
-                hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [2, 1, 3]], ordine, beta)
-                hc[cont, 3, cc] = compute_hcz_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
+    for m_block in 1:block_size:num_barre
+        m_end = min(m_block + block_size - 1, num_barre)
+        Base.Threads.@threads for cont in m_block:m_end
+            if abs(normale[cont, 1]) > 1e-10
+                perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
+                perm2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
+                    hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [2, 3, 1]], ordine, beta)
+                    hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
+                end
+            elseif abs(normale[cont, 2]) > 1e-10
+                perm = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
+                perm2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
+                    hc[cont, 2, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
+                    hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [3, 1, 2]], ordine, beta)
+                end
+            else
+                perm = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcx_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
+                    hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [2, 1, 3]], ordine, beta)
+                    hc[cont, 3, cc] = compute_hcz_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
+                end
             end
         end
+        sleep(0)
+        println("block Ec : ", round(m_end/block_size), " / ", round(num_barre/block_size))
     end
+
+    # Base.Threads.@threads for cont in 1:num_barre
+        
+    # end
     if is_stopped_computation(id, chan)
         return false
     else
