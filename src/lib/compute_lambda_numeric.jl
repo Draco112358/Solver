@@ -149,6 +149,9 @@ function compute_hi(barra, centro_oss, scelta, rootkx, wekx, beta)
                 f = draim * drbim * drcim * G
 
                 sum_c1 += wekx[c1] * f
+                if c1 % 20 == 0
+					yield()  # Permette alla task dell'heartbeat di essere schedulata
+				end
             end
             sum_b1 += wekx[b1] * sum_c1
         end
