@@ -520,28 +520,28 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         dev_stand=0.0
         tr=0.0
         power=0.0
-        if signal_type_E == "exponential"
+        if signal_type_E["type"] == "exponential"
             f0=0
             dev_stand=0;
     
-            time_delay_vs=3e-9;
-            tw = 50*0.1/3e8;
-            power=4.0;
+            time_delay_vs=parse(Float64,signal_type_E["params"]["time_delay_vs"]);
+            tw = parse(Float64,signal_type_E["params"]["tw"]);
+            power=parse(Float64,signal_type_E["params"]["power"]);
             vs, tr = genera_segnale_esponenziale(tw, power, times, time_delay_vs)
-        elseif signal_type_E == "gaussian_modulated"
+        elseif signal_type_E["type"] == "gaussian_modulated"
             tr=0;
             power=0;
             
-            time_delay_vs=3e-9;
-            f0=1e9;
-            dev_stand=10/(4*pi)*1e-9;
+            time_delay_vs=parse(Float64,signal_type_E["params"]["time_delay_vs"]);
+            f0=parse(Float64,signal_type_E["params"]["f0"]);
+            dev_stand=parse(Float64,signal_type_E["params"]["dev_stand"]);
             vs = genera_segnale_Gaussiano_modulato(f0, dev_stand, times, time_delay_vs)
-        elseif signal_type_E == "sinusoidal"
+        elseif signal_type_E["type"] == "sinusoidal"
             tr=0;
             dev_stand=0;
             power=0;
-            time_delay_vs=3e-9;
-            f0=1e8;
+            time_delay_vs=parse(Float64,signal_type_E["params"]["time_delay_vs"]);
+            f0=parse(Float64,signal_type_E["params"]["f0"]);
             vs = genera_segnale_sinusoidale(f0, times, time_delay_vs)
         end
         ind_freq_interest = ind_freq_interest .+ 1
@@ -568,7 +568,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         is_matrix = zeros(size(ports[:port_start], 1), length(times))
         for (index, signal_type) in enumerate(ports[:signals_port])
-            if signal_type != "no_signal"
+            if signal_type["type"] != "no_signal"
                 vs = getSignalbasedOn(signal_type, times)
                 is_matrix[index, :] = vs
             end
@@ -664,38 +664,38 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 end
 
 function getSignalbasedOn(signal_type, times)
-    if signal_type == "exponential"
+    if signal_type["type"] == "exponential"
         f0=0
         dev_stand=0;
 
-        time_delay_vs=3e-9;
-        tw = 50*0.1/3e8;
-        power=4.0;
+        time_delay_vs=parse(Float64,signal_type["params"]["time_delay_vs"]);
+        tw = parse(Float64,signal_type["params"]["tw"])
+        power=parse(Float64,signal_type["params"]["power"]);
         vs, tr = genera_segnale_esponenziale(tw, power, times, time_delay_vs)
         return vs
-    elseif signal_type == "gaussian_modulated"
+    elseif signal_type["type"] == "gaussian_modulated"
         tr=0;
         power=0;
         
-        time_delay_vs=3e-9;
-        f0=1e9;
-        dev_stand=10/(4*pi)*1e-9;
+        time_delay_vs=parse(Float64,signal_type["params"]["time_delay_vs"]);
+        f0=parse(Float64,signal_type["params"]["f0"]);
+        dev_stand=parse(Float64,signal_type["params"]["dev_stand"]);
         vs = genera_segnale_Gaussiano_modulato(f0, dev_stand, times, time_delay_vs)
         return vs
-    elseif signal_type == "sinusoidal"
+    elseif signal_type["type"] == "sinusoidal"
         tr=0;
         dev_stand=0;
         power=0;
-        time_delay_vs=3e-9;
-        f0=1e8;
+        time_delay_vs=parse(Float64,signal_type["params"]["time_delay_vs"]);
+        f0=parse(Float64,signal_type["params"]["f0"]);
         vs = genera_segnale_sinusoidale(f0, times, time_delay_vs)
         return vs
-    elseif signal_type == "trapezoidal_pulse"
-        Amplitude=1e-9;
-        initial_delay_time=2e-9;
-        high_level_time=10e-9;
-        raise_time=10e-9;
-        falling_time=10e-9;
+    elseif signal_type["type"] == "trapezoidal_pulse"
+        Amplitude=parse(Float64,signal_type["params"]["A"]);
+        initial_delay_time=parse(Float64,signal_type["params"]["initial_delay_time"]);
+        high_level_time=parse(Float64,signal_type["params"]["high_level_time"]);
+        raise_time=parse(Float64,signal_type["params"]["raise_time"]);
+        falling_time=parse(Float64,signal_type["params"]["falling_time"]);
         vs = build_trapezoidal_pulse(initial_delay_time, Amplitude, high_level_time, raise_time, falling_time, times)
         return vs
     end
