@@ -22,13 +22,13 @@ function computeVs(time, time_delay_vs, signal_type_E, volumi, nodi_coord, E, K,
         ft = zeros(length(time))
         time_shifted = time .- time_delay_vs .- dot(K, r) / c0
         
-        if signal_type_E == "exponential"
+        if signal_type_E["type"] == "exponential"
             # time evolution of the electric field for exponential signal
             ft .= (time_shifted ./ tr).^power .* exp.(-power .* (time_shifted ./ tr .- 1)) .* (time .>= (time_delay_vs .+ dot(K, r) / c0))
-        elseif signal_type_E == "gaussian_modulated"
+        elseif signal_type_E["type"] == "gaussian_modulated"
             # time evolution of the electric field for modulated Gaussian signal
             ft .= cos.(2 * pi * f0 * time_shifted) .* exp.(-(time_shifted).^2 / (2 * dev_stand^2)) .* (time .>= (time_delay_vs .+ dot(K, r) / c0))
-        elseif signal_type_E == "sinusoidal"
+        elseif signal_type_E["type"] == "sinusoidal"
             # time evolution of the electric field for sinusoidal signal
             ft .= cos.(2 * pi * f0 * time_shifted) .* (time .>= (time_delay_vs .+ dot(K, r) / c0))
         end
