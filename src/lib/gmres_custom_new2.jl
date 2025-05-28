@@ -22,7 +22,7 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
 
     n2b = norm(b);                   
     if (n2b == 0)                    
-        a::Union{Vector{ComplexF64}, Vector{Float64}} = zeros(n,1);              
+        a = zeros(n,1);              
         flag::Int64 = 0;                    
         relres::Float64 = 0.0;                  
         iter::Vector{Int64} = [0 0];                

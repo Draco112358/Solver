@@ -513,7 +513,7 @@ end
 
 function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     try
-        N_circ = 180
+        N_circ = 360
         N_circ_3D = 10
         time_delay_vs = 0.0
         f0=0.0
@@ -577,16 +577,18 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         println("P and Lp")
         P_data = calcola_P(superfici, escalings, QS_Rcc_FW)
-        if !isnothing(chan)
-            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
-        end
+        send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
+        # if !isnothing(chan)
+        #     publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        # end
         if is_stopped_computation(id, chan)
             return false
         end
         Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
-        if !isnothing(chan)
-            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
-        end
+        send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
+        # if !isnothing(chan)
+        #     publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        # end
         if is_stopped_computation(id, chan)
             return false
         end
@@ -599,6 +601,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         for k in 1:size(ports[:port_nodes], 1)
             Trasformata=fft_UAq(times, is_matrix[k, :])
             Is[k,:]=Trasformata[2, ind_freq_interest]
+            # Is[k,:].=0.02+0im
+            # println(angle.(Is))
         end
         r_circ = r_circ*escal
         baricentro = baricentro .* escal
@@ -645,10 +649,11 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             # publish_data(dataToReturn, "solver_results", chan)
             filename = id * "_results.json.gz"
             saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
+            send_rabbitmq_feedback(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback")
             #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
-            if !isnothing(chan)
-                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
-            end
+            # if !isnothing(chan)
+            #     publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
+            # end
         end
     catch e
         if e isa OutOfMemoryError

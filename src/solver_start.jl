@@ -30,6 +30,17 @@ const VIRTUALHOST = "/"
 const HOST = "127.0.0.1"
 const stop_condition = Ref{Float64}(0.0)
 
+function stopSolver(VIRTUALHOST, HOST)
+  #nuova connessione con il broker per avvisare il client che il solver è stato stoppato
+  connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
+    AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
+      publish_data(Dict("target" => "solver", "status" => "idle"), "server_init", chan)
+    end
+  end
+  println("Shutdown initiated. The 'idle' status should have been published.")
+  exit()
+end
+
 function receive()
   # 1. Create a connection to the localhost or 127.0.0.1 of virtualhost '/'
   connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
@@ -46,13 +57,25 @@ function receive()
               basic_ack(chan, msg.delivery_tag)
               data = JSON.parse(String(msg.data))
               println(data["message"])
-              if data["message"] == "ping"
-                publish_data(Dict("target" => "solver", "status" => "ready"), "server_init", chan)
+              try
+                if data["message"] == "ping"
+                  publish_data(Dict("target" => "solver", "status" => "ready"), "server_init", chan)
+                  basic_ack(chan, msg.delivery_tag)
+                end
+              catch e
+                println("Rilevated Exception on ping: $(e)")
+                stopSolver(VIRTUALHOST, HOST)
               end
               if (data["message"] == "solving")
+                if length(stopComputation) > 0
+                    pop!(stopComputation)
+                end
                 mesherOutput = download_json_gz(aws, aws_bucket_name, data["body"]["mesherFileId"])
                 Threads.@spawn doSolving(mesherOutput, data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
               elseif data["message"] == "solving ris"
+                if length(stopComputation) > 0
+                    pop!(stopComputation)
+                end
                 if data["body"]["mesherType"] === "backend"
                   mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
                   println(typeof(mesherOutput))
@@ -70,6 +93,9 @@ function receive()
                   Threads.@spawn doSolvingRis(mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings], data["body"]["solverInput"], data["body"]["solverAlgoParams"], data["body"]["solverType"], data["body"]["id"], aws, aws_bucket_name; chan)
                 end
               elseif data["message"] == "solving electric fields"
+                if length(stopComputation) > 0
+                    pop!(stopComputation)
+                end
                 if data["body"]["mesherType"] === "backend"
                   mesherOutput = download_serialized_data(aws, aws_bucket_name, data["body"]["mesherFileId"])
                   surface = download_json_gz(aws, aws_bucket_name, data["body"]["surfaceFileId"])
@@ -107,7 +133,6 @@ function receive()
               elseif data["message"] == "get results electric fields"
                 freq_index = data["body"]["freq_index"]
                 res = download_json_gz(aws, aws_bucket_name, data["body"]["fileId"])
-                println(size(JSON.parse(res["Ex"])))
                 resultsToPublish = Dict(
                       "Vp" => res["Vp"],
                       "Ex" => JSON.json(JSON.parse(res["Ex"])[freq_index]),
@@ -159,16 +184,8 @@ Base.exit_on_sigint(false)
 try
   receive()
 catch ex
-  #nuova connessione con il broker per avvisare il client che il solver è stato stoppato
-  connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
-    AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
-      publish_data(Dict("target" => "solver", "status" => "idle"), "server_init", chan)
-    end
-  end
-  sleep(2)
-  println("Shutdown initiated. The 'idle' status should have been published.")
   if ex isa InterruptException
-      println("Interrupted")
+    stopSolver(VIRTUALHOST, HOST)
   else
       println("Exception: $ex")
   end

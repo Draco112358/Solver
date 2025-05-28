@@ -223,9 +223,7 @@ function iter_solver_E_Gaussian_Is_type(
 		I = V[1:m] ./ escalings[:Is]
 		J = I ./ volumi[:S]
 
-		if !isnothing(chan)
-            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
 
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
 		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
@@ -234,58 +232,37 @@ function iter_solver_E_Gaussian_Is_type(
 		if hc == false
 			return false
 		end
-		println("hc")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback")
 		hc_3D = compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, beta, id, chan)
 		if hc_3D == false
 			return false
 		end
-		println("hc_3D")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback")
 		ha = compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, beta, id, chan)
 		if ha == false
 			return false
 		end
-		println("ha")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
 		ha_3D = compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, beta, id, chan)
 		if ha_3D == false
 			return false
 		end
-		println("ha_3D")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 4, "electric_fields_results_name" => "Lambda_x", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 4, "electric_fields_results_name" => "Lambda_x", "id" => id), "solver_feedback")
 		Lambda_x = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, beta, id, chan)
 		if Lambda_x == false
 			return false
 		end
-		println("Lambda_x")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 5, "electric_fields_results_name" => "Lambda_y", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 5, "electric_fields_results_name" => "Lambda_y", "id" => id), "solver_feedback")
 		Lambda_y = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, beta, id, chan)
 		if Lambda_y == false
 			return false
 		end
-		println("Lambda_y")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 6, "electric_fields_results_name" => "Lambda_z", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 6, "electric_fields_results_name" => "Lambda_z", "id" => id), "solver_feedback")
 		Lambda_z = compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, beta, id, chan)
 		if Lambda_z == false
 			return false
 		end
-		println("Lambda_z")
-		if !isnothing(chan)
-            publish_data(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback", chan)
-        end
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback")
 
 		out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k] / escalings[:freq])
 		out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k] / escalings[:freq])

@@ -10,5 +10,6 @@ using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
 
-include("src/solver_start.jl")
+#include("src/solver_start.jl")
+include("src/solver_start3.jl")
 #include("src/restore_message.jl")
