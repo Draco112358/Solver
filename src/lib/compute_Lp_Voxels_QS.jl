@@ -4,7 +4,7 @@ function round_ud(arr, precision)
     return round.(arr .* factor) ./ factor
 end
 
-function compute_Lp_Voxels_QS(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc)
+function compute_Lp_Voxels_QS(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, id)
     N = size(centri_n, 1)
     Lp = zeros(N)
 
@@ -31,6 +31,10 @@ function compute_Lp_Voxels_QS(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc)
         z2v = round_ud([c2[3] - sz2/2, c2[3] + sz2/2], round_precision)
         
         Lp[n] = 1e-7 / S * Integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
+        end
     end
 
     return Lp

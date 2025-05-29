@@ -106,8 +106,12 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         #     FFTCLp_rebuilted=compute_Circulant_Lp_FW(FFTCLp,escalings,freq(k)/escalings["freq"]);
         #     FFTCP_rebuilted=compute_Circulant_P_sup_FW(FFTCP,escalings,freq(k)/escalings["freq"]);
         end
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
         Yle::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = build_Yle_S(lumped_elements, [], ports, escalings, n, w[k] / escalings["freq"], ports_scatter_value)
         Z_self::Vector{ComplexF64} = compute_Z_self(diagonals["R"], diagonals["Cd"], w[k])
@@ -146,7 +150,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #println("start gmres")
                 V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
                 if flag == 99
-                    return false
+                    return nothing
                 end
                 
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
@@ -185,7 +189,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 println("start gmres Rcc")
                 V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
                 if flag == 99
-                    return false
+                    return nothing
                 end
                 
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
@@ -214,23 +218,22 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 end
             end
         end
-        if !isnothing(chan)
-            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
-        end
-        if (commentsEnabled == true)
-            partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports["port_nodes"], 1), id; partial=true, freqIndex=k)
-            dataToReturn = Dict(
-                "portIndex" => 0,
-                "partial" => true,
-                "freqIndex" => partial_res["freqIndex"],
-                "results" => Dict(
-                    "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
-                    "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
-                    "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
-                )
-            )
-            publish_data(dataToReturn, "solver_results", chan)
-        end
+        send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
+        # pubblicazione risultati parziali
+        # if (commentsEnabled == true)
+        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports["port_nodes"], 1), id; partial=true, freqIndex=k)
+        #     dataToReturn = Dict(
+        #         "portIndex" => 0,
+        #         "partial" => true,
+        #         "freqIndex" => partial_res["freqIndex"],
+        #         "results" => Dict(
+        #             "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
+        #             "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
+        #             "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
+        #         )
+        #     )
+        #     send_rabbitmq_feedback(dataToReturn, "solver_results")
+        # end
     end
     out::Dict = Dict()
     out["S"] = S

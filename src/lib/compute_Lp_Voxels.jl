@@ -1,4 +1,4 @@
-function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is_sym)
+function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is_sym, id)
     #M = size(centri_m, 1)
     M = convert(Int64,size(centri_m, 1)/3)
     N = size(centri_n, 1)
@@ -19,6 +19,10 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
             x1v = round_ud([c1[1] - sx / 2, c1[1] + sx / 2], round_precision)
             y1v = round_ud([c1[2] - sy / 2, c1[2] + sy / 2], round_precision)
             z1v = round_ud([c1[3] - sz / 2, c1[3] + sz / 2], round_precision)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return nothing # O un altro valore che indica interruzione
+            end
             for n = m:N
                 c2 = centri_m[1:3]
                 x2v = round_ud([c2[1] - sx2 / 2, c2[1] + sx2 / 2], round_precision)
@@ -26,6 +30,10 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
                 z2v = round_ud([c2[3] - sz2 / 2, c2[3] + sz2 / 2], round_precision)
                 Lp[m, n] = 1e-7 / S * Integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
                 Lp[n, m] = Lp[m, n]
+                if is_stop_requested(id)
+                    println("Simulazione $(id) interrotta per richiesta stop.")
+                    return nothing # O un altro valore che indica interruzione
+                end
             end
         end
     else
@@ -34,12 +42,20 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
             x1v = round_ud([c1[1] - sx / 2, c1[1] + sx / 2], round_precision)
             y1v = round_ud([c1[2] - sy / 2, c1[2] + sy / 2], round_precision)
             z1v = round_ud([c1[3] - sz / 2, c1[3] + sz / 2], round_precision)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return nothing # O un altro valore che indica interruzione
+            end
             for n = 1:N
                 c2 = [centri_n[n,1], centri_n[n,2], centri_n[n,3]]
                 x2v = round_ud([c2[1] - sx2 / 2, c2[1] + sx2 / 2], round_precision)
                 y2v = round_ud([c2[2] - sy2 / 2, c2[2] + sy2 / 2], round_precision)
                 z2v = round_ud([c2[3] - sz2 / 2, c2[3] + sz2 / 2], round_precision)
                 Lp[m, n] = 1e-7 / S * Integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
+                if is_stop_requested(id)
+                    println("Simulazione $(id) interrotta per richiesta stop.")
+                    return nothing # O un altro valore che indica interruzione
+                end
             end
         end
     end

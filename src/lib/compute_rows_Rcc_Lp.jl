@@ -1,7 +1,7 @@
 include("compute_Voxels_Rcc.jl")
 include("compute_Lp_Voxels_QS.jl")
 
-function compute_rows_Rcc_Lp(circulant_centers)
+function compute_rows_Rcc_Lp(circulant_centers, id)
     # Extract properties from circulant_centers
     sx = circulant_centers["sx"]
     sy = circulant_centers["sy"]
@@ -29,7 +29,10 @@ function compute_rows_Rcc_Lp(circulant_centers)
         coss = circulant_centers["Lpx"][1, :]
 
         Threads.@threads for cpf in range(1,length(VS))
-            Lpx_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpx"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc)
+            Lpx_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpx"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc,id)
+            if isnothing(Lpx_rowS)
+                return nothing
+            end
         end
 
         rows_Lp["Lpx_QS"] = zeros(num_ele_Lp_par)
@@ -57,7 +60,10 @@ function compute_rows_Rcc_Lp(circulant_centers)
         coss = circulant_centers["Lpy"][1, :]
 
         Threads.@threads for cpf in range(1,length(VS))
-            Lpy_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpy"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc)
+            Lpy_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpy"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc, id)
+            if isnothing(Lpy_rowS)
+                return nothing
+            end
         end
 
         rows_Lp["Lpy_QS"] = zeros(num_ele_Lp_par)
@@ -85,7 +91,10 @@ function compute_rows_Rcc_Lp(circulant_centers)
         coss = circulant_centers["Lpz"][1, :]
 
         Threads.@threads for cpf in range(1,length(VS))
-            Lpz_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpz"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc)
+            Lpz_rowS[cpf] = compute_Lp_Voxels_QS(coss, circulant_centers["Lpz"][VS[cpf]:VE[cpf], :], sx, sy, sz, sx, sy, sz, dc, id)
+            if isnothing(Lpz_rowS)
+                return nothing
+            end
         end
 
         rows_Lp["Lpz_QS"] = zeros(num_ele_Lp_par)

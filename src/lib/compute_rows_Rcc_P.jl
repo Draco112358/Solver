@@ -2,7 +2,7 @@ include("compute_row_P_sup.jl")
 include("compute_P_vox_Rcc.jl")
 using FLoops
 
-function compute_rows_Rcc_P(circulant_centers)
+function compute_rows_Rcc_P(circulant_centers, id)
     sx = circulant_centers["sx"]
     sy = circulant_centers["sy"]
     sz = circulant_centers["sz"]
@@ -48,33 +48,33 @@ function compute_rows_Rcc_P(circulant_centers)
     size_subs = 10000
 
     # Compute sub-block indices and QS{1,1}
-    compute_qs_entry!(rows_P, circulant_centers["p12_se"], sx, sy, sz, size_subs, 1, 1)
-    compute_qs_entry!(rows_P, circulant_centers["p34_se"], sx, sy, sz, size_subs, 2, 2)
-    compute_qs_entry!(rows_P, circulant_centers["p56_se"], sx, sy, sz, size_subs, 3, 3)
-    compute_qs_entry!(rows_P, circulant_centers["p1234"], sx, sy, sz, size_subs, 1, 2)
-    compute_qs_entry!(rows_P, circulant_centers["p1256"], sx, sy, sz, size_subs, 1, 3)
-    compute_qs_entry!(rows_P, circulant_centers["p3456"], sx, sy, sz, size_subs, 2, 3)
+    compute_qs_entry!(rows_P, circulant_centers["p12_se"], sx, sy, sz, size_subs, 1, 1, id)
+    compute_qs_entry!(rows_P, circulant_centers["p34_se"], sx, sy, sz, size_subs, 2, 2, id)
+    compute_qs_entry!(rows_P, circulant_centers["p56_se"], sx, sy, sz, size_subs, 3, 3, id)
+    compute_qs_entry!(rows_P, circulant_centers["p1234"], sx, sy, sz, size_subs, 1, 2, id)
+    compute_qs_entry!(rows_P, circulant_centers["p1256"], sx, sy, sz, size_subs, 1, 3, id)
+    compute_qs_entry!(rows_P, circulant_centers["p3456"], sx, sy, sz, size_subs, 2, 3, id)
 
     # Compute Rcc values
-    rows_P["Rcc"][1, 1] = compute_P_vox_Rcc(circulant_centers["p12_se"][1, :], circulant_centers["p12_se"], sx, sy, sz, 1, 1)
-    rows_P["Rcc"][2, 2] = compute_P_vox_Rcc(circulant_centers["p34_se"][1, :], circulant_centers["p34_se"], sx, sy, sz, 3, 3)
-    rows_P["Rcc"][3, 3] = compute_P_vox_Rcc(circulant_centers["p56_se"][1, :], circulant_centers["p56_se"], sx, sy, sz, 5, 5)
-    rows_P["Rcc"][1, 2] = compute_P_vox_Rcc(circulant_centers["p1234"][1, :], circulant_centers["p1234"], sx, sy, sz, 3, 2)
-    rows_P["Rcc"][1, 3] = compute_P_vox_Rcc(circulant_centers["p1256"][1, :], circulant_centers["p1256"], sx, sy, sz, 5, 2)
-    rows_P["Rcc"][2, 3] = compute_P_vox_Rcc(circulant_centers["p3456"][1, :], circulant_centers["p3456"], sx, sy, sz, 5, 4)
+    rows_P["Rcc"][1, 1] = compute_P_vox_Rcc(circulant_centers["p12_se"][1, :], circulant_centers["p12_se"], sx, sy, sz, 1, 1, id)
+    rows_P["Rcc"][2, 2] = compute_P_vox_Rcc(circulant_centers["p34_se"][1, :], circulant_centers["p34_se"], sx, sy, sz, 3, 3, id)
+    rows_P["Rcc"][3, 3] = compute_P_vox_Rcc(circulant_centers["p56_se"][1, :], circulant_centers["p56_se"], sx, sy, sz, 5, 5, id)
+    rows_P["Rcc"][1, 2] = compute_P_vox_Rcc(circulant_centers["p1234"][1, :], circulant_centers["p1234"], sx, sy, sz, 3, 2, id)
+    rows_P["Rcc"][1, 3] = compute_P_vox_Rcc(circulant_centers["p1256"][1, :], circulant_centers["p1256"], sx, sy, sz, 5, 2, id)
+    rows_P["Rcc"][2, 3] = compute_P_vox_Rcc(circulant_centers["p3456"][1, :], circulant_centers["p3456"], sx, sy, sz, 5, 4, id)
 
     return rows_P
 end
 
 # Helper function to compute entries for QS
-function compute_qs_entry!(rows_P, p_se, sx, sy, sz, size_subs, row, col)
+function compute_qs_entry!(rows_P, p_se, sx, sy, sz, size_subs, row, col, id)
     num_ele_P_par = size(p_se, 1)
     VS, VE = generate_indices_sub_blocks(num_ele_P_par, size_subs)
     row_PS = Vector{Any}(undef, length(VS))
     coss = p_se[1, :]
     #deve essere fatto in parallelo
     for cpf in range(1, length(VS))
-        row_PS[cpf] = compute_row_P_sup(coss, p_se[VS[cpf]:VE[cpf], :], sx, sy, sz, row, col)
+        row_PS[cpf] = compute_row_P_sup(coss, p_se[VS[cpf]:VE[cpf], :], sx, sy, sz, row, col, id)
     end
     rows_P["QS"][row, col] = zeros(num_ele_P_par)
     for cpf in range(1, length(VS))

@@ -1,7 +1,7 @@
 include("Compute_Lp_Self2.jl")
 include("Song_improved_Ivana_strategy2.jl")
 
-function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
+function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
 	epsilon1 = 5e-3
 	epsilon2 = 1e-3
 	epsilon3 = 1e-3
@@ -42,6 +42,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 			# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 			sleep(0)
+			if is_stop_requested(id)
+				println("Simulazione $(id) interrotta per richiesta stop.")
+				return nothing # O un altro valore che indica interruzione
+			end
 			println("block Lp1 : ", round(m_end / block_size), " / ", round(mx / block_size))
 		end
 
@@ -61,6 +65,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 			# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 			sleep(0)
+			if is_stop_requested(id)
+				println("Simulazione $(id) interrotta per richiesta stop.")
+				return nothing # O un altro valore che indica interruzione
+			end
 			println("block Lp2 : ", round(m_end / block_size), " / ", round(my / block_size))
 		end
 
@@ -80,6 +88,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 			# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 			sleep(0)
+			if is_stop_requested(id)
+				println("Simulazione $(id) interrotta per richiesta stop.")
+				return nothing # O un altro valore che indica interruzione
+			end
 			println("block Lp3 : ", round(m_end / block_size), " / ", round(mz / block_size))
 		end
 	end
@@ -114,6 +126,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 		sleep(0)
+		if is_stop_requested(id)
+			println("Simulazione $(id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 		println("block Lp4 : ", round(m_end / block_size), " / ", round(mx / block_size))
 	end
 
@@ -140,6 +156,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 		sleep(0)
+		if is_stop_requested(id)
+			println("Simulazione $(id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 		println("block Lp5 : ", round(m_end / block_size), " / ", round(my / block_size))
 	end
 
@@ -166,6 +186,10 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
 
 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
 		sleep(0)
+		if is_stop_requested(id)
+			println("Simulazione $(id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 		println("block Lp6 : ", round(m_end / block_size), " / ", round(mz / block_size))
 	end
 

@@ -1,4 +1,4 @@
-function compute_row_P_sup(centers, centers2, sx, sy, sz, caser, caser2)
+function compute_row_P_sup(centers, centers2, sx, sy, sz, caser, caser2, id)
     eps0 = 8.854187816997944e-12
     if caser == 1
         A1 = sx * sz
@@ -54,26 +54,50 @@ function compute_row_P_sup(centers, centers2, sx, sy, sz, caser, caser2)
     if caser2 == 1
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sx * sz) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1], centers2[k, 2] - sy / 2, centers2[k, 3], a1, b1, c1, sx, 0, sz)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     elseif caser2 == 2
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sx * sz) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1], centers2[k, 2] + sy / 2, centers2[k, 3], a1, b1, c1, sx, 0, sz)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     elseif caser2 == 3
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sy * sz) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1] - sx / 2, centers2[k, 2], centers2[k, 3], a1, b1, c1, 0, sy, sz)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     elseif caser2 == 4
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sy * sz) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1] + sx / 2, centers2[k, 2], centers2[k, 3], a1, b1, c1, 0, sy, sz)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     elseif caser2 == 5
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sx * sy) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1], centers2[k, 2], centers2[k, 3] - sz / 2, a1, b1, c1, sx, sy, 0)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     else
         for k = 1:N
             row[k] = 1 / (4 * pi * eps0 * A1 * sx * sy) * Integ_sup_sup(xc1, yc1, zc1, centers2[k, 1], centers2[k, 2], centers2[k, 3] + sz / 2, a1, b1, c1, sx, sy, 0)
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return NaN # O un altro valore che indica interruzione
+            end
         end
     end
     return row

@@ -1,6 +1,6 @@
 include("Song_P_improved_Ivana_strategy.jl")
 
-function calcola_P(superfici, escalings, QS_Rcc_FW)
+function calcola_P(superfici, escalings, QS_Rcc_FW, id)
 
 	eps0 = 8.854187816997944e-12
 
@@ -33,6 +33,10 @@ function calcola_P(superfici, escalings, QS_Rcc_FW)
 			end
 			# Dopo aver processato un blocco, cedi il controllo per permettere la gestione dei heartbeat e altre operazioni
 			sleep(0)
+			if is_stop_requested(id)
+				println("Simulazione $(id) interrotta per richiesta stop.")
+				return nothing # O un altro valore che indica interruzione
+			end
 			println("block: ", round(m_end / block_size1), " / ", round(nsup / block_size1))
 		end
 	end
@@ -61,6 +65,10 @@ function calcola_P(superfici, escalings, QS_Rcc_FW)
 		end
 		# Al termine di ogni blocco, cedi il controllo per consentire l'invio dei heartbeat
 		sleep(0)
+		if is_stop_requested(id)
+			println("Simulazione $(id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 		println("block: ", round(m_end / block_size2), " / ", round(nsup / block_size2))
 	end
 

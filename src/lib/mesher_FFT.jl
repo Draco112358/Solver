@@ -18,7 +18,7 @@ include("create_A_mats_and_find_borders_with_map_Zs.jl")
 
 using SparseArrays
 
-function mesher_FFT(use_escalings, materials, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, ports, lumped_elements, origin, commentsEnabled, dominant_list)
+function mesher_FFT(use_escalings, materials, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, ports, lumped_elements, origin, commentsEnabled, dominant_list, id)
 
     # dominant_list = 1
 
@@ -106,7 +106,10 @@ function mesher_FFT(use_escalings, materials, sx, sy, sz, grids, centri_vox, ext
     li_mats["sx"] = sx
     li_mats["sy"] = sy
     li_mats["sz"] = sz
-    diagonals["P"] = compute_diagonal_P_v2(expansions["N1"], expansions["N2"], expansions["N3"], escalings, sx, sy, sz)
+    diagonals["P"] = compute_diagonal_P_v2(expansions["N1"], expansions["N2"], expansions["N3"], escalings, sx, sy, sz, id)
+    if isnothing(diagonals["P"])
+        return nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing
+    end
     # ---only point-to-point ports or le ------------------
     ports = find_voxels_port_pp(centri_vox, ports, nodes, nodes_red)
     ports["surf_s_port_nodes"] = Array{Any}(undef, 0)
@@ -128,14 +131,23 @@ function mesher_FFT(use_escalings, materials, sx, sy, sz, grids, centri_vox, ext
     #return ports,lumped_elements
 end
 
-function compute_diagonal_P_v2(N1, N2, N3, escalings, sx, sy, sz)
+function compute_diagonal_P_v2(N1, N2, N3, escalings, sx, sy, sz, id)
     self_P = zeros(3, 1)
     centro_vox = [0 0 0]
-    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 1, 1)
+    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 1, 1, id)
+    if typeof(row_P) !== Matrix{Float64} && isnan(row_P)
+        return nothing
+    end
     self_P[1] = row_P[1]
-    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 3, 3)
+    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 3, 3, id)
+    if typeof(row_P) !== Matrix{Float64} && isnan(row_P)
+        return nothing
+    end
     self_P[2] = row_P[1]
-    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 5, 5)
+    row_P = escalings["P"] * compute_row_P_sup(centro_vox, centro_vox, sx, sy, sz, 5, 5, id)
+    if typeof(row_P) !== Matrix{Float64} && isnan(row_P)
+        return nothing
+    end
     self_P[3] = row_P[1]
     diag_P = vcat(
         fill(self_P[1], N1),

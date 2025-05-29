@@ -33,7 +33,9 @@ const HOST = "127.0.0.1"
 const solver_overall_status = Ref("ready") # ready, busy, error
 const active_simulations = Dict{String, Dict{String, Any}}() # ID simulazione -> {status, progress, start_time, etc.}
 const simulations_lock = ReentrantLock() # Lock per proteggere `active_simulations`
-const stopComputation = []
+# const stopComputation = []
+const stopComputation = Dict{String, Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
+const stop_computation_lock = ReentrantLock() # Aggiungi un lock per proteggere stopComputation
 const commentsEnabled = []
 
 # ==============================================================================
@@ -149,32 +151,6 @@ function setup_genie_routes()
         end
     end
 
-    # Endpoint per caricare file
-    # route("/upload", method = POST) do
-    #     try
-    #         payload = Genie.Requests.filespayload()
-    #         if isempty(payload)
-    #             return  JSON.json(Dict("error" => "No file uploaded"), status = 400)
-    #         end
-
-    #         file = first(values(payload)) # Prende il primo file caricato
-    #         filename = file.name
-    #         file_data = file.data # Questo è un Vector{UInt8}
-
-    #         # Genera un ID univoco per il file, es. usando UUIDs
-    #         file_id = string(Base.UUIDs.uuid4()) * "_" * filename
-    #         s3_key = "uploads/" * file_id # La chiave per S3
-
-    #         # Carica il file su S3
-    #         AWSS3.s3_put(aws, aws_bucket_name, s3_key, file_data)
-    #         println("File $(filename) caricato su S3 come $(s3_key)")
-
-    #         json(Dict("message" => "File uploaded successfully", "file_id" => s3_key))
-    #     catch e
-    #         println("Errore nell'upload del file: $(e)")
-    #         json(Dict("error" => "Failed to upload file: $(e)"), status = 500)
-    #     end
-    # end
 
     # Endpoint per avviare simulazioni
     route("/solve", method="POST" ) do
@@ -182,7 +158,7 @@ function setup_genie_routes()
             req_data = jsonpayload() # Assume JSON body
             simulation_id = get(req_data, "id", "randomid") # Genera ID se non fornito
             simulation_type = get(req_data, "simulationType", "matrix") # 'matrix', 'ris', 'electric fields'
-            println(simulation_type)
+            mesher = get(req_data, "mesher", "standard")
             lock(simulations_lock) do
                 if haskey(active_simulations, simulation_id)
                     return JSON.json(Dict("error" => "Simulazione con ID $simulation_id già in corso"))
@@ -198,7 +174,7 @@ function setup_genie_routes()
 
 
             # Avvia la simulazione in un task/thread separato
-            if simulation_type == "matrix"
+            if simulation_type == "Matrix" && mesher == "standard"
                 mesher_file_id = req_data["mesherFileId"]
                 mesherOutput = download_json_gz(aws, aws_bucket_name, mesher_file_id)
                 Threads.@spawn run_simulation_task(
@@ -212,7 +188,7 @@ function setup_genie_routes()
                     aws, aws_bucket_name;
                     simulation_type="matrix"
                 )
-            elseif simulation_type == "ris"
+            elseif simulation_type == "Matrix" && mesher == "ris"
                 mesher_file_id = req_data["mesherFileId"]
                 surface_file_id = req_data["surfaceFileId"]
 
@@ -227,7 +203,6 @@ function setup_genie_routes()
                     deep_symbolize_keys(m)
                 end
                 surface = download_json_gz(aws, aws_bucket_name, surface_file_id) # O get_solverInput_from_s3 a seconda del tipo
-
                 Threads.@spawn run_simulation_task(
                     simulation_id,
                     doSolvingRis,
@@ -238,7 +213,6 @@ function setup_genie_routes()
                     simulation_type="ris"
                 )
             elseif simulation_type == "Electric Fields"
-                println("qui")
                 mesher_file_id = req_data["mesherFileId"]
                 surface_file_id = req_data["surfaceFileId"]
 
@@ -270,7 +244,7 @@ function setup_genie_routes()
                 return JSON.json(Dict("error" => "Unsupported simulation type: $(simulation_type)"))
             end
 
-            json(Dict("message" => "Simulation started", "id" => simulation_id, "status" => "accepted"))
+            JSON.json(Dict("message" => "Simulation started", "id" => simulation_id, "status" => "accepted"))
         catch e
             println("Errore nell'avvio della simulazione: $(e)")
             JSON.json(Dict("error" => "Failed to start simulation: $(e)"))
@@ -278,16 +252,16 @@ function setup_genie_routes()
     end
 
     # Endpoint per ottenere lo stato di una specifica simulazione
-    route("/simulation_status/:id") do
-        sim_id = params(:id)
-        lock(simulations_lock) do
-            if haskey(active_simulations, sim_id)
-                return json(active_simulations[sim_id])
-            else
-                return JSON.json(Dict("error" => "Simulation $sim_id not found or completed"))
-            end
-        end
-    end
+    # route("/simulation_status/:id") do
+    #     sim_id = params(:id)
+    #     lock(simulations_lock) do
+    #         if haskey(active_simulations, sim_id)
+    #             return json(active_simulations[sim_id])
+    #         else
+    #             return JSON.json(Dict("error" => "Simulation $sim_id not found or completed"))
+    #         end
+    #     end
+    # end
 
     # Endpoint per ottenere i risultati finali (potrebbero essere molto grandi)
     # Questa API riceverebbe un ID di un file da S3 e lo restituirebbe.
@@ -332,18 +306,59 @@ function setup_genie_routes()
         end
     end
 
+    route("/get_results_matrix", method="POST") do
+        file_id = params(:file_id)
+        port_index = jsonpayload()["port_index"]
+        try
+            res = download_json_gz(aws, aws_bucket_name, file_id)
+            matrixZ = JSON.parse(res["matrices"]["matrix_Z"])
+            matrixS = JSON.parse(res["matrices"]["matrix_S"])
+            matrixY = JSON.parse(res["matrices"]["matrix_Y"])
+            dataToReturn = Dict(
+                "portIndex" => port_index,
+                "results" => Dict(
+                "matrixZ" => matrixZ[port_index+1],
+                "matrixS" => matrixS[port_index+1],
+                "matrixY" => matrixY[port_index+1],
+                ),
+                "simulationType" => "matrix"
+            )
+            #println(dataToReturn)
+            send_rabbitmq_feedback(dataToReturn, "solver_results")
+            JSON.json("dati restituiti")
+        catch e
+            println("Errore nel recupero dei risultati per $(file_id): $(e)")
+            JSON.json(Dict("error" => "Could not retrieve results for $(file_id): $(e)"))
+        end
+    end
+
     # Endpoint per fermare una simulazione (solo se supportato dal solver)
-    route("/stop_computation/:id", method = POST) do
-        sim_id = params(:id)
-        # Implementa qui la logica per fermare la simulazione.
-        # Questo tipicamente imposta un flag che il solver controllerà periodicamente.
-        # Ad esempio, potresti aggiungere un `stopComputation` Dict mappando ID a boolean.
-        # Se `doSolving` e le sue varianti controllano un flag `stopComputation[sim_id]`,
-        # allora lo imposterai qui.
-        println("Richiesta di stop per simulazione $(sim_id).")
-        # Esempio: aggiungi l'ID alla lista di quelle da stoppare
-        push!(stopComputation, sim_id) # Assumendo che stopComputation sia ancora globale
-        json(Dict("message" => "Stop request for simulation $(sim_id) acknowledged."))
+    route("/stop_computation", method = "POST") do
+        sim_id = params(:sim_id)
+    
+        lock(stop_computation_lock) do
+            if haskey(active_simulations, sim_id)
+                if !haskey(stopComputation, sim_id) # Crea il Ref{Bool} se non esiste
+                    stopComputation[sim_id] = Ref(false)
+                end
+                stopComputation[sim_id][] = true # Imposta il flag di stop su true
+                println("Richiesta di stop per simulazione $(sim_id) ricevuta. Flag impostato su $(stopComputation[sim_id][]).")
+                
+                # Opzionale: Invia un feedback immediato al client via RabbitMQ che la richiesta è stata accettata
+                #send_rabbitmq_feedback(Dict("id" => sim_id, "status" => "stopping", "type" => active_simulations[sim_id]["type"]), "solver_results")
+
+                return JSON.json(Dict("message" => "Stop request for simulation $(sim_id) acknowledged.", "status" => "stopping"))
+            else
+                println("Richiesta di stop per simulazione $(sim_id) ma la simulazione non è attiva.")
+                return JSON.json(Dict("error" => "Simulation $sim_id not found or already completed/stopped."))
+            end
+        end
+    end
+end
+
+function is_stop_requested(sim_id::String)
+    lock(stop_computation_lock) do
+        return haskey(stopComputation, sim_id) && stopComputation[sim_id][]
     end
 end
 

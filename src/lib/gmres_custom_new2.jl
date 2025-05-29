@@ -96,9 +96,13 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
         for initer = 1:inner
             #println("start inner iteration number -> ",initer)
             tic = time()
-            if is_stopped_computation(id, chan)
-                return x, 99, 0, [outiter, initer], 0
+            if is_stop_requested(id)
+                println("Simulazione $(id) interrotta per richiesta stop.")
+                return x, 99, 0, [outiter, initer], 0 # O un altro valore che indica interruzione
             end
+            # if is_stopped_computation(id, chan)
+            #     return x, 99, 0, [outiter, initer], 0
+            # end
 
             initercount = initercount + 1
             #println("Iteration = $initercount")
@@ -251,9 +255,9 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
                 flag = 3
                 break
             end
-            if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
-                publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
-            end
+            # if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
+            #     publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
+            # end
             #println("end inner iteration number -> ",time() - tic)
         end
         

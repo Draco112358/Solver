@@ -278,9 +278,9 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
 
         origin = (mesherDict["origin"]["origin_x"], mesherDict["origin"]["origin_y"], mesherDict["origin"]["origin_z"])
 
-        if is_stopped_computation(id, chan)
-            return false
-        end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
 
         MATERIALS = [material(el) for el in inputDict["materials"]]
 
@@ -298,9 +298,9 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
 
         # grids = [unsqueeze(values, dims=2) for values in testarray]
 
-        if is_stopped_computation(id, chan)
-            return false
-        end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
 
         frequencies = inputDict["frequencies"]
         freq = Array{Float64}(undef, 1, length(frequencies))
@@ -333,40 +333,64 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
         println("create_volumes_mapping_v2")
         mapping_vols, num_centri = create_volumes_mapping_v2(grids)
 
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
 
         println("create_volume_centers")
         centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
 
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
         println("create_Grids_externals")
         externals_grids = create_Grids_externals(grids)
 
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
 
         println("MesherFFT")
-        escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list)
+        escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list, id)
+        if isnothing(escalings)
+            return nothing
+        end
         # if length(stopComputation) > 0
         #     pop!(stopComputation)
         #     return Dict("id" => id, "isStopped" => true)
         # end
 
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
 
         println("P and Lp")
         FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
-
-        if is_stopped_computation(id, chan)
-            return false
+        if isnothing(FFTCP)
+            return nothing
         end
+        if isnothing(FFTCLp)
+            return nothing
+        end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
 
         #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
         # if length(stopComputation) > 0
@@ -376,8 +400,8 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
         println("gmres")
         out = @time FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled)
         println("data publish")
-        if (out == false)
-            return false
+        if isnothing(out)
+            return nothing
         end
 
         if is_stopped_computation(id, chan)
@@ -397,19 +421,26 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, solverType, id, 
                     "matrixY" => JSON.parse(resultsToStoreOnS3["matrices"]["matrix_Y"])[1],
                 )
             )
-            publish_data(dataToReturn, "solver_results", chan)
+            send_rabbitmq_feedback(dataToReturn, "solver_results")
             saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
-            if !isnothing(chan)
-                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
-            end
+            send_rabbitmq_feedback(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback")
         end
     catch e
         if e isa OutOfMemoryError
-            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")
         else
             error_msg = sprint(showerror, e)
             st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
+            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, isStopped => false, partial: false), "solver_feedback")
+        end
+    finally
+        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
+        lock(stop_computation_lock) do
+            if haskey(stopComputation, id)
+                delete!(stopComputation, id)
+                println("Flag di stop per simulazione $(id) rimosso.")
+            end
         end
     end
 
@@ -427,8 +458,12 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         #     return false
         # end
 
-        freq = inputDict["frequencies"]
-
+        frequencies = inputDict["frequencies"]
+        freq = Array{Float64}(undef, 1, length(frequencies))
+        for i in range(1, length(frequencies))
+            freq[1, i] = frequencies[i]
+        end
+        dump(freq)
         n_freq = length(freq)
         println("reading ports")
         println(size(nodi_coord))
@@ -452,30 +487,38 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         use_Zs_in = true
 
         println("P and Lp")
-        P_data = calcola_P(superfici, escalings, QS_Rcc_FW)
-        if !isnothing(chan)
-            publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        P_data = calcola_P(superfici, escalings, QS_Rcc_FW, id)
+        if isnothing(P_data)
+            return nothing
         end
-        if is_stopped_computation(id, chan)
-            return false
+        send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
+        # if !isnothing(chan)
+        #     publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
+        # end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
+        if isnothing(Lp_data)
+            return nothing
         end
-        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
-        if !isnothing(chan)
-            publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
-        end
-        if is_stopped_computation(id, chan)
-            return false
-        end
+        send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
+        # if !isnothing(chan)
+        #     publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
+        # end
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
 
         println("gmres")
         out = iter_solver_QS_S_type2(
             freq, escalings, incidence_selection, P_data, Lp_data,
                 ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled
         )
-        println("data publish")
-        if (out == false)
-            return false
+        if (isnothing(out))
+            return nothing
         end
+        println("data publish")
 
         # if is_stopped_computation(id, chan)
         #     return false
@@ -491,21 +534,33 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
                     "matrixY" => JSON.parse(resultsToStoreOnS3["matrices"]["matrix_Y"])[1],
                 )
             )
-            publish_data(dataToReturn, "solver_results", chan)
+            #publish_data(dataToReturn, "solver_results", chan)
             filename = id * "_results.json.gz"
             saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
+            send_rabbitmq_feedback(dataToReturn, "solver_results")
+            send_rabbitmq_feedback(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback")
             #s3_put(aws_config, bucket_name, filename, JSON.json(resultsToStoreOnS3))
-            if !isnothing(chan)
-                publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
-            end
+            # if !isnothing(chan)
+            #     publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
+            # end
         end
     catch e
         if e isa OutOfMemoryError
-            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")
+            #publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
         else
             error_msg = sprint(showerror, e)
             st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
+            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, isStopped => false, partial: false), "solver_feedback")
+        end
+    finally
+        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
+        lock(stop_computation_lock) do
+            if haskey(stopComputation, id)
+                delete!(stopComputation, id)
+                println("Flag di stop per simulazione $(id) rimosso.")
+            end
         end
     end
 
@@ -555,6 +610,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         println("scatter ", ports_scatter_value)
 
         println("reading ports")
+        println(nodi_coord[53,:])
+        println(nodi_coord[57,:])
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
         println("port_nodes ", ports[:port_nodes])
         println("lumped_nodes ", lumped_elements[:le_nodes])
@@ -576,21 +633,31 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         #is=getSignalbasedOn()
 
         println("P and Lp")
-        P_data = calcola_P(superfici, escalings, QS_Rcc_FW)
+        P_data = calcola_P(superfici, escalings, QS_Rcc_FW, id)
+        if isnothing(P_data)
+            return nothing
+        end
         send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
         # if !isnothing(chan)
         #     publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
         # end
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
+        if isnothing(Lp_data)
+            return nothing
         end
-        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW)
         send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
         # if !isnothing(chan)
         #     publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
         # end
-        if is_stopped_computation(id, chan)
-            return false
+        # if is_stopped_computation(id, chan)
+        #     return false
+        # end
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # O un altro valore che indica interruzione
         end
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
         A = sparse(row_indices, col_indices, nz_values)
@@ -601,7 +668,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         for k in 1:size(ports[:port_nodes], 1)
             Trasformata=fft_UAq(times, is_matrix[k, :])
             Is[k,:]=Trasformata[2, ind_freq_interest]
-            # Is[k,:].=0.02+0im
+            #Is[k,:].=0.02+0im
             # println(angle.(Is))
         end
         r_circ = r_circ*escal
@@ -617,10 +684,10 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             freq, escalings, incidence_selection, P_data, Lp_data,
                 ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs, Is, centri_oss, centri_oss_3D, id, chan, commentsEnabled
         )
-        println("data publish")
-        if (out == false)
-            return false
+        if (isnothing(out))
+            return nothing
         end
+        println("data publish")
 
         # if is_stopped_computation(id, chan)
         #     return false
@@ -657,11 +724,19 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         end
     catch e
         if e isa OutOfMemoryError
-            publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
+            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")
         else
             error_msg = sprint(showerror, e)
             st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
+        end
+    finally
+        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
+        lock(stop_computation_lock) do
+            if haskey(stopComputation, id)
+                delete!(stopComputation, id)
+                println("Flag di stop per simulazione $(id) rimosso.")
+            end
         end
     end
 

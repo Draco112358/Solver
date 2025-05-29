@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-function compute_Ar_Gauss(barre, centriOss, ordine, beta, id, chan)
+function compute_Ar_Gauss(barre, centriOss, ordine, beta, simulation_id, chan)
 	numCentri = size(centriOss, 1)
 	numBarre = size(barre, 1)
 
@@ -36,8 +36,9 @@ function compute_Ar_Gauss(barre, centriOss, ordine, beta, id, chan)
 	end
 
 
-	if is_stopped_computation(id, chan)
-		return false
+	if is_stop_requested(simulation_id)
+		println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+		return nothing # O un altro valore che indica interruzione
 	else
 		return ha
 	end

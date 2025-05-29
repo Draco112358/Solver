@@ -142,7 +142,7 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
             x0 = Vrest[:, c1]
             V, flag, relres, iter, resvec = gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
             if flag == 99
-                return false
+                return nothing
             end
 
             tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
@@ -170,23 +170,24 @@ function iter_solver_QS_S_type2(freq, escalings, incidence_selection, P_data, Lp
                 S[c2, c1, k] = S[c1, c2, k]
             end
         end
-        if !isnothing(chan)
-            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
-        end
-        if commentsEnabled
-            partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
-            dataToReturn = Dict(
-                "portIndex" => 0,
-                "partial" => true,
-                "freqIndex" => partial_res["freqIndex"],
-                "results" => Dict(
-                    "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
-                    "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
-                    "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
-                )
-            )
-            #publish_data(dataToReturn, "solver_results", chan)
-        end
+        send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
+        # if !isnothing(chan)
+        #     publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
+        # end
+        # if commentsEnabled
+        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
+        #     dataToReturn = Dict(
+        #         "portIndex" => 0,
+        #         "partial" => true,
+        #         "freqIndex" => partial_res["freqIndex"],
+        #         "results" => Dict(
+        #             "matrixZ" => JSON.parse(partial_res["matrices"]["matrix_Z"])[1],
+        #             "matrixS" => JSON.parse(partial_res["matrices"]["matrix_S"])[1],
+        #             "matrixY" => JSON.parse(partial_res["matrices"]["matrix_Y"])[1],
+        #         )
+        #     )
+        #     #publish_data(dataToReturn, "solver_results", chan)
+        # end
     end
     out::Dict = Dict()
     out[:S] = S
