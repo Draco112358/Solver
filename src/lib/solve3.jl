@@ -610,8 +610,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         println("scatter ", ports_scatter_value)
 
         println("reading ports")
-        println(nodi_coord[53,:])
-        println(nodi_coord[57,:])
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
         println("port_nodes ", ports[:port_nodes])
         println("lumped_nodes ", lumped_elements[:le_nodes])
@@ -627,6 +625,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         for (index, signal_type) in enumerate(ports[:signals_port])
             if signal_type["type"] != "no_signal"
                 vs = getSignalbasedOn(signal_type, times)
+                println(index)
                 is_matrix[index, :] = vs
             end
         end
@@ -666,11 +665,13 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         Is = zeros(ComplexF64, size(ports[:port_nodes], 1), n_freq)
         for k in 1:size(ports[:port_nodes], 1)
-            Trasformata=fft_UAq(times, is_matrix[k, :])
-            Is[k,:]=Trasformata[2, ind_freq_interest]
+            #Trasformata=fft_UAq(times, is_matrix[k, :])
+            #Is[k,:]=Trasformata[2, ind_freq_interest]
             #Is[k,:].=0.02+0im
             # println(angle.(Is))
         end
+        Is[1,:].=0.02+0im
+        println(Is)
         r_circ = r_circ*escal
         baricentro = baricentro .* escal
         punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);
@@ -678,6 +679,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         punti_yz=genera_punti_circonferenza(r_circ,N_circ,baricentro,3);
 
         centri_oss=[punti_xy;punti_zx;punti_yz];
+        println(size(centri_oss))
         centri_oss_3D, distanze_3D, theta_vals, x_grid, y_grid, z_grid = get_punti_oss_3D(r_circ, N_circ_3D, baricentro);
         println("gmres")
         out = iter_solver_E_Gaussian_Is_type(

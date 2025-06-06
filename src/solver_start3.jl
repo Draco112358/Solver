@@ -117,7 +117,7 @@ function run_simulation_task(
         # Rimuovi la simulazione dalla lista delle attive dopo un po'
         # o sposta in una lista di "simulate terminate"
         Threads.@spawn begin
-            sleep(300) # Mantieni i risultati per 5 minuti
+            sleep(60) # Mantieni i risultati per 1 minut0
             lock(simulations_lock) do
                 if haskey(active_simulations, simulation_id) && active_simulations[simulation_id]["status"] in ["completed", "failed"]
                     delete!(active_simulations, simulation_id)
@@ -140,7 +140,7 @@ end
 # ==============================================================================
 
 function setup_genie_routes()
-    # Endpoint per lo stato generale del server
+    # Endpoint per lo stato generale del server: NON USATA PER IL MOMENTO
     route("/status") do
         lock(simulations_lock) do
             json(Dict(
@@ -271,7 +271,6 @@ function setup_genie_routes()
         id = jsonpayload()["id"]
         try
             # Scarica il file grezzo o il JSON gz compresso da S3
-            # Assumendo che download_json_gz restituisca un dict
             res = download_json_gz(aws, aws_bucket_name, file_id)
             resultsToPublish = Dict(
                     "Vp" => res["Vp"],

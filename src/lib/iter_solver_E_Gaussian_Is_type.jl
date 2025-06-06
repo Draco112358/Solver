@@ -3,7 +3,7 @@ using SparseArrays, IterativeSolvers, LinearAlgebra, LinearMaps, FLoops
 using Base.Threads
 include("compute_Matrix_vector_new2.jl")
 include("gmres_custom_new2.jl")
-include("build_Yle_S_new2.jl")
+include("build_Yle_new.jl")
 include("compute_Ec_Gauss.jl")
 include("compute_Ar_Gauss.jl")
 include("compute_lambda_numeric.jl")
@@ -34,7 +34,7 @@ function iter_solver_E_Gaussian_Is_type(
 )
 	num_oss = size(centri_oss, 1)
 	num_oss_3D = size(centri_oss_3D, 1)
-	ordine_int = 3
+	ordine_int = 4
 	unitario = ones(num_oss_3D)
 	zeroo = zeros(num_oss_3D)
 
@@ -152,7 +152,7 @@ function iter_solver_E_Gaussian_Is_type(
 			end
 		end
 		# Build Yle
-		Yle = build_Yle_S_new2(
+		Yle = build_Yle_new(
 			lumped_elements,
 			[],
 			ports,
