@@ -33,6 +33,10 @@ function compute_Ar_Gauss(barre, centriOss, ordine, beta, simulation_id, chan)
 		end
 		sleep(0)
 		println("block Ar : ", round(m_end / block_size), " / ", round(numBarre / block_size))
+		if is_stop_requested(simulation_id)
+			println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 	end
 
 

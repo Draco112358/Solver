@@ -50,6 +50,10 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 		end
 		sleep(0)
 		println("block Ec : ", round(m_end / block_size), " / ", round(num_barre / block_size))
+		if is_stop_requested(simulation_id)
+			println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
 	end
 
 	# Base.Threads.@threads for cont in 1:num_barre

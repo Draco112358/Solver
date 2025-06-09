@@ -59,14 +59,14 @@ function compute_lambda_numeric(punti_oss, volumi, incidence_selection, vers_pun
         end
         sleep(0)
         println("block Lambda : ", round(m_end/block_size), " / ", round(M/block_size))
+        if is_stop_requested(id)
+			println("Simulazione $(id) interrotta per richiesta stop.")
+			return nothing # O un altro valore che indica interruzione
+		end
     end
 
+    return Lambda
     
-    if is_stopped_computation(id, chan)
-        return false
-    else
-        return Lambda
-    end
 end
 
 function compute_hi(barra, centro_oss, scelta, rootkx, wekx, beta)

@@ -632,7 +632,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         #is=getSignalbasedOn()
 
         println("P and Lp")
-        P_data = calcola_P(superfici, escalings, QS_Rcc_FW, id)
+        P_data = @time calcola_P(superfici, escalings, QS_Rcc_FW, id)
         if isnothing(P_data)
             return nothing
         end
@@ -643,7 +643,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        Lp_data = calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
+        Lp_data = @time calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
         if isnothing(Lp_data)
             return nothing
         end
@@ -671,7 +671,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             # println(angle.(Is))
         end
         Is[1,:].=0.02+0im
-        println(Is)
         r_circ = r_circ*escal
         baricentro = baricentro .* escal
         punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);
@@ -679,10 +678,9 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         punti_yz=genera_punti_circonferenza(r_circ,N_circ,baricentro,3);
 
         centri_oss=[punti_xy;punti_zx;punti_yz];
-        println(size(centri_oss))
         centri_oss_3D, distanze_3D, theta_vals, x_grid, y_grid, z_grid = get_punti_oss_3D(r_circ, N_circ_3D, baricentro);
         println("gmres")
-        out = iter_solver_E_Gaussian_Is_type(
+        out = @time iter_solver_E_Gaussian_Is_type(
             freq, escalings, incidence_selection, P_data, Lp_data,
                 ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ports_scatter_value, Vs, Is, centri_oss, centri_oss_3D, id, chan, commentsEnabled
         )
