@@ -221,12 +221,12 @@ using Printf # Per un output formattato
 #     # Converti barre a Matrix{Float64} se è Transpose.
 #     # Questo assicura che size(barre, 1) sia il numero di barre
 #     # e che l'accesso alle righe sia efficiente.
-#     barre_mat = barre isa Transpose ? collect(barre) : barre # collect() crea una copia, ma evita problemi di Transpose
+#     barre = barre isa Transpose ? collect(barre) : barre # collect() crea una copia, ma evita problemi di Transpose
 #     # Oppure, se vuoi evitare la copia, potresti fare `size(barre, 2)` se è Transpose e `barre[1,cont]` ecc.
 #     # ma `collect` è spesso più semplice per la compatibilità con il resto del codice.
 
 #     numCentri = size(centriOss, 1)
-#     numBarre = size(barre_mat, 1) # Usa barre_mat per il numero di barre
+#     numBarre = size(barre, 1) # Usa barre per il numero di barre
 
 #     # --- Pre-calcoli globali (una volta per la funzione) ---
 
@@ -246,7 +246,7 @@ using Printf # Per un output formattato
 
 #     @inbounds Threads.@threads for cont = 1:numBarre
 #         # Pre-estrai la riga come SVector per calcoli efficienti su piccola scala
-#         barra_svec_24 = SVector{24, Float64}(@view barre_mat[cont, :]) # Assuming 24 elements per bar
+#         barra_svec_24 = SVector{24, Float64}(@view barre[cont, :]) # Assuming 24 elements per bar
 
 #         # Estrai tutti i valori x, y, z e trova min/max
 #         # Vettori temporanei per min/max (o usare iteratori direttamente)
@@ -525,9 +525,9 @@ using Printf
     raci_x::Float64, raci_y::Float64, raci_z::Float64,
     rabci_x::Float64, rabci_y::Float64, rabci_z::Float64,
     beta::ComplexF64,
-    rootkx::AbstractVector{Float64}, wekx::AbstractVector{Float64},
-    rootky::AbstractVector{Float64}, weky::AbstractVector{Float64},
-    rootkz::AbstractVector{Float64}, wekz::AbstractVector{Float64}
+    rootkx::Vector{Float64}, wekx::Vector{Float64},
+    rootky::Vector{Float64}, weky::Vector{Float64},
+    rootkz::Vector{Float64}, wekz::Vector{Float64}
 )
     nlkx = length(wekx)
     nlky = length(weky)
@@ -573,9 +573,9 @@ using Printf
                        rabi_z * kx_a1 * ky_b1 + raci_z * kx_a1 * kz_c1 + rbci_z * ky_b1 * kz_c1 +
                        rabci_z * kx_a1 * ky_b1 * kz_c1
 
-                delta_x = (xo - r1_x)
-                delta_y = (yo - r1_y)
-                delta_z = (zo - r1_z)
+                delta_x = xo - r1_x
+                delta_y = yo - r1_y
+                delta_z = zo - r1_z
 
                 R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
 
@@ -594,13 +594,12 @@ using Printf
 end
 
 
-function compute_Ar_Gauss(barre::Union{Transpose{Float64, Matrix{Float64}}, Transpose{Real, Matrix{Real}}},
+function compute_Ar_Gauss(barre::Transpose{Float64, Matrix{Float64}},
                                     centriOss::Matrix{Float64}, ordine::Int, beta::ComplexF64,
                                     simulation_id=nothing, chan=nothing)
 
-    barre_mat = barre isa Transpose ? collect(barre) : barre
     numCentri = size(centriOss, 1)
-    numBarre = size(barre_mat, 1)
+    numBarre = size(barre, 1)
 
     ha = zeros(ComplexF64, numBarre, numCentri)
 
@@ -635,7 +634,7 @@ function compute_Ar_Gauss(barre::Union{Transpose{Float64, Matrix{Float64}}, Tran
     rabci_arr = Vector{SVector{3,Float64}}(undef, numBarre)
 
     @inbounds Threads.@threads for cont = 1:numBarre
-        barra_svec_24 = SVector{24, Float64}(@view barre_mat[cont, :])
+        barra_svec_24 = SVector{24, Float64}(@view barre[cont, :])
         # Calcola e memorizza tutti gli 8 vettori 'r' (rmi, rai, ..., rabci)
         # Re-inseriamo i calcoli completi basati sulle espressioni originali.
         # Definiamo i vertici in modo strutturato per chiarezza.
@@ -662,7 +661,7 @@ function compute_Ar_Gauss(barre::Union{Transpose{Float64, Matrix{Float64}}, Tran
 
 
     # --- Loop di elaborazione parallelizzata ---
-    block_size = 20
+    block_size = 200
 
     @inbounds for m_block_start in 1:block_size:numBarre
         m_end = min(m_block_start + block_size - 1, numBarre)
@@ -715,59 +714,59 @@ function compute_Ar_Gauss(barre::Union{Transpose{Float64, Matrix{Float64}}, Tran
 end
 
 # --- qrule function (remains unchanged from previous optimization) ---
-function qrule(n::Int)
-    iter = 2
-    m = trunc((n + 1) / 2)
-    e1 = n * (n + 1)
-    mm = 4 * m - 1
-    t = (pi / (4 * n + 2)) * (3:4:mm)
-    nn = (1 - (1 - 1 / n) / (8 * n * n))
-    xo = nn * cos.(t)
+# function qrule(n::Int)
+#     iter = 2
+#     m = trunc((n + 1) / 2)
+#     e1 = n * (n + 1)
+#     mm = 4 * m - 1
+#     t = (pi / (4 * n + 2)) * (3:4:mm)
+#     nn = (1 - (1 - 1 / n) / (8 * n * n))
+#     xo = nn * cos.(t)
 
-    for kk ∈ 1:iter
-        pkm1 = ones(size(xo))
-        pk = copy(xo)
+#     for kk ∈ 1:iter
+#         pkm1 = ones(size(xo))
+#         pk = copy(xo)
 
-        @inbounds for k ∈ 2:n
-            pkp1 = @. (2k - 1) / k * xo * pk - (k - 1) / k * pkm1
-            pkm1 = pk
-            pk = pkp1
-        end
+#         @inbounds for k ∈ 2:n
+#             pkp1 = @. (2k - 1) / k * xo * pk - (k - 1) / k * pkm1
+#             pkm1 = pk
+#             pk = pkp1
+#         end
 
-        den = 1 .- xo .^ 2
-        d1 = n .* (pkm1 .- xo .* pk)
+#         den = 1 .- xo .^ 2
+#         d1 = n .* (pkm1 .- xo .* pk)
 
-        dpn = d1 ./ den
-        d2pn = (2 .* xo .* dpn - e1 .* pk) ./ den
-        d3pn = (4 * xo .* d2pn + (2 - e1) .* dpn) ./ den
-        d4pn = (6 * xo .* d3pn + (6 - e1) .* d2pn) ./ den
-        u = pk ./ dpn
-        v = d2pn ./ dpn
-        h = -u .* (1 .+ (0.5 * u) .* (v .+ u .* (v .* v .- u .* d3pn ./ (3 * dpn))))
-        p = pk .+ h .* (dpn .+ (0.5 * h) .* (d2pn .+ (h ./ 3) .* (d3pn .+ 0.25 .* h .* d4pn)))
-        dp = dpn .+ h .* (d2pn .+ (0.5 .* h) .* (d3pn .+ h .* d4pn ./ 3))
-        h = h .- p ./ dp
-        xo = xo .+ h
-    end
+#         dpn = d1 ./ den
+#         d2pn = (2 .* xo .* dpn - e1 .* pk) ./ den
+#         d3pn = (4 * xo .* d2pn + (2 - e1) .* dpn) ./ den
+#         d4pn = (6 * xo .* d3pn + (6 - e1) .* d2pn) ./ den
+#         u = pk ./ dpn
+#         v = d2pn ./ dpn
+#         h = -u .* (1 .+ (0.5 * u) .* (v .+ u .* (v .* v .- u .* d3pn ./ (3 * dpn))))
+#         p = pk .+ h .* (dpn .+ (0.5 * h) .* (d2pn .+ (h ./ 3) .* (d3pn .+ 0.25 .* h .* d4pn)))
+#         dp = dpn .+ h .* (d2pn .+ (0.5 .* h) .* (d3pn .+ h .* d4pn ./ 3))
+#         h = h .- p ./ dp
+#         xo = xo .+ h
+#     end
 
-    bp = Vector{Float64}(undef, n)
-    wf = Vector{Float64}(undef, n)
+#     bp = Vector{Float64}(undef, n)
+#     wf = Vector{Float64}(undef, n)
 
-    bp .= -xo .- h
-    fx = d1 .- h .* e1 .* (pk .+ (h ./ 2) .* (dpn .+ (h ./ 3) .* (
-        d2pn .+ (h ./ 4) .* (d3pn .+ (0.2 .* h) .* d4pn))))
-    wf .= 2 .* (1 .- bp .^ 2) ./ (fx .* fx)
+#     bp .= -xo .- h
+#     fx = d1 .- h .* e1 .* (pk .+ (h ./ 2) .* (dpn .+ (h ./ 3) .* (
+#         d2pn .+ (h ./ 4) .* (d3pn .+ (0.2 .* h) .* d4pn))))
+#     wf .= 2 .* (1 .- bp .^ 2) ./ (fx .* fx)
 
-    if (m + m) > n
-        bp[m] = 0.0
-    end
-    if !((m + m) == n)
-        m = m - 1
-    end
-    jj = 1:m
-    n1j = (n + 1) .- jj
-    bp[n1j] .= -bp[jj]
-    wf[n1j] .= wf[jj]
+#     if (m + m) > n
+#         bp[m] = 0.0
+#     end
+#     if !((m + m) == n)
+#         m = m - 1
+#     end
+#     jj = 1:m
+#     n1j = (n + 1) .- jj
+#     bp[n1j] .= -bp[jj]
+#     wf[n1j] .= wf[jj]
 
-    return bp, wf
-end
+#     return bp, wf
+# end

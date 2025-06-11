@@ -12,7 +12,7 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 		normale[i] = convert(Vector{Float64}, normale[i])
 	end
 
-	block_size = 20
+	block_size = 200
 	normale = hcat(normale...)
 	rx, wx = qrule(ordine)
 	ry, wy = qrule(ordine)
@@ -45,11 +45,11 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 
     # Pre-allocazione della matrice finale `hc`
     hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
-	@inbounds Base.Threads.@threads for m_block_start in 1:block_size:num_barre
+	@inbounds for m_block_start in 1:block_size:num_barre
         m_end = min(m_block_start + block_size - 1, num_barre)
 
         # Loop interno sulle `barre` all'interno del blocco assegnato al thread
-        for cont in m_block_start:m_end
+        Base.Threads.@threads for cont in m_block_start:m_end
             # Accediamo ai dati pre-calcolati per `normale`
             norm_x = normale[cont, 1] # normale[1,cont] in 3xN, x-component
             norm_y = normale[cont, 2] # y-component
@@ -76,11 +76,11 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
         end
         # Output di progresso (potrebbe essere necessario sincronizzare l'output per i thread)
         @printf "Block Ec: %.0f / %.0f\n" round(m_end / block_size) round(num_barre / block_size)
-        # Check per la richiesta di stop (se is_stop_requested è thread-safe)
-        # if is_stop_requested(simulation_id)
-        #     println("Simulazione $(simulation_id) interrotta per richiesta stop.")
-        #     return nothing
-        # end
+        #Check per la richiesta di stop (se is_stop_requested è thread-safe)
+        if is_stop_requested(simulation_id)
+            println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+            return nothing
+        end
     end
 
 	return hc

@@ -238,12 +238,12 @@ function iter_solver_E_Gaussian_Is_type(
 			return nothing
 		end
 		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback")
-		ha = @time compute_Ar_Gauss(volumi[:coordinate], centri_oss, ordine_int, complex(beta, 0.0), id, chan)
+		ha = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(ha)
 			return nothing
 		end
 		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
-		ha_3D = @time compute_Ar_Gauss(volumi[:coordinate], centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
+		ha_3D = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(ha_3D)
 			return nothing
 		end
@@ -351,4 +351,8 @@ function prod_complex_real(A, x)
 	y = zeros(ComplexF64, N)
 	y .= real(A) * x .+ 1im * (imag(A) * x)
 	return y
+end
+
+function convert_transpose_to_float64(t_matrix::Transpose{Real, Matrix{Real}})
+    return transpose(Float64.(t_matrix.parent))
 end

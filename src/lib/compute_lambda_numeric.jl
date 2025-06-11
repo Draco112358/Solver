@@ -678,6 +678,7 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
                                           vers_punti_oss::Matrix{Float64}, ordine_int::Int, beta::ComplexF64,
                                           id=nothing, chan=nothing)
 
+    volumi[:coordinate] = transpose(Float64.(volumi[:coordinate].parent))
     N = size(volumi[:coordinate], 1) # Number of volumes
     M = size(punti_oss, 1) # Number of observation points
 
@@ -726,11 +727,11 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
 
     block_size_M = 10 # Adjust based on your system and problem size
 
-    Threads.@threads for m_block_start in 1:block_size_M:M
+    for m_block_start in 1:block_size_M:M
         m_block_end = min(m_block_start + block_size_M - 1, M)
 
         # Iterazione interna sui punti di osservazione all'interno del blocco
-        @inbounds for m = m_block_start:m_block_end
+        @inbounds Threads.@threads for m = m_block_start:m_block_end
             # Accediamo ai dati pre-calcolati per l'attuale 'm'
             punti_oss_m_svec = punti_oss_m_svec_arr[m]
             vers_punti_oss_m_svec = vers_punti_oss_m_svec_arr[m]
@@ -778,11 +779,11 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
         end
         # MATLAB had sleep and print; comment out for benchmarking, uncomment for progress
         # sleep(0.01)
-        # @printf "Processing block %d of %d (M: %d-%d)\n" round(Int, m_block_end/block_size_M) round(Int, M/block_size_M) m_block_start m_block_end
-        # if id !== nothing && is_stop_requested(id) # Check for stop request
-        #    println("Simulation $(id) interrupted by stop request.")
-        #    return nothing
-        # end
+        @printf "Processing block %d of %d (M: %d-%d)\n" round(Int, m_block_end/block_size_M) round(Int, M/block_size_M) m_block_start m_block_end
+        if id !== nothing && is_stop_requested(id) # Check for stop request
+           println("Simulation $(id) interrupted by stop request.")
+           return nothing
+        end
     end
 
     return Lambda
@@ -795,7 +796,7 @@ end
 Optimized helper function to compute the integral for a single volume and observation point.
 Uses StaticArrays for all internal vector operations to maximize performance.
 """
-@inline function compute_hi_optimized(barra::Union{SVector{24, Real}, SVector{24, Float64}}, centro_oss::SVector{3, Float64},
+@inline function compute_hi_optimized(barra::SVector{24, Float64}, centro_oss::SVector{3, Float64},
                                       scelta::Symbol, rootk::AbstractVector{Float64}, wek::AbstractVector{Float64},
                                       beta::ComplexF64)
 
@@ -941,77 +942,77 @@ end
 
 Julia translation of the qrule function for Gauss-Legendre quadrature roots and weights.
 """
-function qrule(n::Int)
-    iter = 2
-    m = floor(Int, (n + 1) / 2) # floor(Int, ...) for fix() equivalent
-    e1 = n * (n + 1)
-    mm = 4 * m - 1
-    t = (pi / (4 * n + 2)) .* (3:4:mm) # Use broadcasting for .*
-    nn = (1 - (1 - 1 / n) / (8 * n * n))
-    xo = nn .* cos.(t) # Use broadcasting for cos.
+# function qrule(n::Int)
+#     iter = 2
+#     m = floor(Int, (n + 1) / 2) # floor(Int, ...) for fix() equivalent
+#     e1 = n * (n + 1)
+#     mm = 4 * m - 1
+#     t = (pi / (4 * n + 2)) .* (3:4:mm) # Use broadcasting for .*
+#     nn = (1 - (1 - 1 / n) / (8 * n * n))
+#     xo = nn .* cos.(t) # Use broadcasting for cos.
 
-    # Pre-allocate for performance where possible to avoid repeated reallocations
-    # Note: Many operations here still create temporary arrays, which is typical for qrule
-    # and generally acceptable as it's a one-time setup cost.
-    pkm1 = zeros(size(xo))
-    pk = similar(xo) # Allocate same size as xo
-    pkp1 = similar(xo)
-    den = similar(xo)
-    d1 = similar(xo)
-    dpn = similar(xo)
-    d2pn = similar(xo)
-    d3pn = similar(xo)
-    d4pn = similar(xo)
-    u = similar(xo)
-    v = similar(xo)
-    h = similar(xo)
-    p = similar(xo)
-    dp = similar(xo)
-    t1 = similar(xo)
-    fx = similar(xo)
+#     # Pre-allocate for performance where possible to avoid repeated reallocations
+#     # Note: Many operations here still create temporary arrays, which is typical for qrule
+#     # and generally acceptable as it's a one-time setup cost.
+#     pkm1 = zeros(size(xo))
+#     pk = similar(xo) # Allocate same size as xo
+#     pkp1 = similar(xo)
+#     den = similar(xo)
+#     d1 = similar(xo)
+#     dpn = similar(xo)
+#     d2pn = similar(xo)
+#     d3pn = similar(xo)
+#     d4pn = similar(xo)
+#     u = similar(xo)
+#     v = similar(xo)
+#     h = similar(xo)
+#     p = similar(xo)
+#     dp = similar(xo)
+#     t1 = similar(xo)
+#     fx = similar(xo)
 
-    for kk = 1:iter
-        @views pkm1[1:end] .= 1 # MATLAB's (1,1:size(xo,2))=1 becomes .=1 here
-        pk .= xo
-        for k = 2:n
-            @. t1 = xo * pk # Element-wise multiplication
-            @. pkp1 = t1 - pkm1 - (t1 - pkm1) / k + t1
-            pkm1 .= pk # Efficient in-place copy
-            pk .= pkp1
-        end
-        @. den = 1 - xo^2
-        @. d1 = n * (pkm1 - xo * pk)
-        @. dpn = d1 / den
-        @. d2pn = (2 * xo * dpn - e1 * pk) / den
-        @. d3pn = (4 * xo * d2pn + (2 - e1) * dpn) / den
-        @. d4pn = (6 * xo * d3pn + (6 - e1) * d2pn) / den
-        @. u = pk / dpn
-        @. v = d2pn / dpn
-        @. h = -u * (1 + (0.5 * u) * (v + u * (v * v - u * d3pn / (3 * dpn))))
-        @. p = pk + h * (dpn + (0.5 * h) * (d2pn + (h / 3) * (d3pn + 0.25 * h * d4pn)))
-        @. dp = dpn + h * (d2pn + (0.5 * h) * (d3pn + h * d4pn / 3))
-        @. h = h - p / dp
-        xo .= xo + h # Update xo in-place
+#     for kk = 1:iter
+#         @views pkm1[1:end] .= 1 # MATLAB's (1,1:size(xo,2))=1 becomes .=1 here
+#         pk .= xo
+#         for k = 2:n
+#             @. t1 = xo * pk # Element-wise multiplication
+#             @. pkp1 = t1 - pkm1 - (t1 - pkm1) / k + t1
+#             pkm1 .= pk # Efficient in-place copy
+#             pk .= pkp1
+#         end
+#         @. den = 1 - xo^2
+#         @. d1 = n * (pkm1 - xo * pk)
+#         @. dpn = d1 / den
+#         @. d2pn = (2 * xo * dpn - e1 * pk) / den
+#         @. d3pn = (4 * xo * d2pn + (2 - e1) * dpn) / den
+#         @. d4pn = (6 * xo * d3pn + (6 - e1) * d2pn) / den
+#         @. u = pk / dpn
+#         @. v = d2pn / dpn
+#         @. h = -u * (1 + (0.5 * u) * (v + u * (v * v - u * d3pn / (3 * dpn))))
+#         @. p = pk + h * (dpn + (0.5 * h) * (d2pn + (h / 3) * (d3pn + 0.25 * h * d4pn)))
+#         @. dp = dpn + h * (d2pn + (0.5 * h) * (d3pn + h * d4pn / 3))
+#         @. h = h - p / dp
+#         xo .= xo + h # Update xo in-place
 
-    end
+#     end
 
-    bp = zeros(1, n)
-    wf = zeros(1, n)
-    @views bp[1, 1:length(xo)] .= -xo .- h # MATLAB's (1,1:size(xo,2))
-    @. fx = d1 - h * e1 * (pk + (h / 2) * (dpn + (h / 3) * (
-        d2pn + (h / 4) * (d3pn + (0.2 * h) * d4pn))))
-    @views wf[1, 1:length(xo)] .= 2 .* (1 .- bp[1, 1:length(xo)].^2) ./ (fx .* fx) # MATLAB's (1,1:size(xo,2))
+#     bp = zeros(1, n)
+#     wf = zeros(1, n)
+#     @views bp[1, 1:length(xo)] .= -xo .- h # MATLAB's (1,1:size(xo,2))
+#     @. fx = d1 - h * e1 * (pk + (h / 2) * (dpn + (h / 3) * (
+#         d2pn + (h / 4) * (d3pn + (0.2 * h) * d4pn))))
+#     @views wf[1, 1:length(xo)] .= 2 .* (1 .- bp[1, 1:length(xo)].^2) ./ (fx .* fx) # MATLAB's (1,1:size(xo,2))
 
-    if (m + m) > n
-        bp[m] = 0
-    end
-    if !((m + m) == n)
-        m = m - 1
-    end
-    jj = 1:m
-    n1j = (n + 1) .- jj
-    @views bp[1, n1j] .= -bp[1, jj]
-    @views wf[1, n1j] .= wf[1, jj]
+#     if (m + m) > n
+#         bp[m] = 0
+#     end
+#     if !((m + m) == n)
+#         m = m - 1
+#     end
+#     jj = 1:m
+#     n1j = (n + 1) .- jj
+#     @views bp[1, n1j] .= -bp[1, jj]
+#     @views wf[1, n1j] .= wf[1, jj]
 
-    return vec(bp), vec(wf) # Convert 1xN matrices to vectors as expected by compute_hi
-end
+#     return vec(bp), vec(wf) # Convert 1xN matrices to vectors as expected by compute_hi
+# end
