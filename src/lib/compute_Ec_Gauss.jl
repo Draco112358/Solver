@@ -1,4 +1,7 @@
 using LinearAlgebra
+using StaticArrays
+using Base.Threads
+using Printf
 
 function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id, chan)
 	num_barre = size(barre, 1)
@@ -9,7 +12,7 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 		normale[i] = convert(Vector{Float64}, normale[i])
 	end
 
-	block_size = 100
+	block_size = 20
 	normale = hcat(normale...)
 	rx, wx = qrule(ordine)
 	ry, wy = qrule(ordine)
@@ -18,55 +21,69 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 	perm2 = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
 	perm2_2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
 	perm3 = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
-	for m_block in 1:block_size:num_barre
-		m_end = min(m_block + block_size - 1, num_barre)
-		Base.Threads.@threads for cont in m_block:m_end
-			if abs(normale[cont, 1]) > 1e-10
-				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcz_xy(@view(barre[cont, perm1]), @view(centriOss[cc, [3, 2, 1]]), beta, rx, wx, ry, wy)
-					hc[cont, 2, cc] = compute_hcx_xy(@view(barre[cont, perm1_2]), @view(centriOss[cc, [2, 3, 1]]), beta, rx, wx, ry, wy)
-					hc[cont, 3, cc] = compute_hcx_xy(@view(barre[cont, perm1]), @view(centriOss[cc, [3, 2, 1]]), beta, rx, wx, ry, wy)
-					if cc % 100 == 0
-						yield()  # Permette alla task dell'heartbeat di essere schedulata
-					end
-				end
-			elseif abs(normale[cont, 2]) > 1e-10
-				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcx_xy(@view(barre[cont, perm2]), @view(centriOss[cc, [1, 3, 2]]), beta, rx, wx, ry, wy)
-					hc[cont, 2, cc] = compute_hcz_xy(@view(barre[cont, perm2]), @view(centriOss[cc, [1, 3, 2]]), beta, rx, wx, ry, wy)
-					hc[cont, 3, cc] = compute_hcx_xy(@view(barre[cont, perm2_2]), @view(centriOss[cc, [3, 1, 2]]), beta, rx, wx, ry, wy)
-					if cc % 100 == 0
-						yield()  # Permette alla task dell'heartbeat di essere schedulata
-					end
-				end
-			else
-				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcx_xy(@view(barre[cont, :]), @view(centriOss[cc, :]), beta, rx, wx, ry, wy)
-					hc[cont, 2, cc] = compute_hcx_xy(@view(barre[cont, perm3]), @view(centriOss[cc, [2, 1, 3]]), beta, rx, wx, ry, wy)
-					hc[cont, 3, cc] = compute_hcz_xy(@view(barre[cont, :]), @view(centriOss[cc, :]), beta, rx, wx, ry, wy)
-					if cc % 100 == 0
-						yield()  # Permette alla task dell'heartbeat di essere schedulata
-					end
-				end
-			end
-		end
-		sleep(0)
-		println("block Ec : ", round(m_end / block_size), " / ", round(num_barre / block_size))
-		if is_stop_requested(simulation_id)
-			println("Simulazione $(simulation_id) interrotta per richiesta stop.")
-			return nothing # O un altro valore che indica interruzione
-		end
-	end
+	# 4. Pre-calcola le versioni SVectore di `centriOss` per ogni permutazione
+    # Questo è un array di array di SVectore, uno per ogni riga di centriOss, e per ogni permutazione
+    centriOss_precomputed = Dict{Symbol, Vector{SVector{3, Float64}}}()
+    centriOss_precomputed[:orig] = [SVector{3}(@view centriOss[cc, :]) for cc in 1:num_centri_oss]
+    centriOss_precomputed[:perm1] = [SVector{3}(centriOss[cc, 3], centriOss[cc, 2], centriOss[cc, 1]) for cc in 1:num_centri_oss]
+    centriOss_precomputed[:perm1_2] = [SVector{3}(centriOss[cc, 2], centriOss[cc, 3], centriOss[cc, 1]) for cc in 1:num_centri_oss]
+    centriOss_precomputed[:perm2] = [SVector{3}(centriOss[cc, 1], centriOss[cc, 3], centriOss[cc, 2]) for cc in 1:num_centri_oss]
+    centriOss_precomputed[:perm2_2] = [SVector{3}(centriOss[cc, 3], centriOss[cc, 1], centriOss[cc, 2]) for cc in 1:num_centri_oss]
+    centriOss_precomputed[:perm3] = [SVector{3}(centriOss[cc, 2], centriOss[cc, 1], centriOss[cc, 3]) for cc in 1:num_centri_oss]
 
-	# Base.Threads.@threads for cont in 1:num_barre
+    # 5. Pre-calcola le versioni SVectore di `barre` per ogni permutazione
+    # Questo è un array di array di SVectore, uno per ogni riga di barre, e per ogni permutazione
+    # NOTA: Assumiamo che le `barre` in `compute_hcz_xy` e `compute_hcx_xy` siano di dimensione 12.
+    # Se `barre` ha più colonne (es. 24 come in compute_lambda_numeric), dovrai estrarre solo le prime 12 o quelle rilevanti.
+    barre_precomputed = Dict{Symbol, Vector{SVector{12, Float64}}}()
+    barre_precomputed[:orig] = [SVector{12}(@view barre[bb, 1:12]) for bb in 1:num_barre] # Assuming only first 12 cols are used by the perms
+    barre_precomputed[:perm1] = [SVector{12}(barre[bb, perm1]) for bb in 1:num_barre]
+    barre_precomputed[:perm1_2] = [SVector{12}(barre[bb, perm1_2]) for bb in 1:num_barre]
+    barre_precomputed[:perm2] = [SVector{12}(barre[bb, perm2]) for bb in 1:num_barre]
+    barre_precomputed[:perm2_2] = [SVector{12}(barre[bb, perm2_2]) for bb in 1:num_barre]
+    barre_precomputed[:perm3] = [SVector{12}(barre[bb, perm3]) for bb in 1:num_barre]
 
-	# end
-	if is_stop_requested(simulation_id)
-		println("Simulazione $(simulation_id) interrotta per richiesta stop.")
-		return nothing # O un altro valore che indica interruzione
-	else
-		return hc
-	end
+    # Pre-allocazione della matrice finale `hc`
+    hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
+	@inbounds Base.Threads.@threads for m_block_start in 1:block_size:num_barre
+        m_end = min(m_block_start + block_size - 1, num_barre)
+
+        # Loop interno sulle `barre` all'interno del blocco assegnato al thread
+        for cont in m_block_start:m_end
+            # Accediamo ai dati pre-calcolati per `normale`
+            norm_x = normale[cont, 1] # normale[1,cont] in 3xN, x-component
+            norm_y = normale[cont, 2] # y-component
+
+            if abs(norm_x) > 1e-10
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcz_xy(barre_precomputed[:perm1][cont], centriOss_precomputed[:perm1][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 2, cc] = compute_hcx_xy(barre_precomputed[:perm1_2][cont], centriOss_precomputed[:perm1_2][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 3, cc] = compute_hcx_xy(barre_precomputed[:perm1][cont], centriOss_precomputed[:perm1][cc], beta, rx, wx, ry, wy)
+                end
+            elseif abs(norm_y) > 1e-10
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcx_xy(barre_precomputed[:perm2][cont], centriOss_precomputed[:perm2][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 2, cc] = compute_hcz_xy(barre_precomputed[:perm2][cont], centriOss_precomputed[:perm2][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 3, cc] = compute_hcx_xy(barre_precomputed[:perm2_2][cont], centriOss_precomputed[:perm2_2][cc], beta, rx, wx, ry, wy)
+                end
+            else # Presumiamo che sia la componente Z ad essere non-nulla
+                for cc in 1:num_centri_oss
+                    hc[cont, 1, cc] = compute_hcx_xy(barre_precomputed[:orig][cont], centriOss_precomputed[:orig][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 2, cc] = compute_hcx_xy(barre_precomputed[:perm3][cont], centriOss_precomputed[:perm3][cc], beta, rx, wx, ry, wy)
+                    hc[cont, 3, cc] = compute_hcz_xy(barre_precomputed[:orig][cont], centriOss_precomputed[:orig][cc], beta, rx, wx, ry, wy)
+                end
+            end
+        end
+        # Output di progresso (potrebbe essere necessario sincronizzare l'output per i thread)
+        @printf "Block Ec: %.0f / %.0f\n" round(m_end / block_size) round(num_barre / block_size)
+        # Check per la richiesta di stop (se is_stop_requested è thread-safe)
+        # if is_stop_requested(simulation_id)
+        #     println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+        #     return nothing
+        # end
+    end
+
+	return hc
 end
 
 function compute_hcz_xy(barra, centriOss, beta, rx, wx, ry, wy)

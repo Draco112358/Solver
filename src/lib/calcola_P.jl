@@ -34,7 +34,7 @@ function calcola_P(superfici, escalings, QS_Rcc_FW, id)
 	round_precision = 14 # Define this once
 
 	# Loop once to pre-calculate all these properties for all surfaces
-	Base.Threads.@threads for i in 1:nsup
+	Threads.@threads for i in 1:nsup
 		# Use @view to avoid copying the surface array
 		current_surface = @view superfici["estremi_celle"][i, :]
 
