@@ -1,19 +1,4 @@
-function Compute_Lp_Self2(bar, curr_dir)
-    l, W, T = 0.0, 0.0, 0.0
-
-    if curr_dir == 1
-        l = abs(mean_length_rev(bar, 1))
-        W = abs(mean_length_rev(bar, 3))
-        T = abs(mean_length_rev(bar, 2))
-    elseif curr_dir == 2
-        T = abs(mean_length_rev(bar, 1))
-        W = abs(mean_length_rev(bar, 3))
-        l = abs(mean_length_rev(bar, 2))
-    else
-        W = abs(mean_length_rev(bar, 1))
-        l = abs(mean_length_rev(bar, 3))
-        T = abs(mean_length_rev(bar, 2))
-    end
+function Compute_Lp_Self2(l::Float64, W::Float64, T::Float64)
 
     Lp_Self_Rect = 0.0
 

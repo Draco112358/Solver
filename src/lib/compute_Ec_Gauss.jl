@@ -11,37 +11,39 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 
 	block_size = 100
 	normale = hcat(normale...)
+	rx, wx = qrule(ordine)
+	ry, wy = qrule(ordine)
+	perm1 = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
+	perm1_2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]
+	perm2 = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
+	perm2_2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
+	perm3 = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
 	for m_block in 1:block_size:num_barre
 		m_end = min(m_block + block_size - 1, num_barre)
 		Base.Threads.@threads for cont in m_block:m_end
 			if abs(normale[cont, 1]) > 1e-10
-				perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
-				perm2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]
 				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
-					hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [2, 3, 1]], ordine, beta)
-					hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta)
+					hc[cont, 1, cc] = compute_hcz_xy(@view(barre[cont, perm1]), @view(centriOss[cc, [3, 2, 1]]), beta, rx, wx, ry, wy)
+					hc[cont, 2, cc] = compute_hcx_xy(@view(barre[cont, perm1_2]), @view(centriOss[cc, [2, 3, 1]]), beta, rx, wx, ry, wy)
+					hc[cont, 3, cc] = compute_hcx_xy(@view(barre[cont, perm1]), @view(centriOss[cc, [3, 2, 1]]), beta, rx, wx, ry, wy)
 					if cc % 100 == 0
 						yield()  # Permette alla task dell'heartbeat di essere schedulata
 					end
 				end
 			elseif abs(normale[cont, 2]) > 1e-10
-				perm = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
-				perm2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
 				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
-					hc[cont, 2, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta)
-					hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [3, 1, 2]], ordine, beta)
+					hc[cont, 1, cc] = compute_hcx_xy(@view(barre[cont, perm2]), @view(centriOss[cc, [1, 3, 2]]), beta, rx, wx, ry, wy)
+					hc[cont, 2, cc] = compute_hcz_xy(@view(barre[cont, perm2]), @view(centriOss[cc, [1, 3, 2]]), beta, rx, wx, ry, wy)
+					hc[cont, 3, cc] = compute_hcx_xy(@view(barre[cont, perm2_2]), @view(centriOss[cc, [3, 1, 2]]), beta, rx, wx, ry, wy)
 					if cc % 100 == 0
 						yield()  # Permette alla task dell'heartbeat di essere schedulata
 					end
 				end
 			else
-				perm = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
 				for cc in 1:num_centri_oss
-					hc[cont, 1, cc] = compute_hcx_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
-					hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [2, 1, 3]], ordine, beta)
-					hc[cont, 3, cc] = compute_hcz_xy(barre[cont, :], centriOss[cc, :], ordine, beta)
+					hc[cont, 1, cc] = compute_hcx_xy(@view(barre[cont, :]), @view(centriOss[cc, :]), beta, rx, wx, ry, wy)
+					hc[cont, 2, cc] = compute_hcx_xy(@view(barre[cont, perm3]), @view(centriOss[cc, [2, 1, 3]]), beta, rx, wx, ry, wy)
+					hc[cont, 3, cc] = compute_hcz_xy(@view(barre[cont, :]), @view(centriOss[cc, :]), beta, rx, wx, ry, wy)
 					if cc % 100 == 0
 						yield()  # Permette alla task dell'heartbeat di essere schedulata
 					end
@@ -67,14 +69,12 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 	end
 end
 
-function compute_hcz_xy(barra, centriOss, ordine, beta)
+function compute_hcz_xy(barra, centriOss, beta, rx, wx, ry, wy)
 	numCentri = size(centriOss, 1) # Julia's size on a vector gives a tuple, so we don't need the second dimension
 	x1 = minimum(barra[[1, 4, 7, 10]])
 	x2 = maximum(barra[[1, 4, 7, 10]])
 	y1 = minimum(barra[[2, 5, 8, 11]])
 	y2 = maximum(barra[[2, 5, 8, 11]])
-	rx, wx = qrule(ordine)
-	ry, wy = qrule(ordine)
 	h1 = (x2 - x1) / 2
 	h2 = (x2 + x1) / 2
 	h3 = (y2 - y1) / 2
@@ -104,14 +104,12 @@ function compute_hcz_xy(barra, centriOss, ordine, beta)
 	return res2_1[1]
 end
 
-function compute_hcx_xy(barra, centriOss, ordine, beta)
+function compute_hcx_xy(barra, centriOss, beta, rx, wx, ry, wy)
 	numCentri = size(centriOss, 1)
 	x1 = minimum(barra[[1, 4, 7, 10]])
 	x2 = maximum(barra[[1, 4, 7, 10]])
 	y1 = minimum(barra[[2, 5, 8, 11]])
 	y2 = maximum(barra[[2, 5, 8, 11]])
-	rx, wx = qrule(ordine)
-	ry, wy = qrule(ordine)
 	h1 = (x2 - x1) / 2
 	h2 = (x2 + x1) / 2
 	h3 = (y2 - y1) / 2

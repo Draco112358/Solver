@@ -1,41 +1,8 @@
-function Song_improved_Ivana_strategy2(volume_1, volume_2, epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
+function Song_improved_Ivana_strategy2(
+    x1v, y1v, z1v, xc1, yc1, zc1, a1, b1, c1, V1,
+    x2v, y2v, z2v, xc2, yc2, zc2, a2, b2, c2, V2,
+    epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
     integ = 0
-    round_precision = 14
-
-    indici_x_min = [1, 7, 13, 19]
-    indici_y_min = [2, 5, 14, 17]
-    indici_z_min = [3, 6, 9, 12]
-
-    indici_x_max = [4, 10, 16, 22]
-    indici_y_max = [8, 11, 20, 23]
-    indici_z_max = [15, 18, 21, 24]
-
-    x1v = unique(round.(volume_1[[indici_x_min; indici_x_max]], digits=round_precision))
-    y1v = unique(round.(volume_1[[indici_y_min; indici_y_max]], digits=round_precision))
-    z1v = unique(round.(volume_1[[indici_z_min; indici_z_max]], digits=round_precision))
-
-    x2v = unique(round.(volume_2[[indici_x_min; indici_x_max]], digits=round_precision))
-    y2v = unique(round.(volume_2[[indici_y_min; indici_y_max]], digits=round_precision))
-    z2v = unique(round.(volume_2[[indici_z_min; indici_z_max]], digits=round_precision))
-
-    xc1 = 0.5 * (x1v[end] + x1v[1])
-    yc1 = 0.5 * (y1v[end] + y1v[1])
-    zc1 = 0.5 * (z1v[end] + z1v[1])
-
-    xc2 = 0.5 * (x2v[end] + x2v[1])
-    yc2 = 0.5 * (y2v[end] + y2v[1])
-    zc2 = 0.5 * (z2v[end] + z2v[1])
-
-    a1 = abs(x1v[end] - x1v[1])
-    b1 = abs(y1v[end] - y1v[1])
-    c1 = abs(z1v[end] - z1v[1])
-
-    a2 = abs(x2v[end] - x2v[1])
-    b2 = abs(y2v[end] - y2v[1])
-    c2 = abs(z2v[end] - z2v[1])
-
-    V1 = a1 * b1 * c1
-    V2 = a2 * b2 * c2
 
     supp_x1, supp_y1, supp_z1 = 0, 0, 0
     supp_x2, supp_y2, supp_z2 = 0, 0, 0
