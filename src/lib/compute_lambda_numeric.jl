@@ -924,7 +924,7 @@ Uses StaticArrays for all internal vector operations to maximize performance.
                 # MATLAB had an 'else' with G=0 if none matched. If 'zz' is the default and expected
                 # when other conditions fail, ensure it's covered.
 
-                f = draim * drbim * drcim * G_val
+                f = (draim * drbim) * (drcim * G_val)
                 sum_c1 += wek[c1] * f
             end # (c1)
             sum_b1 += wek[b1] * sum_c1

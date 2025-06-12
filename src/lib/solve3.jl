@@ -453,7 +453,6 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         escal = getEscalFrom(unit)
         #nodi_coord = hcat(nodi_coord...)
         ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
-        println("scatter ", ports_scatter_value)
         # if is_stopped_computation(id, chan)
         #     return false
         # end
@@ -466,10 +465,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         dump(freq)
         n_freq = length(freq)
         println("reading ports")
-        println(size(nodi_coord))
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
-        println("port_nodes ", ports[:port_nodes])
-        println("lumped_nodes ", lumped_elements[:le_nodes])
         println("reading ports completed")
         #SIGNALS = [el for el in inputDict["signals"]]
 
@@ -607,14 +603,10 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         unit = solverInput["unit"]
         escal = getEscalFrom(unit)
         ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
-        println("scatter ", ports_scatter_value)
 
         println("reading ports")
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
-        println("port_nodes ", ports[:port_nodes])
-        println("lumped_nodes ", lumped_elements[:le_nodes])
         println("reading ports completed")
-        
         GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
         ind_low_freq = findall(x -> x < 1e5, freq)
         GMRES_settings["tol"][ind_low_freq] .= 1e-8
@@ -625,7 +617,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         for (index, signal_type) in enumerate(ports[:signals_port])
             if signal_type["type"] != "no_signal"
                 vs = getSignalbasedOn(signal_type, times)
-                println(index)
                 is_matrix[index, :] = vs
             end
         end

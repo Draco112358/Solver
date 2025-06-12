@@ -75,8 +75,6 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         end
 
         #@assert length(input_positions_lumped) == N_LUMPED_ELEMENTS && length(output_positions_lumped) == N_LUMPED_ELEMENTS && length(values) == N_LUMPED_ELEMENTS && length(types) == N_LUMPED_ELEMENTS && length(R_values) == N_LUMPED_ELEMENTS && length(L_values) == N_LUMPED_ELEMENTS && length(C_values) == N_LUMPED_ELEMENTS
-        println(signals_lumped)
-        println(signals_port)
         lumped_elements = Dict(
             :le_start => input_positions_lumped,
             :le_end => output_positions_lumped,

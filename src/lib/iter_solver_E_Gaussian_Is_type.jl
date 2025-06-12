@@ -227,13 +227,12 @@ function iter_solver_E_Gaussian_Is_type(
 
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
 		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
-
-		hc = @time compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss, ordine_int, complex(beta, 0.0), id, chan)
+		hc = @time compute_Ec_Gauss(Float64.(superfici["estremi_celle"]), map(v -> Float64.(v), superfici["normale"]), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(hc)
 			return nothing
 		end
 		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback")
-		hc_3D = @time compute_Ec_Gauss(superfici["estremi_celle"], superfici["normale"], centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
+		hc_3D = @time compute_Ec_Gauss(Float64.(superfici["estremi_celle"]), map(v -> Float64.(v), superfici["normale"]), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(hc_3D)
 			return nothing
 		end

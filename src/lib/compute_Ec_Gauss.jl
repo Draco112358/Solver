@@ -3,7 +3,7 @@ using StaticArrays
 using Base.Threads
 using Printf
 
-function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id, chan)
+function compute_Ec_Gauss(barre::Matrix{Float64}, normale::Vector{Vector{Float64}}, centriOss::Matrix{Float64}, ordine::Int64, beta::ComplexF64, simulation_id::String, chan=nothing)
 	num_barre = size(barre, 1)
 	num_centri_oss = size(centriOss, 1)
 	hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
@@ -86,74 +86,124 @@ function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id
 	return hc
 end
 
-function compute_hcz_xy(barra, centriOss, beta, rx, wx, ry, wy)
-	numCentri = size(centriOss, 1) # Julia's size on a vector gives a tuple, so we don't need the second dimension
-	x1 = minimum(barra[[1, 4, 7, 10]])
-	x2 = maximum(barra[[1, 4, 7, 10]])
-	y1 = minimum(barra[[2, 5, 8, 11]])
-	y2 = maximum(barra[[2, 5, 8, 11]])
-	h1 = (x2 - x1) / 2
-	h2 = (x2 + x1) / 2
-	h3 = (y2 - y1) / 2
-	h4 = (y2 + y1) / 2
-	nx = length(wx)
-	my = length(wy)
-	res2_1 = zeros(ComplexF64, numCentri)
-	x = centriOss[1] # Accessing single elements directly
-	y = centriOss[2]
-	z = centriOss[3]
-	zp = barra[3]
-	for a1 in 1:nx
-		res1_1 = zeros(ComplexF64, numCentri)
-		xp = h1 * rx[a1] + h2
-		for a2 in 1:my
-			yp = h3 * ry[a2] + h4
-			delta_x = (x - xp)
-			delta_y = (y - yp)
-			delta_z = (z - zp)
-			R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
-			G_1 = delta_z * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
-			res1_1 .+= wy[a2] * G_1
-		end
-		res2_1 .+= wx[a1] * h3 * res1_1
-	end
-	res2_1 = h1 * res2_1
-	return res2_1[1]
+function compute_hcz_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float64}, beta::ComplexF64, rx::Vector{Float64}, wx::Vector{Float64}, ry::Vector{Float64}, wy::Vector{Float64})
+
+    # Non serve più `numCentri`, dato che il risultato finale è un singolo scalare.
+    # numCentri = size(centriOss, 1)
+
+    # Pre-calcolo delle coordinate min/max e degli h
+    # (Queste righe non allocano e sono efficienti con StaticArrays)
+    x1 = min(barra[1], barra[4], barra[7], barra[10])
+    x2 = max(barra[1], barra[4], barra[7], barra[10])
+    y1 = min(barra[2], barra[5], barra[8], barra[11])
+    y2 = max(barra[2], barra[5], barra[8], barra[11])
+    h1 = (x2 - x1) / 2
+    h2 = (x2 + x1) / 2
+    h3 = (y2 - y1) / 2
+    h4 = (y2 + y1) / 2
+
+    nx = length(wx)
+    my = length(wy)
+
+    # Inizializza `res2_1` come SCALARE ComplexF64, non un array.
+    res2_1_scalar = zero(ComplexF64)
+
+    # Estrai i componenti di centriOss una volta
+    x = centriOss[1]
+    y = centriOss[2]
+    z = centriOss[3]
+    zp = barra[3]
+
+    @fastmath @inbounds for a1 in 1:nx
+        # Inizializza `res1_1` come SCALARE ComplexF64 ad ogni iterazione del loop esterno.
+        res1_1_scalar = zero(ComplexF64)
+        xp = h1 * rx[a1] + h2
+
+        for a2 in 1:my
+            yp = h3 * ry[a2] + h4
+            # delta_x = (x - xp)
+            # delta_y = (y - yp)
+            # delta_z = (z - zp)
+            # R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
+			delta_vec = SVector(x - xp, y - yp, z - zp)
+			R = norm(delta_vec)
+
+            # Modifica per evitare allocazioni in `mul_fast` con molti argomenti:
+            # abbiamo aggiunto parentesi per forzare la moltiplicazione in coppie.
+            #G_1 = delta_z * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+            G_1 = delta_vec[3] * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+
+            # Somma direttamente allo scalare, non un'operazione su array
+            res1_1_scalar += wy[a2] * G_1
+        end
+        # Somma direttamente allo scalare, non un'operazione su array
+        res2_1_scalar += wx[a1] * h3 * res1_1_scalar
+    end
+
+    res2_1_scalar = h1 * res2_1_scalar
+
+    # Ritorna il singolo valore scalare
+    return res2_1_scalar
 end
 
-function compute_hcx_xy(barra, centriOss, beta, rx, wx, ry, wy)
-	numCentri = size(centriOss, 1)
-	x1 = minimum(barra[[1, 4, 7, 10]])
-	x2 = maximum(barra[[1, 4, 7, 10]])
-	y1 = minimum(barra[[2, 5, 8, 11]])
-	y2 = maximum(barra[[2, 5, 8, 11]])
-	h1 = (x2 - x1) / 2
-	h2 = (x2 + x1) / 2
-	h3 = (y2 - y1) / 2
-	h4 = (y2 + y1) / 2
-	nx = length(wx)
-	my = length(wy)
-	res2_1 = zeros(ComplexF64, numCentri)
-	x = centriOss[1]
-	y = centriOss[2]
-	z = centriOss[3]
-	zp = barra[3]
-	for a1 in 1:nx
-		res1_1 = zeros(ComplexF64, numCentri)
-		xp = h1 * rx[a1] + h2
-		for a2 in 1:my
-			yp = h3 * ry[a2] + h4
-			delta_x = (x - xp)
-			delta_y = (y - yp)
-			delta_z = (z - zp)
-			R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
-			G_1 = delta_x * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
-			res1_1 .+= wy[a2] * G_1
-		end
-		res2_1 .+= wx[a1] * h3 * res1_1
-	end
-	res2_1 = h1 * res2_1
-	return res2_1[1]
+function compute_hcx_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float64}, beta::ComplexF64, rx::Vector{Float64}, wx::Vector{Float64}, ry::Vector{Float64}, wy::Vector{Float64})
+    # numCentri non è più necessario, poiché il risultato è un singolo scalare.
+    # numCentri = size(centriOss, 1) # Rimosso
+
+    # Pre-calcolo delle coordinate min/max e degli h.
+    # Queste operazioni sono efficienti con StaticArrays e non allocano.
+    x1 = min(barra[1], barra[4], barra[7], barra[10])
+    x2 = max(barra[1], barra[4], barra[7], barra[10])
+    y1 = min(barra[2], barra[5], barra[8], barra[11])
+    y2 = max(barra[2], barra[5], barra[8], barra[11])
+    h1 = (x2 - x1) / 2
+    h2 = (x2 + x1) / 2
+    h3 = (y2 - y1) / 2
+    h4 = (y2 + y1) / 2
+
+    nx = length(wx)
+    my = length(wy)
+
+    # Inizializziamo `res2_1` come SCALARE ComplexF64, non un array.
+    res2_1_scalar = zero(ComplexF64)
+
+    # Estraiamo i componenti di centriOss e barra una volta.
+    x = centriOss[1]
+    y = centriOss[2]
+    z = centriOss[3]
+    zp = barra[3]
+
+    @fastmath @inbounds for a1 in 1:nx
+        # Inizializziamo `res1_1` come SCALARE ComplexF64 ad ogni iterazione del loop esterno.
+        res1_1_scalar = zero(ComplexF64)
+        xp = h1 * rx[a1] + h2
+
+        for a2 in 1:my
+            yp = h3 * ry[a2] + h4
+            # delta_x = (x - xp)
+            # delta_y = (y - yp)
+            # delta_z = (z - zp)
+            # R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
+			delta_vec = SVector(x - xp, y - yp, z - zp)
+			R = norm(delta_vec)
+
+            # Modifica per evitare allocazioni in `mul_fast` con molti argomenti:
+            # abbiamo aggiunto parentesi per forzare la moltiplicazione in coppie.
+            # La differenza rispetto a compute_hcz_xy è che qui usiamo `delta_x` invece di `delta_z`.
+            #G_1 = delta_x * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+            G_1 = delta_vec[1] * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+
+            # Sommiamo direttamente allo scalare, non un'operazione su array.
+            res1_1_scalar += wy[a2] * G_1
+        end
+        # Sommiamo direttamente allo scalare, non un'operazione su array.
+        res2_1_scalar += wx[a1] * h3 * res1_1_scalar
+    end
+
+    res2_1_scalar = h1 * res2_1_scalar
+
+    # La funzione ora ritorna direttamente il singolo valore scalare.
+    return res2_1_scalar
 end
 
 function qrule(n::Int)
