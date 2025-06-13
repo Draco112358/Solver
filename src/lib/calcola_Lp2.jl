@@ -87,195 +87,28 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
     end
     # --- FINE PRE-CALCOLO ---
 
-	Rx = Matrix{Float64}(undef, mx, mx)
-	Ry = Matrix{Float64}(undef, my, my)
-	Rz = Matrix{Float64}(undef, mz, mz)
 	block_size = 200
 
-	calculate_R_matrices!(Rx, Ry, Rz, volumi,mx, my, mz, QS_Rcc_FW, id,block_size)
+	#calculate_R_matrices!(Rx, Ry, Rz, volumi,mx, my, mz, QS_Rcc_FW, id,block_size)
 
-	# if QS_Rcc_FW >= 2
-	# 	Rx = Matrix{Float64}(undef, mx, mx)
-	# 	Ry = Matrix{Float64}(undef, my, my)
-	# 	Rz = Matrix{Float64}(undef, mz, mz)
+	if QS_Rcc_FW >= 2
+		Rx = Matrix{Float64}(undef, mx, mx)
+		Ry = Matrix{Float64}(undef, my, my)
+		Rz = Matrix{Float64}(undef, mz, mz)
 
-	# 	# Dimensione del blocco (da regolare in base alle esigenze)
-	# 	
-
-	# 	# Suddividiamo il ciclo sul parametro m in blocchi
-	# 	for m_block in 1:block_size:mx
-	# 		m_end = min(m_block + block_size - 1, mx)
-
-	# 		Threads.@threads for m in m_block:m_end
-	# 			for n in m:mx
-	# 				dist = norm(view(volumi[:centri], m, :) .- view(volumi[:centri], n, :))
-	# 				Rx[m, n] = dist
-	# 				Rx[n, m] = dist
-	# 				if n % 20 == 0
-	# 					yield()  # Permette alla task dell'heartbeat di essere schedulata
-	# 				end
-	# 			end
-	# 		end
-
-	# 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-	# 		sleep(0)
-	# 		if is_stop_requested(id)
-	# 			println("Simulazione $(id) interrotta per richiesta stop.")
-	# 			return nothing # O un altro valore che indica interruzione
-	# 		end
-	# 		println("block Lp1 : ", round(m_end / block_size), " / ", round(mx / block_size))
-	# 	end
-
-	# 	for m_block in 1:block_size:my
-	# 		m_end = min(m_block + block_size - 1, my)
-
-	# 		Threads.@threads for m in m_block:m_end
-	# 			for n in m:my
-	# 				dist = norm(view(volumi[:centri], m + mx, :) .- view(volumi[:centri], n + mx, :))
-	# 				Ry[m, n] = dist
-	# 				Ry[n, m] = dist
-	# 				if n % 20 == 0
-	# 					yield()  # Permette alla task dell'heartbeat di essere schedulata
-	# 				end
-	# 			end
-	# 		end
-
-	# 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-	# 		sleep(0)
-	# 		if is_stop_requested(id)
-	# 			println("Simulazione $(id) interrotta per richiesta stop.")
-	# 			return nothing # O un altro valore che indica interruzione
-	# 		end
-	# 		println("block Lp2 : ", round(m_end / block_size), " / ", round(my / block_size))
-	# 	end
-
-	# 	for m_block in 1:block_size:mz
-	# 		m_end = min(m_block + block_size - 1, mz)
-
-	# 		Threads.@threads for m in m_block:m_end
-	# 			for n in m:mz
-	# 				dist = norm(view(volumi[:centri], m + mx + my, :) .- view(volumi[:centri], n + mx + my, :))
-	# 				Rz[m, n] = dist
-	# 				Rz[n, m] = dist
-	# 				if n % 20 == 0
-	# 					yield()  # Permette alla task dell'heartbeat di essere schedulata
-	# 				end
-	# 			end
-	# 		end
-
-	# 		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-	# 		sleep(0)
-	# 		if is_stop_requested(id)
-	# 			println("Simulazione $(id) interrotta per richiesta stop.")
-	# 			return nothing # O un altro valore che indica interruzione
-	# 		end
-	# 		println("block Lp3 : ", round(m_end / block_size), " / ", round(mz / block_size))
-	# 	end
-	# end
+		# Dimensione del blocco (da regolare in base alle esigenze)
+		Rx = calculate_Rx(Rx, volumi[:centri], mx, block_size, id)
+		Ry = calculate_Ry(Ry, volumi[:centri], mx, my, block_size, id)
+		Rz = calculate_Rz(Rz, volumi[:centri], mx, my, mz, block_size, id)
+	end
 
 	Lp_x = Matrix{Float64}(undef, mx, mx)
 	Lp_y = Matrix{Float64}(undef, my, my)
 	Lp_z = Matrix{Float64}(undef, mz, mz)
 
-	# Dimensione del blocco (da regolare in base alle esigenze)
-	block_size = 200
-
-	# Suddividiamo il ciclo sul parametro m in blocchi
-	for m_block in 1:block_size:mx
-		m_end = min(m_block + block_size - 1, mx)
-
-		Threads.@threads for m in m_block:m_end
-			Lp_x[m, m] = Compute_Lp_Self2(l_s[m], W_s[m], T_s[m]) * escalings[:Lp]
-
-			for n in m+1:mx
-				integ, _ = Song_improved_Ivana_strategy2(
-                    x_vs[m], y_vs[m], z_vs[m], xc_s[m], yc_s[m], zc_s[m], a_s[m], b_s[m], c_s[m], V_s[m],
-                    x_vs[n], y_vs[n], z_vs[n], xc_s[n], yc_s[n], zc_s[n], a_s[n], b_s[n], c_s[n], V_s[n],
-                    epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
-                )
-				value = 1e-7 / (volumi[:S][m] * volumi[:S][n]) * integ * escalings[:Lp]
-				Lp_x[m, n] = value
-				Lp_x[n, m] = value
-				if n % 20 == 0
-					yield()  # Permette alla task dell'heartbeat di essere schedulata
-				end
-			end
-		end
-
-		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-		sleep(0)
-		if is_stop_requested(id)
-			println("Simulazione $(id) interrotta per richiesta stop.")
-			return nothing # O un altro valore che indica interruzione
-		end
-		println("block Lp4 : ", round(m_end / block_size), " / ", round(mx / block_size))
-	end
-
-	# Suddividiamo il ciclo sul parametro m in blocchi
-	for m_block in 1:block_size:my
-		m_end = min(m_block + block_size - 1, my)
-
-		Threads.@threads for m in m_block:m_end
-			idx_m_y = m + mx # Indice assoluto per i volumi Y
-			Lp_y[m, m] = Compute_Lp_Self2(l_s[idx_m_y], W_s[idx_m_y], T_s[idx_m_y]) * escalings[:Lp]
-
-			for n in m+1:my
-				idx_n_y = n + mx # Indice assoluto per i volumi Y
-				integ, _ = Song_improved_Ivana_strategy2(
-                    x_vs[idx_m_y], y_vs[idx_m_y], z_vs[idx_m_y], xc_s[idx_m_y], yc_s[idx_m_y], zc_s[idx_m_y], a_s[idx_m_y], b_s[idx_m_y], c_s[idx_m_y], V_s[idx_m_y],
-                    x_vs[idx_n_y], y_vs[idx_n_y], z_vs[idx_n_y], xc_s[idx_n_y], yc_s[idx_n_y], zc_s[idx_n_y], a_s[idx_n_y], b_s[idx_n_y], c_s[idx_n_y], V_s[idx_n_y],
-                    epsilon1, epsilon2, epsilon3, epsilon4, use_suppression,
-                )
-				value = 1e-7 / (volumi[:S][m+mx] * volumi[:S][n+mx]) * integ * escalings[:Lp]
-				Lp_y[m, n] = value
-				Lp_y[n, m] = value
-				if n % 20 == 0
-					yield()  # Permette alla task dell'heartbeat di essere schedulata
-				end
-			end
-		end
-
-		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-		sleep(0)
-		if is_stop_requested(id)
-			println("Simulazione $(id) interrotta per richiesta stop.")
-			return nothing # O un altro valore che indica interruzione
-		end
-		println("block Lp5 : ", round(m_end / block_size), " / ", round(my / block_size))
-	end
-
-	# Suddividiamo il ciclo sul parametro m in blocchi
-	for m_block in 1:block_size:mz
-		m_end = min(m_block + block_size - 1, mz)
-
-		Threads.@threads for m in m_block:m_end
-			idx_m_z = m + mx + my # Indice assoluto per i volumi Z
-			Lp_z[m, m] = Compute_Lp_Self2(l_s[idx_m_z], W_s[idx_m_z], T_s[idx_m_z]) * escalings[:Lp]
-
-			for n in m+1:mz
-				idx_n_z = n + mx + my # Indice assoluto per i volumi Z
-				integ, _ = Song_improved_Ivana_strategy2(
-                    x_vs[idx_m_z], y_vs[idx_m_z], z_vs[idx_m_z], xc_s[idx_m_z], yc_s[idx_m_z], zc_s[idx_m_z], a_s[idx_m_z], b_s[idx_m_z], c_s[idx_m_z], V_s[idx_m_z],
-                    x_vs[idx_n_z], y_vs[idx_n_z], z_vs[idx_n_z], xc_s[idx_n_z], yc_s[idx_n_z], zc_s[idx_n_z], a_s[idx_n_z], b_s[idx_n_z], c_s[idx_n_z], V_s[idx_n_z],
-                    epsilon1, epsilon2, epsilon3, epsilon4, use_suppression,
-                )
-				value = 1e-7 / (volumi[:S][m+mx+my] * volumi[:S][n+mx+my]) * integ * escalings[:Lp]
-				Lp_z[m, n] = value
-				Lp_z[n, m] = value
-                if n % 20 == 0
-					yield()  # Permette alla task dell'heartbeat di essere schedulata
-				end
-			end
-		end
-
-		# Alla fine di ogni blocco, cede il controllo per permettere ad altre operazioni
-		sleep(0)
-		if is_stop_requested(id)
-			println("Simulazione $(id) interrotta per richiesta stop.")
-			return nothing # O un altro valore che indica interruzione
-		end
-		println("block Lp6 : ", round(m_end / block_size), " / ", round(mz / block_size))
-	end
+	calculate_Lp_matrix(Lp_x, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], mx, 0, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
+	calculate_Lp_matrix(Lp_y, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], my, mx, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
+	calculate_Lp_matrix(Lp_z, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], mz, mx + my, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
 
 	return Dict(
 		:Lp_x => Lp_x,
@@ -287,86 +120,193 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
 	)
 end
 
-function calculate_R_matrices!(
-    Rx::Matrix{Float64}, Ry::Matrix{Float64}, Rz::Matrix{Float64},
-    volumi::Dict{Symbol, AbstractArray}, # Assuming volumi is a Dict with :centri as Matrix{Float64}
-    mx::Int, my::Int, mz::Int,
-    QS_Rcc_FW::Int, id::String, block_size::Int
+function calculate_Rx(
+    Rx::Matrix{Float64},
+    centri::Vector{Vector{Float64}},
+    mx::Int,
+    block_size::Int,
+    id::String;
 )
-    if QS_Rcc_FW < 2
-        return nothing
+    # # Ensure `Rx` dimensions match `mx`
+    # size(Rx) == (mx, mx) || throw(DimensionMismatch("Rx must be an mx x mx matrix"))
+    # size(centri, 2) == 3 || throw(DimensionMismatch("centri must have 3 columns for 3D coordinates"))
+
+    num_blocks = ceil(Int, mx / block_size) # Calculate total number of blocks
+
+    for (block_idx, m_block) in enumerate(1:block_size:mx)
+        m_end = min(m_block + block_size - 1, mx)
+
+        Threads.@threads for m in m_block:m_end
+            # Use SVector for efficient fixed-size vector operations.
+            # This avoids creating temporary `view` allocations in the inner loop.
+            @inbounds centro_m = SVector{3, Float64}(centri[m][1], centri[m][2], centri[m][3])
+
+            @inbounds for n in m:mx
+                centro_n = SVector{3, Float64}(centri[n][1], centri[n][2], centri[n][3])
+                dist = norm(centro_m - centro_n)
+                Rx[m, n] = dist
+                Rx[n, m] = dist
+            end
+        end
+
+        # Check for stop request after each block is fully processed.
+        # This is generally a more appropriate place for external checks than inside the inner loop.
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # Indicate interruption
+        end
+
+        println("Processed block $(block_idx) / $(num_blocks) for Rx calculation.")
     end
 
-    # Pre-check: Ensure `volumi[:centri]` is a Matrix{Float64}
-    centri_data = volumi[:centri]
-    num_cols_centri = size(centri_data, 2)
+    return Rx # Return the populated matrix
+end
 
-    # Helper function to avoid code duplication
-    # @inline helps the compiler potentially inline this small function
-    @inline function _populate_R_matrix!(
-        R_matrix::Matrix{Float64},
-        start_idx::Int, end_idx::Int, # Indices for the R_matrix
-        offset::Int, # Offset for `centri_data`
-        block_idx::Int, total_blocks::Int,
-        loop_name::String,
-        is_stop_requested_func, # Pass the stop request function
-        id_val::String # Pass the ID value
-    )
-        current_mx = size(R_matrix, 1) # Use matrix dimension for inner loop limit
-        
-        Threads.@threads for m_thread in start_idx:end_idx
-            # Use StaticArrays for fixed-size vectors for performance.
-            # Make sure num_cols_centri is 3 if using SVector{3}.
-            # If num_cols_centri can vary, SVector{num_cols_centri} is more general.
-            centro_m = SVector{num_cols_centri}(ntuple(k -> centri_data[m_thread + offset, k], num_cols_centri))
+function calculate_Ry(
+    Ry::Matrix{Float64},
+    centri::Vector{Vector{Float64}},
+    mx::Int,
+	my::Int,
+    block_size::Int,
+    id::String;
+)
+    # # Ensure `Rx` dimensions match `mx`
+    # size(Rx) == (mx, mx) || throw(DimensionMismatch("Rx must be an mx x mx matrix"))
+    # size(centri, 2) == 3 || throw(DimensionMismatch("centri must have 3 columns for 3D coordinates"))
 
-            @inbounds for n_thread in m_thread:current_mx
-                centro_n = SVector{num_cols_centri}(ntuple(k -> centri_data[n_thread + offset, k], num_cols_centri))
+    num_blocks = ceil(Int, my / block_size) # Calculate total number of blocks
+
+    for (block_idx, m_block) in enumerate(1:block_size:my)
+        m_end = min(m_block + block_size - 1, my)
+
+        Threads.@threads for m in m_block:m_end
+            # Use SVector for efficient fixed-size vector operations.
+            # This avoids creating temporary `view` allocations in the inner loop.
+            @inbounds centro_m = SVector{3, Float64}(centri[m+mx][1], centri[m+mx][2], centri[m+mx][3])
+
+            @inbounds for n in m:my
+                centro_n = SVector{3, Float64}(centri[n+mx][1], centri[n+mx][2], centri[n+mx][3])
                 dist = norm(centro_m - centro_n)
-                R_matrix[m_thread, n_thread] = dist
-                R_matrix[n_thread, m_thread] = dist
+                Ry[m, n] = dist
+                Ry[n, m] = dist
+            end
+        end
+
+        # Check for stop request after each block is fully processed.
+        # This is generally a more appropriate place for external checks than inside the inner loop.
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # Indicate interruption
+        end
+
+        println("Processed block $(block_idx) / $(num_blocks) for Ry calculation.")
+    end
+
+    return Ry # Return the populated matrix
+end
+
+function calculate_Rz(
+    Rz::Matrix{Float64},
+    centri::Vector{Vector{Float64}},
+	mx::Int,
+	my::Int,
+    mz::Int,
+    block_size::Int,
+    id::String;
+)
+    # # Ensure `Rx` dimensions match `mx`
+    # size(Rx) == (mx, mx) || throw(DimensionMismatch("Rx must be an mx x mx matrix"))
+    # size(centri, 2) == 3 || throw(DimensionMismatch("centri must have 3 columns for 3D coordinates"))
+
+    num_blocks = ceil(Int, mz / block_size) # Calculate total number of blocks
+
+    for (block_idx, m_block) in enumerate(1:block_size:mz)
+        m_end = min(m_block + block_size - 1, mz)
+
+        Threads.@threads for m in m_block:m_end
+            # Use SVector for efficient fixed-size vector operations.
+            # This avoids creating temporary `view` allocations in the inner loop.
+            @inbounds centro_m = SVector{3, Float64}(centri[m+mx+my][1], centri[m+mx+my][2], centri[m+mx+my][3])
+
+            @inbounds for n in m:mz
+                centro_n = SVector{3, Float64}(centri[n+mx+my][1], centri[n+mx+my][2], centri[n+mx+my][3])
+                dist = norm(centro_m - centro_n)
+                Rz[m, n] = dist
+                Rz[n, m] = dist
+            end
+        end
+
+        # Check for stop request after each block is fully processed.
+        # This is generally a more appropriate place for external checks than inside the inner loop.
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
+            return nothing # Indicate interruption
+        end
+
+        println("Processed block $(block_idx) / $(num_blocks) for Rz calculation.")
+    end
+
+    return Rz # Return the populated matrix
+end
+
+function calculate_Lp_matrix(
+    Lp_matrix::Matrix{Float64}, # Assuming Lp can store complex values later
+    l_s::Vector{Float64}, W_s::Vector{Float64}, T_s::Vector{Float64},
+    x_vs::Vector{Vector{Float64}}, y_vs::Vector{Vector{Float64}}, z_vs::Vector{Vector{Float64}},
+    xc_s::Vector{Float64}, yc_s::Vector{Float64}, zc_s::Vector{Float64},
+    a_s::Vector{Float64}, b_s::Vector{Float64}, c_s::Vector{Float64},
+    V_s::Vector{Float64}, S_volumi::Vector{Float64},
+    dim::Int,
+    offset::Int,
+    block_size::Int,
+    id::String,
+    escalings_Lp::Int64,
+    epsilon1::Float64, epsilon2::Float64, epsilon3::Float64, epsilon4::Float64,
+    use_suppression::Bool
+)
+    # Validate dimensions
+    #size(Lp_matrix) == (dim, dim) || throw(DimensionMismatch("Lp_matrix must be a $(dim)x$(dim) matrix."))
+    # Add more dimension checks for input vectors if necessary (e.g., length(l_s) >= dim + offset)
+
+    num_blocks = ceil(Int, dim / block_size)
+
+    for (block_idx, m_block) in enumerate(1:block_size:dim)
+        m_end = min(m_block + block_size - 1, dim)
+
+        Threads.@threads for m_idx in m_block:m_end
+            # Calculate actual indices in the input arrays
+            actual_m_idx = m_idx + offset
+
+            # Self-inductance (diagonal element)
+            Lp_matrix[m_idx, m_idx] = Compute_Lp_Self2(l_s[actual_m_idx], W_s[actual_m_idx], T_s[actual_m_idx]) * escalings_Lp
+
+            # Mutual inductance (off-diagonal elements)
+            @inbounds for n_idx in m_idx+1:dim
+                actual_n_idx = n_idx + offset
+
+                integ, _ = Song_improved_Ivana_strategy2(
+                    x_vs[actual_m_idx], y_vs[actual_m_idx], z_vs[actual_m_idx],
+                    xc_s[actual_m_idx], yc_s[actual_m_idx], zc_s[actual_m_idx],
+                    a_s[actual_m_idx], b_s[actual_m_idx], c_s[actual_m_idx], V_s[actual_m_idx],
+                    x_vs[actual_n_idx], y_vs[actual_n_idx], z_vs[actual_n_idx],
+                    xc_s[actual_n_idx], yc_s[actual_n_idx], zc_s[actual_n_idx],
+                    a_s[actual_n_idx], b_s[actual_n_idx], c_s[actual_n_idx], V_s[actual_n_idx],
+                    epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
+                )
+                value = 1e-7 / (S_volumi[actual_m_idx] * S_volumi[actual_n_idx]) * integ * escalings_Lp
+                Lp_matrix[m_idx, n_idx] = value
+                Lp_matrix[n_idx, m_idx] = value
             end
         end
 
         # Check for stop request after each block is fully processed
-        # Moved outside the thread loop to be performed once per block on the main thread
-        if is_stop_requested_func(id_val)
-            println("Simulazione $(id_val) interrotta per richiesta stop.")
-            return true # Indicate interruption
-        end
-        
-        # Remove frequent `println` for performance.
-        # If progress updates are essential, make them less frequent or use a proper logging system.
-        println("block $(loop_name): $(block_idx) / $(total_blocks)")
-        return false # Indicate no interruption
-    end
-
-    # --- Calculation for Rx ---
-    num_blocks_x = ceil(Int, mx / block_size)
-    for (block_idx, m_block) in enumerate(1:block_size:mx)
-        m_end = min(m_block + block_size - 1, mx)
-        if _populate_R_matrix!(Rx, m_block, m_end, Threads.threadid(), block_idx, num_blocks_x, "Lp1", is_stop_requested, id)
+        if is_stop_requested(id)
+            println("Simulazione $(id) interrotta per richiesta stop.")
             return nothing
         end
+
+        println("Processed block $(block_idx) / $(num_blocks) for Lpx calculation.")
     end
 
-    # --- Calculation for Ry ---
-    num_blocks_y = ceil(Int, my / block_size)
-    for (block_idx, m_block) in enumerate(1:block_size:my)
-        m_end = min(m_block + block_size - 1, my)
-        if _populate_R_matrix!(Ry, m_block, m_end, Threads.threadid(), block_idx, num_blocks_y, "Lp2", is_stop_requested, id)
-            return nothing
-        end
-    end
-
-    # --- Calculation for Rz ---
-    num_blocks_z = ceil(Int, mz / block_size)
-    for (block_idx, m_block) in enumerate(1:block_size:mz)
-        m_end = min(m_block + block_size - 1, mz)
-        if _populate_R_matrix!(Rz, m_block, m_end, Threads.threadid(), block_idx, num_blocks_z, "Lp3", is_stop_requested, id)
-            return nothing
-        end
-    end
-
-    return Rx, Ry, Rz # Return all three matrices
+    return Lp_matrix
 end
