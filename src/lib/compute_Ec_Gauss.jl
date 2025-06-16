@@ -12,7 +12,7 @@ function compute_Ec_Gauss(barre::Matrix{Float64}, normale::Vector{Vector{Float64
 		normale[i] = convert(Vector{Float64}, normale[i])
 	end
 
-	block_size = 200
+	block_size = 100
 	normale = hcat(normale...)
 	rx, wx = qrule(ordine)
 	ry, wy = qrule(ordine)
@@ -114,7 +114,7 @@ function compute_hcz_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float
     z = centriOss[3]
     zp = barra[3]
 
-    @fastmath @inbounds for a1 in 1:nx
+    @inbounds for a1 in 1:nx
         # Inizializza `res1_1` come SCALARE ComplexF64 ad ogni iterazione del loop esterno.
         res1_1_scalar = zero(ComplexF64)
         xp = h1 * rx[a1] + h2
@@ -131,7 +131,7 @@ function compute_hcz_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float
             # Modifica per evitare allocazioni in `mul_fast` con molti argomenti:
             # abbiamo aggiunto parentesi per forzare la moltiplicazione in coppie.
             #G_1 = delta_z * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
-            G_1 = delta_vec[3] * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+            G_1 = delta_vec[3] * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
 
             # Somma direttamente allo scalare, non un'operazione su array
             res1_1_scalar += wy[a2] * G_1
@@ -173,7 +173,7 @@ function compute_hcx_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float
     z = centriOss[3]
     zp = barra[3]
 
-    @fastmath @inbounds for a1 in 1:nx
+    @inbounds for a1 in 1:nx
         # Inizializziamo `res1_1` come SCALARE ComplexF64 ad ogni iterazione del loop esterno.
         res1_1_scalar = zero(ComplexF64)
         xp = h1 * rx[a1] + h2
@@ -191,7 +191,7 @@ function compute_hcx_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float
             # abbiamo aggiunto parentesi per forzare la moltiplicazione in coppie.
             # La differenza rispetto a compute_hcz_xy è che qui usiamo `delta_x` invece di `delta_z`.
             #G_1 = delta_x * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
-            G_1 = delta_vec[1] * ((1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R))
+            G_1 = delta_vec[1] * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
 
             # Sommiamo direttamente allo scalare, non un'operazione su array.
             res1_1_scalar += wy[a2] * G_1
@@ -205,6 +205,148 @@ function compute_hcx_xy(barra::SVector{12, Float64}, centriOss::SVector{3, Float
     # La funzione ora ritorna direttamente il singolo valore scalare.
     return res2_1_scalar
 end
+
+
+# using LinearAlgebra
+
+# function compute_Ec_Gauss(barre, normale, centriOss, ordine, beta, simulation_id, chan)
+# 	num_barre = size(barre, 1)
+# 	num_centri_oss = size(centriOss, 1)
+# 	hc = zeros(ComplexF64, num_barre, 3, num_centri_oss)
+
+# 	for i in eachindex(normale)
+# 		normale[i] = convert(Vector{Float64}, normale[i])
+# 	end
+
+# 	block_size = 100
+# 	normale = hcat(normale...)
+#     rx, wx = qrule(ordine)
+# 	ry, wy = qrule(ordine)
+# 	for m_block in 1:block_size:num_barre
+# 		m_end = min(m_block + block_size - 1, num_barre)
+# 		Base.Threads.@threads for cont in m_block:m_end
+# 			if abs(normale[cont, 1]) > 1e-10
+# 				perm = [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]
+# 				perm2 = [2, 3, 1, 5, 6, 4, 8, 9, 7, 11, 12, 10]
+# 				for cc in 1:num_centri_oss
+# 					hc[cont, 1, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [2, 3, 1]], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [3, 2, 1]], ordine, beta, rx, wx, ry, wy)
+# 					if cc % 100 == 0
+# 						yield()  # Permette alla task dell'heartbeat di essere schedulata
+# 					end
+# 				end
+# 			elseif abs(normale[cont, 2]) > 1e-10
+# 				perm = [1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11]
+# 				perm2 = [3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11]
+# 				for cc in 1:num_centri_oss
+# 					hc[cont, 1, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 2, cc] = compute_hcz_xy(barre[cont, perm], centriOss[cc, [1, 3, 2]], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 3, cc] = compute_hcx_xy(barre[cont, perm2], centriOss[cc, [3, 1, 2]], ordine, beta, rx, wx, ry, wy)
+# 					if cc % 100 == 0
+# 						yield()  # Permette alla task dell'heartbeat di essere schedulata
+# 					end
+# 				end
+# 			else
+# 				perm = [2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12]
+# 				for cc in 1:num_centri_oss
+# 					hc[cont, 1, cc] = compute_hcx_xy(barre[cont, :], centriOss[cc, :], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 2, cc] = compute_hcx_xy(barre[cont, perm], centriOss[cc, [2, 1, 3]], ordine, beta, rx, wx, ry, wy)
+# 					hc[cont, 3, cc] = compute_hcz_xy(barre[cont, :], centriOss[cc, :], ordine, beta, rx, wx, ry, wy)
+# 					if cc % 100 == 0
+# 						yield()  # Permette alla task dell'heartbeat di essere schedulata
+# 					end
+# 				end
+# 			end
+# 		end
+# 		sleep(0)
+# 		println("block Ec : ", round(m_end / block_size), " / ", round(num_barre / block_size))
+# 		if is_stop_requested(simulation_id)
+# 			println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+# 			return nothing # O un altro valore che indica interruzione
+# 		end
+# 	end
+
+# 	# Base.Threads.@threads for cont in 1:num_barre
+
+# 	# end
+# 	if is_stop_requested(simulation_id)
+# 		println("Simulazione $(simulation_id) interrotta per richiesta stop.")
+# 		return nothing # O un altro valore che indica interruzione
+# 	else
+# 		return hc
+# 	end
+# end
+
+# function compute_hcz_xy(barra, centriOss, ordine, beta, rx, wx, ry, wy)
+# 	numCentri = size(centriOss, 1) # Julia's size on a vector gives a tuple, so we don't need the second dimension
+# 	x1 = minimum(barra[[1, 4, 7, 10]])
+# 	x2 = maximum(barra[[1, 4, 7, 10]])
+# 	y1 = minimum(barra[[2, 5, 8, 11]])
+# 	y2 = maximum(barra[[2, 5, 8, 11]])
+# 	h1 = (x2 - x1) / 2
+# 	h2 = (x2 + x1) / 2
+# 	h3 = (y2 - y1) / 2
+# 	h4 = (y2 + y1) / 2
+# 	nx = length(wx)
+# 	my = length(wy)
+# 	res2_1 = zeros(ComplexF64, numCentri)
+# 	x = centriOss[1] # Accessing single elements directly
+# 	y = centriOss[2]
+# 	z = centriOss[3]
+# 	zp = barra[3]
+# 	for a1 in 1:nx
+# 		res1_1 = zeros(ComplexF64, numCentri)
+# 		xp = h1 * rx[a1] + h2
+# 		for a2 in 1:my
+# 			yp = h3 * ry[a2] + h4
+# 			delta_x = (x - xp)
+# 			delta_y = (y - yp)
+# 			delta_z = (z - zp)
+# 			R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
+# 			G_1 = delta_z * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
+# 			res1_1 .+= wy[a2] * G_1
+# 		end
+# 		res2_1 .+= wx[a1] * h3 * res1_1
+# 	end
+# 	res2_1 = h1 * res2_1
+# 	return res2_1[1]
+# end
+
+# function compute_hcx_xy(barra, centriOss, ordine, beta, rx, wx, ry, wy)
+# 	numCentri = size(centriOss, 1)
+# 	x1 = minimum(barra[[1, 4, 7, 10]])
+# 	x2 = maximum(barra[[1, 4, 7, 10]])
+# 	y1 = minimum(barra[[2, 5, 8, 11]])
+# 	y2 = maximum(barra[[2, 5, 8, 11]])
+# 	h1 = (x2 - x1) / 2
+# 	h2 = (x2 + x1) / 2
+# 	h3 = (y2 - y1) / 2
+# 	h4 = (y2 + y1) / 2
+# 	nx = length(wx)
+# 	my = length(wy)
+# 	res2_1 = zeros(ComplexF64, numCentri)
+# 	x = centriOss[1]
+# 	y = centriOss[2]
+# 	z = centriOss[3]
+# 	zp = barra[3]
+# 	for a1 in 1:nx
+# 		res1_1 = zeros(ComplexF64, numCentri)
+# 		xp = h1 * rx[a1] + h2
+# 		for a2 in 1:my
+# 			yp = h3 * ry[a2] + h4
+# 			delta_x = (x - xp)
+# 			delta_y = (y - yp)
+# 			delta_z = (z - zp)
+# 			R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
+# 			G_1 = delta_x * (1 / R^3 + 1im * beta / R^2) * exp(-1im * beta * R)
+# 			res1_1 .+= wy[a2] * G_1
+# 		end
+# 		res2_1 .+= wx[a1] * h3 * res1_1
+# 	end
+# 	res2_1 = h1 * res2_1
+# 	return res2_1[1]
+# end
 
 function qrule(n::Int)
 	iter = 2

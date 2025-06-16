@@ -611,7 +611,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         ind_low_freq = findall(x -> x < 1e5, freq)
         GMRES_settings["tol"][ind_low_freq] .= 1e-8
         QS_Rcc_FW = solverType # 1 QS, 2 Rcc, 3 Taylor
-        use_Zs_in = true
+        use_Zs_in = false
 
         is_matrix = zeros(size(ports[:port_start], 1), length(times))
         for (index, signal_type) in enumerate(ports[:signals_port])
