@@ -122,7 +122,7 @@ end
 
 function calculate_Rx(
     Rx::Matrix{Float64},
-    centri::Vector{Vector{Float64}},
+    centri::Union{Vector{Vector{Float64}}, Vector{Vector}},
     mx::Int,
     block_size::Int,
     id::String;
@@ -164,7 +164,7 @@ end
 
 function calculate_Ry(
     Ry::Matrix{Float64},
-    centri::Vector{Vector{Float64}},
+    centri::Union{Vector{Vector{Float64}}, Vector{Vector}},
     mx::Int,
 	my::Int,
     block_size::Int,
@@ -207,7 +207,7 @@ end
 
 function calculate_Rz(
     Rz::Matrix{Float64},
-    centri::Vector{Vector{Float64}},
+    centri::Union{Vector{Vector{Float64}}, Vector{Vector}},
 	mx::Int,
 	my::Int,
     mz::Int,
