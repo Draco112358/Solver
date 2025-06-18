@@ -574,7 +574,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         if signal_type_E["type"] == "exponential"
             f0=0
             dev_stand=0;
-    
             time_delay_vs=parse(Float64,signal_type_E["params"]["time_delay_vs"]);
             tw = parse(Float64,signal_type_E["params"]["tw"]);
             power=parse(Float64,signal_type_E["params"]["power"]);
@@ -582,7 +581,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         elseif signal_type_E["type"] == "gaussian_modulated"
             tr=0;
             power=0;
-            
             time_delay_vs=parse(Float64,signal_type_E["params"]["time_delay_vs"]);
             f0=parse(Float64,signal_type_E["params"]["f0"]);
             dev_stand=parse(Float64,signal_type_E["params"]["dev_stand"]);
@@ -605,7 +603,9 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         ports_scatter_value = haskey(solverInput, "ports_scattering_value") ? solverInput["ports_scattering_value"] : 50.0
 
         println("reading ports")
+        nodi_coord = round.(nodi_coord, digits=8)
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
+        println(ports[:port_nodes])
         println("reading ports completed")
         GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
         ind_low_freq = findall(x -> x < 1e5, freq)

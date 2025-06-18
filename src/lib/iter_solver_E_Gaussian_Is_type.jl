@@ -39,6 +39,7 @@ function iter_solver_E_Gaussian_Is_type(
 	zeroo = zeros(num_oss_3D)
 
 	freq .= freq .* escalings[:freq]
+	println(escalings[:freq])
 	# GMRES settings ----------------------------
 	Inner_Iter::Int64 = GMRES_settings["Inner_Iter"]
 	#Outer_Iter = GMRES_settings.Outer_Iter
@@ -264,15 +265,15 @@ function iter_solver_E_Gaussian_Is_type(
 		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback")
 
 		out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k] / escalings[:freq])
-		# open("Ex_siOpt.txt", "w") do io
-        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ex"]))
-    	# end
-		# open("Ey_siOpt.txt", "w") do io
-        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ey"]))
-    	# end
-		# open("Ez_siOpt.txt", "w") do io
-        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ez"]))
-    	# end
+		open("Ex_siOpt.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ex"]))
+    	end
+		open("Ey_siOpt.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ey"]))
+    	end
+		open("Ez_siOpt.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ez"]))
+    	end
 		out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k] / escalings[:freq])
 		out["Hx_3D"][:, k], out["Hy_3D"][:, k], out["Hz_3D"][:, k] = compute_H_field_Gauss(Lambda_x, Lambda_y, Lambda_z, I)
 	end

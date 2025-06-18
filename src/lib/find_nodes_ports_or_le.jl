@@ -1,4 +1,5 @@
 include("distfcm.jl")
+using Printf
 
 function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coord, escal)
     input_positions = []
@@ -8,16 +9,17 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
     for port_object in port_objects
         #@assert length(port_object["inputElement"]) == 3
         ipos = zeros(3)
-        ipos[1] = port_object["inputElement"][1] * escal
-        ipos[2] = port_object["inputElement"][2] * escal
-        ipos[3] = port_object["inputElement"][3] * escal
+        ipos[1] = round(port_object["inputElement"][1], digits=5) * escal
+        ipos[2] = round(port_object["inputElement"][2], digits=5) * escal
+        ipos[3] = round(port_object["inputElement"][3], digits=5) * escal
         push!(input_positions, ipos)
         #@assert length(port_object["outputElement"]) == 3
         opos = zeros(3)
-        opos[1] = port_object["outputElement"][1] * escal
-        opos[2] = port_object["outputElement"][2] * escal
-        opos[3] = port_object["outputElement"][3] * escal
+        opos[1] = round(port_object["outputElement"][1], digits=5) * escal
+        opos[2] = round(port_object["outputElement"][2], digits=5) * escal
+        opos[3] = round(port_object["outputElement"][3], digits=5) * escal
         push!(output_positions, opos)
+        println(opos)
 
         push!(signals_port, haskey(port_object, "signal") ? port_object["signal"] : Dict("type" =>"no_signal", "params" => Dict()))
     end
@@ -52,15 +54,15 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         for lumped_element_object in lumped_elements_objects
             #@assert length(lumped_element_object["inputElement"]) == 3
             ipos = zeros(3)
-            ipos[1] = lumped_element_object["inputElement"][1] * escal
-            ipos[2] = lumped_element_object["inputElement"][2] * escal
-            ipos[3] = lumped_element_object["inputElement"][3] * escal
+            ipos[1] = round(lumped_element_object["inputElement"][1], digits=5) * escal
+            ipos[2] = round(lumped_element_object["inputElement"][2], digits=5) * escal
+            ipos[3] = round(lumped_element_object["inputElement"][3], digits=5) * escal
             push!(input_positions_lumped, ipos)
             #@assert length(lumped_element_object["outputElement"]) == 3
             opos = zeros(3)
-            opos[1] = lumped_element_object["outputElement"][1] * escal
-            opos[2] = lumped_element_object["outputElement"][2] * escal
-            opos[3] = lumped_element_object["outputElement"][3] * escal
+            opos[1] = round(lumped_element_object["outputElement"][1],digits=5) * escal
+            opos[2] = round(lumped_element_object["outputElement"][2],digits=5) * escal
+            opos[3] = round(lumped_element_object["outputElement"][3],digits=5) * escal
             push!(output_positions_lumped, opos)
 
             push!(types, lumped_element_object["type"])
@@ -89,7 +91,7 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
     Np = size(ports[:port_start], 1)
 
     # Initialize the port nodes
-    ports[:port_nodes] = zeros(Np, 2)
+    ports[:port_nodes] = zeros(Int64, Np, 2)
 
     # Find port start and end nodes by scaling and calling nodes_find_rev
     ports[:port_nodes][:, 1] = nodes_find_rev(ports[:port_start], nodi_coord)
@@ -108,7 +110,7 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
 end
 
 function nodes_find_rev(Nodes_inp_coord, nodi_centri)
-    nodes = zeros(size(Nodes_inp_coord, 1), 1)
+    nodes = zeros(Int64, size(Nodes_inp_coord, 1), 1)
     
     for k in range(1,size(Nodes_inp_coord, 1))
         # Compute the distances using distfcm, find minimum distances and corresponding node index
