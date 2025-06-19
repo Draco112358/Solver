@@ -623,8 +623,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         println("P and Lp")
         P_data = @time calcola_P(superfici, escalings, QS_Rcc_FW, id)
-        saveComplexMatrix("P.mat", P_data[:P], varname="PJulia")
-        saveComplexMatrix("Rcc.mat", P_data[:R_cc], varname="RccJulia")
         if isnothing(P_data)
             return nothing
         end
@@ -636,12 +634,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         #     return false
         # end
         Lp_data = @time calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
-        saveComplexMatrix("Lp_x.mat", Lp_data[:Lp_x], varname="LpxJulia")
-        saveComplexMatrix("Lp_y.mat", Lp_data[:Lp_y], varname="LpyJulia")
-        saveComplexMatrix("Lp_z.mat", Lp_data[:Lp_z], varname="LpzJulia")
-        saveComplexMatrix("Rx.mat", Lp_data[:Rx], varname="RxJulia")
-        saveComplexMatrix("Ry.mat", Lp_data[:Ry], varname="RyJulia")
-        saveComplexMatrix("Rz.mat", Lp_data[:Rz], varname="RzJulia")
         if isnothing(Lp_data)
             return nothing
         end
