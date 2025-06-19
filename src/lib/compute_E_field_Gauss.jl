@@ -5,10 +5,10 @@ function compute_E_field_Gauss(indx, indy, indz, centriOsservazione, hc, ha, J, 
     mu0 = 4 * pi * 1e-7
     eps0 = 8.854187816997944e-12
     beta = 2 * pi * f * sqrt(eps0 * mu0)
-
     Ecx = zeros(ComplexF64, numCentri)
     Ecy = zeros(ComplexF64, numCentri)
     Ecz = zeros(ComplexF64, numCentri)
+
     for cont = 1:numCentri
         Ecx[cont] = sum(sigma .* squeeze(hc[:, 1, cont])) / (4 * pi * eps0)
         Ecy[cont] = sum(sigma .* squeeze(hc[:, 2, cont]) )/ (4 * pi * eps0)

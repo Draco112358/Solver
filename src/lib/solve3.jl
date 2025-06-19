@@ -20,6 +20,7 @@ include("fft_UAq.jl")
 include("genera_punti_circonferenza.jl")
 include("get_punti_oss_3D.jl")
 include("iter_solver_E_Gaussian_Is_type.jl")
+include("save_matrix_for_matlab.jl")
 
 using MKL
 using JSON, AWSS3
@@ -462,7 +463,6 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         for i in range(1, length(frequencies))
             freq[1, i] = frequencies[i]
         end
-        dump(freq)
         n_freq = length(freq)
         println("reading ports")
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
@@ -605,7 +605,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         println("reading ports")
         nodi_coord = round.(nodi_coord, digits=8)
         ports, lumped_elements = find_nodes_ports_or_le(inputDict["ports"], inputDict["lumped_elements"], nodi_coord, escal)
-        println(ports[:port_nodes])
         println("reading ports completed")
         GMRES_settings = Dict("Inner_Iter" => solverAlgoParams["innerIteration"], "Outer_Iter" => solverAlgoParams["outerIteration"], "tol" => solverAlgoParams["convergenceThreshold"] * ones((n_freq)))
         ind_low_freq = findall(x -> x < 1e5, freq)
@@ -624,6 +623,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         println("P and Lp")
         P_data = @time calcola_P(superfici, escalings, QS_Rcc_FW, id)
+        saveComplexMatrix("P.mat", P_data[:P], varname="PJulia")
+        saveComplexMatrix("Rcc.mat", P_data[:R_cc], varname="RccJulia")
         if isnothing(P_data)
             return nothing
         end
@@ -635,6 +636,12 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         #     return false
         # end
         Lp_data = @time calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
+        saveComplexMatrix("Lp_x.mat", Lp_data[:Lp_x], varname="LpxJulia")
+        saveComplexMatrix("Lp_y.mat", Lp_data[:Lp_y], varname="LpyJulia")
+        saveComplexMatrix("Lp_z.mat", Lp_data[:Lp_z], varname="LpzJulia")
+        saveComplexMatrix("Rx.mat", Lp_data[:Rx], varname="RxJulia")
+        saveComplexMatrix("Ry.mat", Lp_data[:Ry], varname="RyJulia")
+        saveComplexMatrix("Rz.mat", Lp_data[:Rz], varname="RzJulia")
         if isnothing(Lp_data)
             return nothing
         end

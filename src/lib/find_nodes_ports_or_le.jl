@@ -19,7 +19,6 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         opos[2] = round(port_object["outputElement"][2], digits=5) * escal
         opos[3] = round(port_object["outputElement"][3], digits=5) * escal
         push!(output_positions, opos)
-        println(opos)
 
         push!(signals_port, haskey(port_object, "signal") ? port_object["signal"] : Dict("type" =>"no_signal", "params" => Dict()))
     end

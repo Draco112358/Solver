@@ -410,21 +410,26 @@ function check_condition(eps1, eps2, eps3, V1, V2, max_d, min_R, size_dim, other
     condX1f = size_dim / (min_R + 1e-15)
     condX1b = size_dim / max_oth
 
-    if (condX1b <= eps3 || condX1f < eps1) && condX1a < eps2
-        return 1
-    else
-        return 0
+    supp_dim = 0
+    if ((condX1b <= eps3 || condX1f < eps1) && condX1a < eps2)
+        supp_dim = 1
     end
+
+    return supp_dim
 end
 
 function integ_line_point(x1v, y3, z3, x1, y1, z1)
     x3 = x1v[1]
     x4 = x1v[end]
-    
-    # Adjust x1 to avoid division by zero
-    if x1 == x3
+    check = 1 / (x1 - x3)
+
+    if isnan(check) || isinf(check)
         x1 -= 1e-8
-    elseif x1 == x4
+    end
+
+    check = 1 / (x1 - x4)
+
+    if isnan(check) || isinf(check) && x1 > 0
         x1 += 1e-8
     end
 
@@ -434,7 +439,8 @@ function integ_line_point(x1v, y3, z3, x1, y1, z1)
     Ip = log((x1 - x3) + R1) - log((x1 - x4) + R2)
 
     if isnan(Ip) || isinf(Ip)
-        Ip = sign(x1 - x3) * log(abs(x1 - x3)) - sign(x1 - x4) * log(abs(x1 - x4))
+        Ip = (x1 - x3) / abs(x1 - x3) * log(abs(x1 - x3)) - 
+             (x1 - x4) / abs(x1 - x4) * log(abs(x1 - x4))
     end
 
     return Ip
@@ -450,21 +456,19 @@ function integ_point_sup(x1, y1, z1, x2v, y2v, z2)
 
             R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
 
-            term1 = (x1 - x2) * real(log((y1 - y2) + R))
-            term2 = (y1 - y2) * real(log((x1 - x2) + R))
-            term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
+            term1 = (x1 - x2) * real(log(complex((y1 - y2) + R)))
 
             if isnan(term1) || isinf(term1)
                 term1 = 0.0
             end
 
+            term2 = (y1 - y2) * real(log(complex((x1 - x2) + R)))
+
             if isnan(term2) || isinf(term2)
                 term2 = 0.0
             end
 
-            if isnan(term3) || isinf(term3)
-                term3 = 0.0
-            end
+            term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) / (abs(z1 - z2) * R))
 
             sol += (-1)^(c1 + c2) * (term1 + term2 + term3)
         end
@@ -472,7 +476,6 @@ function integ_point_sup(x1, y1, z1, x2v, y2v, z2)
 
     return sol
 end
-
 
 function integ_line_line_parall(x1v, y1, z1, x2v, y2, z2)
     dy = y1 - y2
@@ -490,13 +493,13 @@ function integ_line_line_parall(x1v, y1, z1, x2v, y2, z2)
 
                 R = sqrt((x1 - x2)^2 + dy^2 + dz^2)
 
-                log_term = ifelse(x1 != x2, log(abs((x1 - x2) + R)), 0.0)
+                term1 = (x1 - x2) * real(log(complex((x1 - x2) + R)))
 
-                if isnan(log_term) || isinf(log_term)
-                    log_term = 0.0
+                if isnan(term1) || isinf(term1)
+                    term1 = 0.0
                 end
 
-                sol += (-1)^(c1 + c2 + 1) * ((x1 - x2) * log_term - R)
+                sol += (-1)^(c1 + c2 + 1) * (term1 - R)
             end
         end
 
@@ -512,15 +515,407 @@ function integ_line_line_sp(x1v, x2v)
         for c2 in 1:2
             x2 = x2v[c2]
 
-            R = abs(x1 - x2)
+            R = sqrt((x1 - x2)^2)
 
-            log_term = ifelse(R != 0, log(R), 0.0)
+            term1 = (x1 - x2) / R * 
+                    (x1 - x2 * real(log(complex(x2 - x1))) + x1 * real(log(complex(x1 - x2))))
 
-            if isnan(log_term) || isinf(log_term)
-                log_term = 0.0
+            if isnan(term1) || isinf(term1)
+                term1 = 0.0
             end
 
-            sol += (-1)^(c1 + c2 + 1) * (x1 - x2) * log_term
+            sol += (-1)^(c1 + c2 + 1) * term1
+        end
+    end
+
+    return sol
+end
+
+function integ_line_line_ortho_xy(x1v, y1, z1, x2, y2v, z2)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y2 = y2v[c2]
+
+            R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+            term1 = (x1 - x2) * real(log(complex((y1 - y2) + R)))
+
+            if isnan(term1) || isinf(term1)
+                term1 = 0.0
+            end
+
+            term2 = (y1 - y2) * real(log(complex((x1 - x2) + R)))
+
+            if isnan(term2) || isinf(term2)
+                term2 = 0.0
+            end
+
+            term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
+
+            sol += (-1)^(c1 + c2 + 1) * (term1 + term2 + term3)
+        end
+    end
+
+    return sol
+end
+
+function integ_point_vol(x1, y1, z1, x2v, y2v, z2v)
+    sol = 0.0
+
+    for c1 in 1:2
+        x2 = x2v[c1]
+        for c2 in 1:2
+            y2 = y2v[c2]
+            for c3 in 1:2
+                z2 = z2v[c3]
+
+                R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                term1 = (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
+                if isnan(term1) || isinf(term1)
+                    term1 = 0.0
+                end
+
+                term2 = (x1 - x2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+                if isnan(term2) || isinf(term2)
+                    term2 = 0.0
+                end
+
+                term3 = (y1 - y2) * (x1 - x2) * real(log(complex((z1 - z2) + R)))
+                if isnan(term3) || isinf(term3)
+                    term3 = 0.0
+                end
+
+                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
+
+                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) , (abs(y1 - y2) * R))
+
+                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) , (abs(x1 - x2) * R))
+
+                sol += (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4 + term5 + term6)
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_line_surf_ortho(x1v, y1, z1, x2, y2v, z2v)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y2 = y2v[c2]
+            for c3 in 1:2
+                z2 = z2v[c3]
+
+                R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                term1 = (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
+                if isnan(term1) || isinf(term1)
+                    term1 = 0.0
+                end
+
+                term2 = (x1 - x2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+                if isnan(term2) || isinf(term2)
+                    term2 = 0.0
+                end
+
+                term3 = (y1 - y2) * (x1 - x2) * real(log(complex((z1 - z2) + R)))
+                if isnan(term3) || isinf(term3)
+                    term3 = 0.0
+                end
+
+                term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
+
+                term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2) , (abs(y1 - y2) * R))
+
+                term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2) , (abs(x1 - x2) * R))
+
+                sol += (-1)^(c1 + c2 + c3) * (term1 + term2 + term3 + term4 + term5 + term6)
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_line_surf_para(x1v, y1v, z1, x2v, y2, z2)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                x2 = x2v[c3]
+
+                R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                term1 = (x1 - x2) * (y1 - y2) * real(log(complex((x1 - x2) + R)))
+                if isnan(term1) || isinf(term1)
+                    term1 = 0.0
+                end
+
+                term2 = ((x1 - x2)^2 - (z1 - z2)^2) / 2 * real(log(complex((y1 - y2) + R)))
+                if isnan(term2) || isinf(term2)
+                    term2 = 0.0
+                end
+
+                term3 = -(x1 - x2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2) , (abs(z1 - z2) * R))
+
+                term4 = -(y1 - y2) / 2 * R
+
+                sol += (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4)
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_line_vol(x1v, y1v, z1v, x2v, y2, z2)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                z1 = z1v[c3]
+                for c4 in 1:2
+                    x2 = x2v[c4]
+
+                    R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
+
+                    term2 = -1/2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs(z1 - z2) * R))
+
+                    term3 = -1/2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs(y1 - y2) * R))
+
+                    term4 = -1/6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), (abs(x1 - x2) * R))
+
+                    term5 = (x1 - x2) * (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
+
+                    if isnan(term5) || isinf(term5)
+                        term5 = 0
+                    end
+
+                    term6 = (1/2 * (x1 - x2)^2 - 1/6 * (z1 - z2)^2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+
+                    if isnan(term6) || isinf(term6)
+                        term6 = 0
+                    end
+
+                    term7 = (1/2 * (x1 - x2)^2 - 1/6 * (y1 - y2)^2) * (y1 - y2) * real(log(complex((z1 - z2) + R)))
+
+                    if isnan(term7) || isinf(term7)
+                        term7 = 0
+                    end
+
+                    sol += (-1)^(c1 + c2 + c3 + c4 + 1) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
+                end
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_surf_surf_para(x1v, y1v, z1, x2v, y2v, z2)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                y2 = y2v[c3]
+                for c4 in 1:2
+                    x2 = x2v[c4]
+
+                    R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                    term1 = -1/6 * ((x1 - x2)^2 + (y1 - y2)^2 - 2 * (z1 - z2)^2) * R
+
+                    term2 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs(z1 - z2) * R))
+
+                    term3 = 1/2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
+
+                    if isnan(term3) || isinf(term3)
+                        term3 = 0
+                    end
+
+                    term4 = 1/2 * ((y1 - y2)^2 - (z1 - z2)^2) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
+
+                    if isnan(term4) || isinf(term4)
+                        term4 = 0
+                    end
+
+                    sol += (-1)^(c1 + c2 + c3 + c4) * (term1 + term2 + term3 + term4)
+                end
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_surf_surf_ortho(x1v, y1v, z1, x2v, y2, z2v)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                z2 = z2v[c3]
+                for c4 in 1:2
+                    x2 = x2v[c4]
+
+                    R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
+
+                    term2 = -1/2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs(z1 - z2) * R))
+
+                    term3 = -1/2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs(y1 - y2) * R))
+
+                    term4 = -1/6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), (abs(x1 - x2) * R))
+
+                    term5 = (x1 - x2) * (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
+
+                    if isnan(term5) || isinf(term5)
+                        term5 = 0
+                    end
+
+                    term6 = (1/2 * (x1 - x2)^2 - 1/6 * (z1 - z2)^2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+
+                    if isnan(term6) || isinf(term6)
+                        term6 = 0
+                    end
+
+                    term7 = (1/2 * (x1 - x2)^2 - 1/6 * (y1 - y2)^2) * (y1 - y2) * real(log(complex((z1 - z2) + R)))
+
+                    if isnan(term7) || isinf(term7)
+                        term7 = 0
+                    end
+
+                    sol += (-1)^(c1 + c2 + c3 + c4) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
+                end
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                z1 = z1v[c3]
+                for c4 in 1:2
+                    x2 = x2v[c4]
+                    for c5 in 1:2
+                        y2 = y2v[c5]
+
+                        R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                        term1 = ((z1 - z2)^2 / 12 - ((x1 - x2)^2 + (y1 - y2)^2) / 8) * (z1 - z2) * R
+
+                        term2 = ((y1 - y2)^2 / 2 - (z1 - z2)^2 / 6) * (x1 - x2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
+
+                        if isnan(term2) || isinf(term2)
+                            term2 = 0
+                        end
+
+                        term3 = ((x1 - x2)^2 / 2 - (z1 - z2)^2 / 6) * (y1 - y2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+
+                        if isnan(term3) || isinf(term3)
+                            term3 = 0
+                        end
+
+                        term4 = -((x1 - x2)^4 / 24 + (y1 - y2)^4 / 24 - ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log(complex((z1 - z2) + R)))
+
+                        if isnan(term4) || isinf(term4)
+                            term4 = 0
+                        end
+
+                        term5 = -abs(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), (abs(x1 - x2) * R))
+
+                        term6 = - (x1 - x2) * abs(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), (abs(y1 - y2) * R))
+
+                        term7 = - (x1 - x2) * (y1 - y2) * abs(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), (abs(z1 - z2) * R))
+
+                        sol += (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
+                    end
+                end
+            end
+        end
+    end
+
+    return sol
+end
+
+function integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
+    sol = 0.0
+
+    for c1 in 1:2
+        x1 = x1v[c1]
+        for c2 in 1:2
+            y1 = y1v[c2]
+            for c3 in 1:2
+                z1 = z1v[c3]
+                for c4 in 1:2
+                    x2 = x2v[c4]
+                    for c5 in 1:2
+                        y2 = y2v[c5]
+                        for c6 in 1:2
+                            z2 = z2v[c6]
+
+                            R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+
+                            term1 = ((x1 - x2)^4 + (y1 - y2)^4 + (z1 - z2)^4 - 3 * (x1 - x2)^2 * (y1 - y2)^2 - 3 * (y1 - y2)^2 * (z1 - z2)^2 - 3 * (x1 - x2)^2 * (z1 - z2)^2) * R / 60
+
+                            term2 = ((y1 - y2)^2 * (z1 - z2)^2 / 4 - (y1 - y2)^4 / 24 - (z1 - z2)^4 / 24) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
+
+                            if isnan(term2) || isinf(term2)
+                                term2 = 0.0
+                            end
+
+                            term3 = ((y1 - y2)^2 * (x1 - x2)^2 / 4 - (y1 - y2)^4 / 24 - (x1 - x2)^4 / 24) * (z1 - z2) * real(log(complex((z1 - z2) + R)))
+
+                            if isnan(term3) || isinf(term3)
+                                term3 = 0.0
+                            end
+
+                            term4 = ((z1 - z2)^2 * (x1 - x2)^2 / 4 - (z1 - z2)^4 / 24 - (x1 - x2)^4 / 24) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
+
+                            if isnan(term4) || isinf(term4)
+                                term4 = 0.0
+                            end
+
+                            term5 = -abs(x1 - x2)^3 * (y1 - y2) * (z1 - z2) / 6 * atan((y1 - y2) * (z1 - z2), (abs(x1 - x2) * R))
+
+                            term6 = - (x1 - x2) * abs(y1 - y2)^3 * (z1 - z2) / 6 * atan((x1 - x2) * (z1 - z2), (abs(y1 - y2) * R))
+
+                            term7 = - (x1 - x2) * (y1 - y2) * abs(z1 - z2)^3 / 6 * atan((x1 - x2) * (y1 - y2), (abs(z1 - z2) * R))
+
+                            sol += (-1)^(c1 + c2 + c3 + c4 + c5 + c6 + 1) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
+                        end
+                    end
+                end
+            end
         end
     end
 

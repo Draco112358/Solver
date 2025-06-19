@@ -9,6 +9,8 @@ include("compute_Ar_Gauss.jl")
 include("compute_lambda_numeric.jl")
 include("compute_E_field_Gauss.jl")
 include("compute_H_field_Gauss.jl")
+include("save_matrix_for_matlab.jl")
+
 
 function iter_solver_E_Gaussian_Is_type(
 	freq,
@@ -39,7 +41,6 @@ function iter_solver_E_Gaussian_Is_type(
 	zeroo = zeros(num_oss_3D)
 
 	freq .= freq .* escalings[:freq]
-	println(escalings[:freq])
 	# GMRES settings ----------------------------
 	Inner_Iter::Int64 = GMRES_settings["Inner_Iter"]
 	#Outer_Iter = GMRES_settings.Outer_Iter
@@ -216,6 +217,7 @@ function iter_solver_E_Gaussian_Is_type(
 			end
 		end
 		Vrest = V
+		writedlm("V.txt", V)
 		for c1 in 1:size(ports[:port_nodes], 1)
 			n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
 			n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])

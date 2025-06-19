@@ -107,7 +107,7 @@ function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
 	Lp_z = Matrix{Float64}(undef, mz, mz)
 
 	calculate_Lp_matrix(Lp_x, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], mx, 0, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
-	calculate_Lp_matrix(Lp_y, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], my, mx, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
+    calculate_Lp_matrix(Lp_y, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], my, mx, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
 	calculate_Lp_matrix(Lp_z, l_s, W_s, T_s, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, V_s, volumi[:S], mz, mx + my, block_size, id, escalings[:Lp], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression)
 
 	return Dict(
@@ -267,7 +267,6 @@ function calculate_Lp_matrix(
     # Validate dimensions
     #size(Lp_matrix) == (dim, dim) || throw(DimensionMismatch("Lp_matrix must be a $(dim)x$(dim) matrix."))
     # Add more dimension checks for input vectors if necessary (e.g., length(l_s) >= dim + offset)
-
     num_blocks = ceil(Int, dim / block_size)
 
     for (block_idx, m_block) in enumerate(1:block_size:dim)
@@ -279,11 +278,9 @@ function calculate_Lp_matrix(
 
             # Self-inductance (diagonal element)
             Lp_matrix[m_idx, m_idx] = Compute_Lp_Self2(l_s[actual_m_idx], W_s[actual_m_idx], T_s[actual_m_idx]) * escalings_Lp
-
             # Mutual inductance (off-diagonal elements)
             @inbounds for n_idx in m_idx+1:dim
                 actual_n_idx = n_idx + offset
-
                 integ, _ = Song_improved_Ivana_strategy2(
                     x_vs[actual_m_idx], y_vs[actual_m_idx], z_vs[actual_m_idx],
                     xc_s[actual_m_idx], yc_s[actual_m_idx], zc_s[actual_m_idx],
@@ -293,6 +290,7 @@ function calculate_Lp_matrix(
                     a_s[actual_n_idx], b_s[actual_n_idx], c_s[actual_n_idx], V_s[actual_n_idx],
                     epsilon1, epsilon2, epsilon3, epsilon4, use_suppression
                 )
+                #Lp deve essere positiva, se integ risultasse negativo mìbasta mettere abs nella formula sotto
                 value = 1e-7 / (S_volumi[actual_m_idx] * S_volumi[actual_n_idx]) * integ * escalings_Lp
                 Lp_matrix[m_idx, n_idx] = value
                 Lp_matrix[n_idx, m_idx] = value
