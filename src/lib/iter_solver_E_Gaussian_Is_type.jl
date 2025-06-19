@@ -5,7 +5,7 @@ include("compute_Matrix_vector_new2.jl")
 include("gmres_custom_new2.jl")
 include("build_Yle_new.jl")
 include("compute_Ec_Gauss.jl")
-include("compute_Ar_Gauss2.jl")
+include("compute_Ar_Gauss3.jl")
 include("compute_lambda_numeric.jl")
 include("compute_E_field_Gauss.jl")
 include("compute_H_field_Gauss.jl")
@@ -218,7 +218,6 @@ function iter_solver_E_Gaussian_Is_type(
 			end
 		end
 		Vrest = V
-		writedlm("V.txt", V)
 		for c1 in 1:size(ports[:port_nodes], 1)
 			n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
 			n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
@@ -245,7 +244,7 @@ function iter_solver_E_Gaussian_Is_type(
 		if isnothing(ha)
 			return nothing
 		end
-		#saveComplexMatrix("ha_noOpt.txt", ha, varname="haNoOpt")
+		#saveComplexMatrix("ha_Opt3.mat", ha, varname="haOpt3")
 		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
 		ha_3D = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(ha_3D)
