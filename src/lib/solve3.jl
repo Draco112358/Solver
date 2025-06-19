@@ -686,6 +686,15 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             return nothing
         end
         println("data publish")
+        open("Ex_.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ex"]))
+    	end
+		open("Ey_.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ey"]))
+    	end
+		open("Ez_.txt", "w") do io
+        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ez"]))
+    	end
 
         # if is_stopped_computation(id, chan)
         #     return false
