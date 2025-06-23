@@ -34,128 +34,74 @@ function iter_solver_E_Gaussian_Is_type(
 	chan,
 	commentsEnabled,
 )
+	@time begin
+		num_oss = size(centri_oss, 1)
+		num_oss_3D = size(centri_oss_3D, 1)
+		ordine_int = 4
+		unitario = ones(num_oss_3D)
+		zeroo = zeros(num_oss_3D)
 
-	num_oss = size(centri_oss, 1)
-	num_oss_3D = size(centri_oss_3D, 1)
-	ordine_int = 4
-	unitario = ones(num_oss_3D)
-	zeroo = zeros(num_oss_3D)
+		freq .= freq .* escalings[:freq]
+		# GMRES settings ----------------------------
+		Inner_Iter::Int64 = GMRES_settings["Inner_Iter"]
+		#Outer_Iter = GMRES_settings.Outer_Iter
+		# -------------------------------------------
+		mx = incidence_selection[:mx]
+		my = incidence_selection[:my]
+		mz = incidence_selection[:mz]
 
-	freq .= freq .* escalings[:freq]
-	# GMRES settings ----------------------------
-	Inner_Iter::Int64 = GMRES_settings["Inner_Iter"]
-	#Outer_Iter = GMRES_settings.Outer_Iter
-	# -------------------------------------------
-	mx = incidence_selection[:mx]
-	my = incidence_selection[:my]
-	mz = incidence_selection[:mz]
+		indx = 1:mx
+		indy = mx+1:mx+my
+		indz = mx+my+1:mx+my+mz
 
-	indx = 1:mx
-	indy = mx+1:mx+my
-	indz = mx+my+1:mx+my+mz
+		m = mx + my + mz
+		n::Int64 = size(incidence_selection[:A], 2)
+		ns::Int64 = size(incidence_selection[:Gamma], 2)
+		w = 2 .* pi .* freq
+		nfreq = length(w)
+		is = zeros(ComplexF64, n)
+		out = Dict(
+			"Vp" => zeros(ComplexF64, size(ports[:port_start], 1), length(freq)),
+			"Ex" => zeros(ComplexF64, num_oss, length(freq)),
+			"Ey" => zeros(ComplexF64, num_oss, length(freq)),
+			"Ez" => zeros(ComplexF64, num_oss, length(freq)),
+			"Ex_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"Ey_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"Ez_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"Hx_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"Hy_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"Hz_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+			"f" => zeros(length(freq)),
+		)
+		Vrest = zeros(m + n + ns)
 
-	m = mx + my + mz
-	n::Int64 = size(incidence_selection[:A], 2)
-	ns::Int64 = size(incidence_selection[:Gamma], 2)
-	w = 2 .* pi .* freq
-	nfreq = length(w)
-	is = zeros(ComplexF64, n)
-	out = Dict(
-		"Vp" => zeros(ComplexF64, size(ports[:port_start], 1), length(freq)),
-		"Ex" => zeros(ComplexF64, num_oss, length(freq)),
-		"Ey" => zeros(ComplexF64, num_oss, length(freq)),
-		"Ez" => zeros(ComplexF64, num_oss, length(freq)),
-		"Ex_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"Ey_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"Ez_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"Hx_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"Hy_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"Hz_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-		"f" => zeros(length(freq)),
-	)
-	Vrest = zeros(m + n + ns)
+		invP::SparseMatrixCSC{Float64, Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
+		R_chiusura = ports_scatter_value
+		keeped_diag = 0
+		invCd = zeros(ComplexF64, m)
+		not_switched = true
+		resProd = Array{ComplexF64}(undef, 2 * m)
+		tn = zeros(ComplexF64, m + ns + n)
+		out["f"] = freq / escalings[:freq]
 
-	invP::SparseMatrixCSC{Float64, Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
-	R_chiusura = ports_scatter_value
-	keeped_diag = 0
-	invCd = zeros(ComplexF64, m)
-	not_switched = true
-	resProd = Array{ComplexF64}(undef, 2 * m)
-	tn = zeros(ComplexF64, m + ns + n)
-	out["f"] = freq / escalings[:freq]
-
-	if freq[1] == 0
-		freq[1] = 1e-8 / escalings[:freq]
+		if freq[1] == 0
+			freq[1] = 1e-8 / escalings[:freq]
+		end
+		w = 2 * pi * freq
+		mu0 = 4 * pi * 1e-7
+		eps0 = 8.854187816997944e-12
 	end
-	w = 2 * pi * freq
-	mu0 = 4 * pi * 1e-7
-	eps0 = 8.854187816997944e-12
+	
 
 	for k ∈ 1:nfreq
-		if freq[k] / escalings[:freq] >= 1e8 && not_switched
-
-			keeped_diag = 0
-			not_switched = false
-
-			freq = freq ./ escalings[:freq]
-			w = 2 .* pi .* freq
-			volumi[:R] = volumi[:R] ./ escalings[:R]
-			volumi[:Zs_part] = volumi[:Zs_part] ./ escalings[:R]
-			if !isempty(volumi[:indici_dielettrici])
-				volumi[:Cd] = volumi[:Cd] ./ escalings[:Cd]
-			end
-			P_data[:P] = P_data[:P] ./ escalings[:P]
-			invP = spdiagm(1.0 ./ diag(P_data[:P]))
-
-			Lp_data[:Lp_x] = Lp_data[:Lp_x] ./ escalings[:Lp]
-			Lp_data[:Lp_y] = Lp_data[:Lp_y] ./ escalings[:Lp]
-			Lp_data[:Lp_z] = Lp_data[:Lp_z] ./ escalings[:Lp]
-
-			Vrest[1:m] = Vrest[1:m] ./ escalings[:Is]
-			Vrest[m+1:m+ns] = Vrest[m+1:m+ns] ./ escalings[:Cd]
-
-			escalings[:Lp] = 1.0
-			escalings[:R] = 1.0
-			escalings[:Cd] = 1.0
-			escalings[:P] = 1.0
-			escalings[:Is] = 1.0
-			escalings[:freq] = 1.0
-			escalings[:Yle] = 1.0
-			escalings[:time] = 1.0
-		end
-		if QS_Rcc_FW == 2
-			mu0 = 4 * π * 1e-7
-			eps0 = 8.854187816997944e-12
-			beta = 2 * π * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
-			# Rebuilding Lp_data with phase correction
-			Lp_rebuilted = Dict(
-				:Lp_x => Lp_data[:Lp_x] .* exp.(-1im * beta * Lp_data[:Rx]),
-				:Lp_y => Lp_data[:Lp_y] .* exp.(-1im * beta * Lp_data[:Ry]),
-				:Lp_z => Lp_data[:Lp_z] .* exp.(-1im * beta * Lp_data[:Rz]),
-			)
-			diag_Lp = vcat(
-				diag(real.(Lp_rebuilted[:Lp_x])),
-				diag(real.(Lp_rebuilted[:Lp_y])),
-				diag(real.(Lp_rebuilted[:Lp_z])),
-			)
-			# Rebuilding P_data with phase correction
-			P_rebuilted = Dict(
-				:P => P_data[:P] .* exp.(-1im * beta * P_data[:R_cc]),
-			)
-		else
-			P_rebuilted = P_data
-			Lp_rebuilted = Lp_data
-			if keeped_diag == 0
-				diag_Lp = vcat(
-					diag(real.(Lp_data[:Lp_x])),
-					diag(real.(Lp_data[:Lp_y])),
-					diag(real.(Lp_data[:Lp_z])),
-				)
-				keeped_diag = 1
-			end
+		@time begin
+			freq, escalings, not_switched, volumi, 
+			P_data, Lp_data, Vrest, keeped_diag, 
+			P_rebuilted, Lp_rebuilted, diag_Lp, w, invP, eps0, mu0 = handle_scaling_and_rebuilding(k, freq, escalings, not_switched, 
+			volumi, P_data, Lp_data, Vrest, m, ns, QS_Rcc_FW, keeped_diag)
 		end
 		# Build Yle
-		Yle = build_Yle_new(
+		Yle = @time build_Yle_new(
 			lumped_elements,
 			[],
 			ports,
@@ -168,40 +114,42 @@ function iter_solver_E_Gaussian_Is_type(
 			lumped_elements[:L],
 			lumped_elements[:C],
 		)
-		# Compute inverse Cd for dielectric indices
-		length_cd = !isempty(volumi[:indici_dielettrici]) ? length(volumi[:Cd]) : length(volumi[:R])
-		invCd = zeros(ComplexF64, length_cd)
-		if !isempty(volumi[:indici_dielettrici])
-			invCd[Int64.(volumi[:indici_dielettrici])] .= 1 ./ (1im * w[k] * volumi[:Cd][Int64.(volumi[:indici_dielettrici])])
-		end
+		@time begin
+			# Compute inverse Cd for dielectric indices
+			length_cd = !isempty(volumi[:indici_dielettrici]) ? length(volumi[:Cd]) : length(volumi[:R])
+			invCd = zeros(ComplexF64, length_cd)
+			if !isempty(volumi[:indici_dielettrici])
+				invCd[Int64.(volumi[:indici_dielettrici])] .= 1 ./ (1im * w[k] * volumi[:Cd][Int64.(volumi[:indici_dielettrici])])
+			end
 
-		# Check use_Zs_in and compute Z_self
-		if use_Zs_in == 1
-			# Compute Zs
-			Zs = real.(sqrt(1im * w[k] / escalings[:freq]) .* volumi[:Zs_part])
-			indR = findall(x -> volumi[:R][x] > Zs[x], 1:length(volumi[:R]))
-			indZs = setdiff(1:length(volumi[:R]), indR)
-			Z_self = zeros(ComplexF64, length(volumi[:R]))
-			Z_self[indR] .= volumi[:R][indR]
-			Z_self[indZs] .= Zs[indZs]
-			Z_self .+= invCd
-		else
-			Z_self = volumi[:R] .+ invCd
-		end
+			# Check use_Zs_in and compute Z_self
+			if use_Zs_in == 1
+				# Compute Zs
+				Zs = real.(sqrt(1im * w[k] / escalings[:freq]) .* volumi[:Zs_part])
+				indR = findall(x -> volumi[:R][x] > Zs[x], 1:length(volumi[:R]))
+				indZs = setdiff(1:length(volumi[:R]), indR)
+				Z_self = zeros(ComplexF64, length(volumi[:R]))
+				Z_self[indR] .= volumi[:R][indR]
+				Z_self[indZs] .= Zs[indZs]
+				Z_self .+= invCd
+			else
+				Z_self = volumi[:R] .+ invCd
+			end
 
-		invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
-		# --------------------- preconditioner ------------------------
-		SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
-		F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
-		# --------------------------------------------------------------
-		for c1 in 1:size(ports[:port_nodes], 1)
-			n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
-			n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
-			is[n1] = Is[c1, k] * escalings[:Is]
-			is[n2] = -1.0 * Is[c1, k] * escalings[:Is]
-		end
+			invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
+			# --------------------- preconditioner ------------------------
+			SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
+			F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
+			# --------------------------------------------------------------
+			for c1 in 1:size(ports[:port_nodes], 1)
+				n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
+				n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
+				is[n1] = Is[c1, k] * escalings[:Is]
+				is[n2] = -1.0 * Is[c1, k] * escalings[:Is]
+			end
 
-		tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
+			tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
+		end
 		V, flag, relres, iter, resvec = @time gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
 		if flag == 99
 			return nothing
@@ -358,4 +306,84 @@ end
 
 function convert_transpose_to_float64(t_matrix::Transpose{Real, Matrix{Real}})
     return transpose(Float64.(t_matrix.parent))
+end
+
+function handle_scaling_and_rebuilding(
+    k::Int,
+    freq::Vector{Float64},
+    escalings::Dict{Symbol, Real},
+    not_switched::Bool,
+    volumi::Dict{Symbol, AbstractArray},
+    P_data::Dict{Symbol, Matrix{Float64}},
+    Lp_data::Dict{Symbol, Matrix{Float64}},
+    Vrest::Vector{Float64}, # Assuming ComplexF64 based on usage
+    m::Int64,
+    ns::Int64,
+    QS_Rcc_FW::Int64,
+    keeped_diag::Int64
+)
+    # Prima parte: Gestione dello scaling
+    if freq[k] / escalings[:freq] >= 1e8 && not_switched
+		keeped_diag = 0
+		not_switched = false
+
+		freq = freq ./ escalings[:freq]
+		w = 2 .* pi .* freq
+		volumi[:R] = volumi[:R] ./ escalings[:R]
+		volumi[:Zs_part] = volumi[:Zs_part] ./ escalings[:R]
+		if !isempty(volumi[:indici_dielettrici])
+			volumi[:Cd] = volumi[:Cd] ./ escalings[:Cd]
+		end
+		P_data[:P] = P_data[:P] ./ escalings[:P]
+		invP = spdiagm(1.0 ./ diag(P_data[:P]))
+
+		Lp_data[:Lp_x] = Lp_data[:Lp_x] ./ escalings[:Lp]
+		Lp_data[:Lp_y] = Lp_data[:Lp_y] ./ escalings[:Lp]
+		Lp_data[:Lp_z] = Lp_data[:Lp_z] ./ escalings[:Lp]
+
+		Vrest[1:m] = Vrest[1:m] ./ escalings[:Is]
+		Vrest[m+1:m+ns] = Vrest[m+1:m+ns] ./ escalings[:Cd]
+
+		escalings[:Lp] = 1.0
+		escalings[:R] = 1.0
+		escalings[:Cd] = 1.0
+		escalings[:P] = 1.0
+		escalings[:Is] = 1.0
+		escalings[:freq] = 1.0
+		escalings[:Yle] = 1.0
+		escalings[:time] = 1.0
+	end
+	if QS_Rcc_FW == 2
+		mu0 = 4 * π * 1e-7
+		eps0 = 8.854187816997944e-12
+		beta = 2 * π * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
+		# Rebuilding Lp_data with phase correction
+		Lp_rebuilted = Dict(
+			:Lp_x => Lp_data[:Lp_x] .* exp.(-1im * beta * Lp_data[:Rx]),
+			:Lp_y => Lp_data[:Lp_y] .* exp.(-1im * beta * Lp_data[:Ry]),
+			:Lp_z => Lp_data[:Lp_z] .* exp.(-1im * beta * Lp_data[:Rz]),
+		)
+		diag_Lp = vcat(
+			diag(real.(Lp_rebuilted[:Lp_x])),
+			diag(real.(Lp_rebuilted[:Lp_y])),
+			diag(real.(Lp_rebuilted[:Lp_z])),
+		)
+		# Rebuilding P_data with phase correction
+		P_rebuilted = Dict(
+			:P => P_data[:P] .* exp.(-1im * beta * P_data[:R_cc]),
+		)
+	else
+		P_rebuilted = P_data
+		Lp_rebuilted = Lp_data
+		if keeped_diag == 0
+			diag_Lp = vcat(
+				diag(real.(Lp_data[:Lp_x])),
+				diag(real.(Lp_data[:Lp_y])),
+				diag(real.(Lp_data[:Lp_z])),
+			)
+			keeped_diag = 1
+		end
+	end
+    
+    return freq, escalings, not_switched, volumi, P_data, Lp_data, Vrest, keeped_diag, P_rebuilted, Lp_rebuilted, diag_Lp, w, invP, eps0, mu0
 end

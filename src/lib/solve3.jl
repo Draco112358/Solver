@@ -23,7 +23,7 @@ include("iter_solver_E_Gaussian_Is_type.jl")
 include("save_matrix_for_matlab.jl")
 
 using MKL
-using JSON, AWSS3
+using JSON, AWSS3, JLD2
 using MLUtils: unsqueeze
 function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id; partial=false, freqIndex=nothing)
     z = [[[[0.1, 0.0]]]]
@@ -651,7 +651,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
         A = sparse(row_indices, col_indices, nz_values)
         E,K,H,E_theta_v,E_phi_v = compute_fields_components(theta, phi, e_theta, e_phi)
-        Vs=computeVs(times,time_delay_vs,signal_type_E,volumi,nodi_coord,E,K,A,tr,power,dev_stand,f0,ind_freq_interest);
+        @save "computeVsInput.jld2" times time_delay_vs signal_type_E volumi nodi_coord E K A tr power dev_stand f0 ind_freq_interest
+        Vs= @time  computeVs(times,time_delay_vs,signal_type_E,volumi,nodi_coord,E,K,A,tr,power,dev_stand,f0,ind_freq_interest);
 
         Is = zeros(ComplexF64, size(ports[:port_nodes], 1), n_freq)
         for k in 1:size(ports[:port_nodes], 1)
@@ -668,7 +669,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         punti_yz=genera_punti_circonferenza(r_circ,N_circ,baricentro,3);
 
         centri_oss=[punti_xy;punti_zx;punti_yz];
-        centri_oss_3D, distanze_3D, theta_vals, x_grid, y_grid, z_grid = get_punti_oss_3D(r_circ, N_circ_3D, baricentro);
+        centri_oss_3D, distanze_3D, theta_vals, x_grid, y_grid, z_grid = @time get_punti_oss_3D(r_circ, N_circ_3D, baricentro);
         println("gmres")
         out = @time iter_solver_E_Gaussian_Is_type(
             freq, escalings, incidence_selection, P_data, Lp_data,
