@@ -1,6 +1,6 @@
 include("Song_P_improved_Ivana_strategy2.jl")
 
-function calcola_P(superfici, escalings, QS_Rcc_FW, id)
+function calcola_P(superfici, escalings, QS_Rcc_FW, id)::Dict{Symbol, Union{Matrix{Float64}, Matrix{ComplexF64}}}
 
 	eps0 = 8.854187816997944e-12
 
@@ -159,7 +159,7 @@ function process_surfaces!(
 end
 
 function calculate_P_matrix(
-    P_matrix::Matrix{Float64}, # P is typically real, if complex adjust type
+    P_matrix::Union{Matrix{Float64}, Matrix{ComplexF64}}, # P is typically real, if complex adjust type
     x_vs::Vector{Vector{Float64}}, y_vs::Vector{Vector{Float64}}, z_vs::Vector{Vector{Float64}},
     xc_s::Vector{Float64}, yc_s::Vector{Float64}, zc_s::Vector{Float64},
     a_s::Vector{Float64}, b_s::Vector{Float64}, c_s::Vector{Float64},

@@ -1,7 +1,7 @@
 include("Compute_Lp_Self2.jl")
 include("Song_improved_Ivana_strategy2.jl")
 
-function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
+function calcola_Lp2(volumi, incidence_selection, escalings, QS_Rcc_FW, id)::Dict{Symbol, Union{Matrix{Float64}, Matrix{ComplexF64}}}
 	epsilon1 = 5e-3
 	epsilon2 = 1e-3
 	epsilon3 = 1e-3
@@ -250,7 +250,7 @@ function calculate_Rz(
 end
 
 function calculate_Lp_matrix(
-    Lp_matrix::Matrix{Float64}, # Assuming Lp can store complex values later
+    Lp_matrix::Union{Matrix{Float64}, Matrix{ComplexF64}}, # Assuming Lp can store complex values later
     l_s::Vector{Float64}, W_s::Vector{Float64}, T_s::Vector{Float64},
     x_vs::Vector{Vector{Float64}}, y_vs::Vector{Vector{Float64}}, z_vs::Vector{Vector{Float64}},
     xc_s::Vector{Float64}, yc_s::Vector{Float64}, zc_s::Vector{Float64},

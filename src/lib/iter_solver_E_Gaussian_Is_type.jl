@@ -12,6 +12,12 @@ include("compute_H_field_Gauss.jl")
 include("save_matrix_for_matlab.jl")
 
 
+const μ0  = 4π * 1e-7
+const ε0  = 8.854_187_816_997_944e-12
+const TWO_PI = 2π
+const K0 = sqrt(ε0 * μ0)        # √(μ0 ε0) è costante
+
+
 function iter_solver_E_Gaussian_Is_type(
 	freq,
 	escalings,
@@ -32,7 +38,7 @@ function iter_solver_E_Gaussian_Is_type(
 	centri_oss_3D,
 	id,
 	chan,
-	commentsEnabled,
+	commentsEnabled
 )
 	@time begin
 		num_oss = size(centri_oss, 1)
@@ -92,13 +98,14 @@ function iter_solver_E_Gaussian_Is_type(
 		eps0 = 8.854187816997944e-12
 	end
 	
-
+	diag_Lp = zeros(Float64, size(Lp_data[:Lp_x],1)+size(Lp_data[:Lp_y],1)+size(Lp_data[:Lp_z],1))
 	for k ∈ 1:nfreq
 		@time begin
-			freq, escalings, not_switched, volumi, 
-			P_data, Lp_data, Vrest, keeped_diag, 
-			P_rebuilted, Lp_rebuilted, diag_Lp, w, invP, eps0, mu0 = handle_scaling_and_rebuilding(k, freq, escalings, not_switched, 
-			volumi, P_data, Lp_data, Vrest, m, ns, QS_Rcc_FW, keeped_diag)
+			β, w, keeped_diag, invP = handle_scaling_and_rebuilding!(
+        k, freq, escalings, not_switched,
+        volumi, P_data, Lp_data,
+        Vrest, m, ns, QS_Rcc_FW,
+        keeped_diag, diag_Lp, invP)
 		end
 		# Build Yle
 		Yle = @time build_Yle_new(
@@ -150,7 +157,7 @@ function iter_solver_E_Gaussian_Is_type(
 
 			tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
 		end
-		V, flag, relres, iter, resvec = @time gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
+		V, flag, relres, iter, resvec = @time gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
 		if flag == 99
 			return nothing
 		end
@@ -177,7 +184,7 @@ function iter_solver_E_Gaussian_Is_type(
 		#send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
 
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
-		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(eps0 * mu0)
+		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(ε0 * μ0)
 		hc = @time compute_Ec_Gauss(Float64.(superfici["estremi_celle"]), map(v -> Float64.(v), superfici["normale"]), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(hc)
 			return nothing
@@ -277,12 +284,12 @@ function precond_3_3_vector_new(lu, invZ, invP, A, Gamma, n2, X1, X3)
 
 	Y = zeros(ComplexF64, n1 + n2 + n3)
 
-	M1 = prod_real_complex(invZ, X1)
-	M2 = lu \ prod_real_complex(transpose(A), M1)
+	M1 = invZ*X1
+	M2 = lu \ (transpose(A)*M1)
 	M5 = lu \ X3
 
-	@views Y[i1] .= prod_real_complex(invZ, X1) .- prod_real_complex(invZ, prod_real_complex(A, M2)) .- prod_real_complex(invZ, prod_real_complex(A, M5))
-	@views Y[i2] .= prod_real_complex(invP, prod_real_complex(transpose(Gamma), M2)) .+ prod_real_complex(invP, prod_real_complex(transpose(Gamma), M5))
+	@views Y[i1] .= invZ*X1 .- invZ*(A*M2) .- invZ*(A*M5)
+	@views Y[i2] .= invP*(transpose(Gamma)*M2) .+ invP*(transpose(Gamma)*M5)
 	@views Y[i3] .= M2 .+ M5
 
 	return Y
@@ -296,12 +303,29 @@ function prod_real_complex(A, x)
 	return y
 end
 
-function prod_complex_real(A, x)
-	# A is a N x N complex matrix and x is a real vector
-	N = size(A, 1)
-	y = zeros(ComplexF64, N)
-	y .= real(A) * x .+ 1im * (imag(A) * x)
-	return y
+# function prod_complex_real(A, x)
+# 	# A is a N x N complex matrix and x is a real vector
+# 	N = size(A, 1)
+# 	y = zeros(ComplexF64, N)
+# 	y .= real(A) * x .+ 1im * (imag(A) * x)
+# 	return y
+# end
+
+function prod_complex_real(A::AbstractMatrix{<:Complex}, 
+                                x::AbstractVector{<:Real})
+    n = size(A,1)
+    @assert size(A,2) == n == length(x)
+    # Vettori d’appoggio reali (non inizializzati)
+    re  = Vector{Float64}(undef, n)
+    im  = Vector{Float64}(undef, n)
+    # dgemv! → nessuna nuova allocazione
+    mul!(re, real(A), x)   # re  = real(A)*x
+    mul!(im, imag(A), x)   # im  = imag(A)*x
+    y = Vector{ComplexF64}(undef, n)
+    @inbounds @simd for i in eachindex(y)
+        y[i] = ComplexF64(re[i], im[i])
+    end
+    return y
 end
 
 function convert_transpose_to_float64(t_matrix::Transpose{Real, Matrix{Real}})
@@ -314,8 +338,8 @@ function handle_scaling_and_rebuilding(
     escalings::Dict{Symbol, Real},
     not_switched::Bool,
     volumi::Dict{Symbol, AbstractArray},
-    P_data::Dict{Symbol, Matrix{Float64}},
-    Lp_data::Dict{Symbol, Matrix{Float64}},
+    P_data::Dict{Symbol, Union{Matrix{ComplexF64},Matrix{Float64}}},
+    Lp_data::Dict{Symbol, Union{Matrix{ComplexF64},Matrix{Float64}}},
     Vrest::Vector{Float64}, # Assuming ComplexF64 based on usage
     m::Int64,
     ns::Int64,
@@ -363,6 +387,9 @@ function handle_scaling_and_rebuilding(
 			:Lp_y => Lp_data[:Lp_y] .* exp.(-1im * beta * Lp_data[:Ry]),
 			:Lp_z => Lp_data[:Lp_z] .* exp.(-1im * beta * Lp_data[:Rz]),
 		)
+		@show size(Lp_rebuilted[:Lp_x])
+		@show size(Lp_rebuilted[:Lp_y])
+		@show size(Lp_rebuilted[:Lp_z])
 		diag_Lp = vcat(
 			diag(real.(Lp_rebuilted[:Lp_x])),
 			diag(real.(Lp_rebuilted[:Lp_y])),
@@ -386,4 +413,109 @@ function handle_scaling_and_rebuilding(
 	end
     
     return freq, escalings, not_switched, volumi, P_data, Lp_data, Vrest, keeped_diag, P_rebuilted, Lp_rebuilted, diag_Lp, w, invP, eps0, mu0
+end
+
+
+function promote_to_complex!(d::Dict, keys)
+    for k in keys
+        d[k] = ComplexF64.(d[k])   # crea la nuova matrice e la rimpiazza
+    end
+end
+
+function handle_scaling_and_rebuilding!(
+        k::Int, freq::Vector{Float64}, esc::Dict{Symbol,<:Real},
+        not_switched::Bool,
+        volumi::Dict{Symbol,AbstractArray},
+        P_data::Dict{Symbol,<:Union{Matrix{Float64},Matrix{ComplexF64}}},
+        Lp_data::Dict{Symbol,<:Union{Matrix{Float64},Matrix{ComplexF64}}},
+        Vrest::Vector{Float64},
+        m::Int, ns::Int,
+        QS_Rcc_FW::Int,
+        keeped_diag::Int,
+        diag_Lp::Vector{Float64},
+        invP::SparseMatrixCSC{Float64,Int64}
+    )
+    # ── 1. Mega-scaling una sola volta ────────────────────────────
+    if freq[k] / esc[:freq] ≥ 1e8 && not_switched
+        not_switched = false
+        keeped_diag  = 0
+        invfreq = 1 / esc[:freq]
+        @threads for i in eachindex(freq)
+            freq[i] *= invfreq
+        end
+        # ================ blocco di scaling parallelo ================
+        invR, invCd = 1/esc[:R], 1/esc[:Cd]
+        invP_fac, invLp = 1/esc[:P], 1/esc[:Lp]
+        invIs = 1/esc[:Is]
+        @threads for i in eachindex(volumi[:R])
+            volumi[:R][i]       *= invR
+            volumi[:Zs_part][i] *= invR
+        end
+        if !isempty(volumi[:indici_dielettrici])
+            @threads for i in eachindex(volumi[:Cd])
+                volumi[:Cd][i] *= invCd
+            end
+        end
+        @threads for i in eachindex(P_data[:P])
+            P_data[:P][i] *= invP_fac
+        end
+        @threads for i in eachindex(Lp_data[:Lp_x])
+            Lp_data[:Lp_x][i] *= invLp
+        end
+        @threads for i in eachindex(Lp_data[:Lp_y])
+            Lp_data[:Lp_y][i] *= invLp
+        end
+        @threads for i in eachindex(Lp_data[:Lp_z])
+            Lp_data[:Lp_z][i] *= invLp
+        end
+        @threads for i in 1:m
+            Vrest[i] *= invIs
+        end
+        @threads for i in 1:ns
+            Vrest[m+i] *= invCd
+        end
+        # ============================================================
+        # invdiag parallelo
+        diagP = diag(P_data[:P])                 # view
+        invdiag = similar(diagP)
+        @threads for i in eachindex(diagP)
+            invdiag[i] = 1.0 / diagP[i]
+        end
+        invP = spdiagm(0 => invdiag)             # una sola allocazione
+        esc[:Lp] = esc[:R] = esc[:Cd] = esc[:P] =
+        esc[:Is] = esc[:freq] = esc[:Yle] = esc[:time] = 1.0
+    end
+    # ── 2. Costanti di passo ───────────────────────────────────────
+    w = TWO_PI * freq[k]
+    β = w * K0
+    # ── 3. Correzione di fase (se richiesta) ───────────────────────
+    if QS_Rcc_FW == 2
+        promote_to_complex!(Lp_data, [:Lp_x, :Lp_y, :Lp_z])
+        promote_to_complex!(P_data,  [:P])
+        Lpx = Lp_data[:Lp_x];  Lpy = Lp_data[:Lp_y];  Lpz = Lp_data[:Lp_z]
+        Rx  = Lp_data[:Rx];    Ry  = Lp_data[:Ry];    Rz  = Lp_data[:Rz]
+        Pm  = P_data[:P];      Rcc = P_data[:R_cc]
+        # tre loop indipendenti → tre thread-loops
+        @threads for i in eachindex(Lpx); Lpx[i] *= cis(-β * Rx[i]); end
+        @threads for i in eachindex(Lpy); Lpy[i] *= cis(-β * Ry[i]); end
+        @threads for i in eachindex(Lpz); Lpz[i] *= cis(-β * Rz[i]); end
+        @threads for i in eachindex(Pm);  Pm[i]  *= cis(-β * Rcc[i]); end
+    end
+    # ── 4. Salvataggio diagonale una sola volta ────────────────────
+    if keeped_diag == 0
+        n  = size(Lp_data[:Lp_x],1)
+        n2 = size(Lp_data[:Lp_y],1)
+        n3 = size(Lp_data[:Lp_z],1)
+        @threads for i in 1:n
+            diag_Lp[i] = real(Lp_data[:Lp_x][i,i])
+        end
+        @threads for i in 1:n2
+            diag_Lp[n+i] = real(Lp_data[:Lp_y][i,i])
+        end
+        @threads for i in 1:n3
+            diag_Lp[n+n2+i] = real(Lp_data[:Lp_z][i,i])
+        end
+        keeped_diag = 1
+    end
+    return β, w, keeped_diag, invP
 end
