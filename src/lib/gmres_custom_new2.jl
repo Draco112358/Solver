@@ -1,7 +1,7 @@
 include("compute_Matrix_vector_new2.jl")
 include("utility.jl")
 
-function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection, P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd, id, chan, portIndex)
+function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, incidence_selection, P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F, id, chan, portIndex)
     m = size(b, 1)
     n = m
     if restarted
@@ -48,7 +48,7 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
     minupdated = 0;
     warned = false;
 
-    r = b - ComputeMatrixVectorNew2(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+    r = b - ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
     normr = norm(r)
     if normr <= tolb
         x::Union{Vector{ComplexF64}, Vector{Float64}} .= xmin
@@ -122,7 +122,7 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
             
             
             # Apply A to v.
-            v = ComputeMatrixVectorNew2(v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+            v = ComputeMatrixVectorNew2!(out, work, v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
             #println(norm(v))
             # Form Pj*Pj-1*...P1*Av.
             for k = 1:initer
@@ -202,7 +202,7 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
                     end
                     xm += additive
                 end
-                r = b - ComputeMatrixVectorNew2(xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+                r = b - ComputeMatrixVectorNew2!(out, work, xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
                 if norm(r) <= tol * n2b
                     x = xm
                     flag = 0
@@ -285,7 +285,7 @@ function gmres_custom_new2(b, restarted, tol, maxit, x , wk, incidence_selection
                 x += additive
             end
             xmin = x
-            r = b - ComputeMatrixVectorNew2(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+            r = b - ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
             minv_r = r
             normr_act = norm(minv_r)
             r = minv_r

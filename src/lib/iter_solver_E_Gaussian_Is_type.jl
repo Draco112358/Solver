@@ -86,7 +86,7 @@ function iter_solver_E_Gaussian_Is_type(
 		keeped_diag = 0
 		invCd = zeros(ComplexF64, m)
 		not_switched = true
-		resProd = Array{ComplexF64}(undef, 2 * m)
+		# resProd = Array{ComplexF64}(undef, 2 * m)
 		tn = zeros(ComplexF64, m + ns + n)
 		out["f"] = freq / escalings[:freq]
 
@@ -99,6 +99,14 @@ function iter_solver_E_Gaussian_Is_type(
 	end
 	
 	diag_Lp = zeros(Float64, size(Lp_data[:Lp_x],1)+size(Lp_data[:Lp_y],1)+size(Lp_data[:Lp_z],1))
+	m_gmres   = size(incidence_selection[:A],1)
+	ns_gmres  = size(incidence_selection[:Gamma],2)
+	out_gmres = similar(Vrest, m_gmres+ns_gmres+size(incidence_selection[:Gamma],1))  # vettore risultato
+	work = (Y1 = similar(Vrest, ComplexF64, m_gmres),
+        Y2 = similar(Vrest, ComplexF64, ns_gmres),
+        Y3 = similar(Vrest, ComplexF64, size(incidence_selection[:Gamma],1)))
+	incidence_selection[:A_t]= transpose(incidence_selection[:A])
+	incidence_selection[:Gamma_t] = transpose(incidence_selection[:Gamma])	
 	for k ∈ 1:nfreq
 		@time begin
 			β, w, keeped_diag, invP = handle_scaling_and_rebuilding!(
@@ -157,7 +165,7 @@ function iter_solver_E_Gaussian_Is_type(
 
 			tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
 		end
-		V, flag, relres, iter, resvec = @time gmres_custom_new2(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, resProd, id, chan, 1)
+		V, flag, relres, iter, resvec = @time gmres_custom_new2!(out_gmres, work, tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest, w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
 		if flag == 99
 			return nothing
 		end
