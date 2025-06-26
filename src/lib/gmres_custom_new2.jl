@@ -48,7 +48,45 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
     minupdated = 0;
     warned = false;
 
-    r = b - ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
+    # Le dimensioni dei blocchi dovrebbero derivare dalla struttura di x e A, Gamma.
+    # Assumiamo che `n1`, `n2`, `n3` siano derivabili come:
+    n1_val = size(incidence_selection[:A], 1)
+    n3_val = size(incidence_selection[:A], 2) # `colonne di A`
+    ns_val = size(incidence_selection[:Gamma], 2) # `colonne di Gamma`
+    # E che n = n1_val + ns_val + n3_val (verifica che sia così nel tuo setup)
+    @assert n == n1_val + ns_val + n3_val "La dimensione totale del sistema non corrisponde alla somma dei blocchi!"
+
+
+    # --- Pre-allocazione dei vettori temporanei ---
+    # Tutti i M_vec e i temporanei per le operazioni con `lu` (che è n x n) sono di dimensione `n`.
+    M1_pre        = Vector{ComplexF64}(undef, n1_val) # M1_pre è un'eccezione, è invZ*X1 (X1 è solo una parte)
+    M2_pre        = Vector{ComplexF64}(undef, n3_val)
+    M3_pre        = Vector{ComplexF64}(undef, ns_val) # M3_pre è un'eccezione, è invP*X2 (X2 è solo una parte)
+    M4_pre        = Vector{ComplexF64}(undef, n3_val)
+    M5_pre        = Vector{ComplexF64}(undef, n3_val)
+
+    # I vettori temp_vec1 e temp_vec2 nella precond_3_3_vector!
+    # dovranno gestire varie dimensioni a seconda dell'operazione.
+    # temp_vec1 per A*M_qualcosa (n1) o Gamma_t*M_qualcosa (n2)
+    # temp_vec2 per invZ*... (n1) o invP*... (n2)
+    # temp_vec_for_ldiv_input è il vettore che passa a ldiv! (dimensione n)
+    temp_vec_for_ldiv_input = Vector{ComplexF64}(undef, n)
+
+    temp_vec_res_n1 = Vector{ComplexF64}(undef, n1_val) # Per risultati di A*M_vec e invZ*...
+    tempInvZ1 = similar(temp_vec_res_n1)
+    tempInvZ2 = similar(temp_vec_res_n1)
+    tempInvZ3 = similar(temp_vec_res_n1)
+    temp_vec_res_n2 = Vector{ComplexF64}(undef, n3_val)  # Per risultati di Gamma_t*M_vec e invP*...
+    temp_vec_res_n3 = Vector{ComplexF64}(undef, ns_val)  # Per risultati di Gamma_t*M_vec e invP*...
+    tempInvP1 = similar(temp_vec_res_n3)
+    tempInvP2 = similar(temp_vec_res_n3)
+    tempInvP3 = similar(temp_vec_res_n3)
+
+    ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
+                                    M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
+                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
+                                    );
+    r = b - out
     normr = norm(r)
     if normr <= tolb
         x::Union{Vector{ComplexF64}, Vector{Float64}} .= xmin
@@ -94,167 +132,174 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
         w[1] = -beta
         initercount=0
         for initer = 1:inner
-            #println("start inner iteration number -> ",initer)
-            tic = time()
-            if is_stop_requested(id)
-                println("Simulazione $(id) interrotta per richiesta stop.")
-                return x, 99, 0, [outiter, initer], 0 # O un altro valore che indica interruzione
-            end
-            # if is_stopped_computation(id, chan)
-            #     return x, 99, 0, [outiter, initer], 0
+            # if is_stop_requested(id)
+            #     println("Simulazione $(id) interrotta per richiesta stop.")
+            #     return x, 99, 0, [outiter, initer], 0 # O un altro valore che indica interruzione
             # end
-
-            initercount = initercount + 1
-            #println("Iteration = $initercount")
-            # Form P1*P2*P3...Pj*ej.
-            # v = Pj*ej = ej - 2*u*u'*ej
+            println("Iteration = $initercount")
+            @time begin
+                initercount = initercount + 1
             
-            v = -2 * conj(u[initer]) * u
-            v[initer] += 1
-            # v = P1*P2*...Pjm1*(Pj*ej)
-            for k = initer - 1:-1:1
-                @views v -= U[:, k] * (2 * dot(U[:, k], v))
-            end
-            # Explicitly normalize v to reduce the effects of round-off.
-            
-            v = v/norm(v)
-
-            
-            
-            # Apply A to v.
-            v = ComputeMatrixVectorNew2!(out, work, v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
-            #println(norm(v))
-            # Form Pj*Pj-1*...P1*Av.
-            for k = 1:initer
-                @views v -= U[:, k] * (2 * dot(U[:, k], v))
-            end
-            
-            # Determine Pj+1.
-            if initer != length(v)
-                # Construct u for Householder reflector Pj+1.
-                u = copy(v)
-                u[1:initer] .= 0
-                alpha = norm(u)
-                #println(alpha)
-                if alpha != 0
-                    alpha = scalarsign(v[initer+1]) * alpha
-                    u[initer+1] += alpha
-                    u /= norm(u)
-                    U[:, initer+1] = copy(u)
-                    # Apply Pj+1 to v.
-                    v[initer+2:end] .= 0
-                    v[initer+1] = -alpha
-                end
-            end
-            
-            # Apply Given's rotations to the newly formed v.
-            for colJ = 1:initer-1
-                tmpv = v[colJ]
-                v[colJ] = conj(J[1, colJ]) * v[colJ] + conj(J[2, colJ]) * v[colJ+1]
-                v[colJ+1] = -J[2, colJ] * tmpv + J[1, colJ] * v[colJ+1]
-            end
-            
-            # Compute Given's rotation Jm.
-            if !(initer == length(v))
-                rho = norm(v[initer:initer+1])
-                #println(v[initer:initer+1])
-                J[:, initer] = v[initer:initer+1] ./ rho
-                w[initer+1] = -J[2, initer] .* w[initer]
-                w[initer] = conj(J[1, initer]) .* w[initer]
-                v[initer] = rho
-                v[initer+1] = 0
-            end
-            
-            @views R[:, initer] = v[1:inner]
-            normr = abs(w[initer+1])
-            resvec[(outiter-1)*inner+initer+1] = normr
-            normr_act = normr
-            #println(tolb)
-            #println(normr)
-            if (normr <= tolb || stag >= maxstagsteps || moresteps == 1)
-                if evalxm == 0
-                    @views ytmp = R[1:initer, 1:initer] \ w[1:initer]
-                    @views additive = U[:, initer] * (-2 * ytmp[initer] * conj(U[initer, initer]))
-                    additive[initer] += ytmp[initer]
-                    for k = initer-1:-1:1
-                        additive[k] += ytmp[k]
-                        @views additive -= U[:, k] * (2 * dot(U[:, k], additive))
-                    end
-                    if norm(additive) < eps() * norm(x)
-                        stag += 1
-                    else
-                        stag = 0
-                    end
-                    xm = x + additive
-                    evalxm = 1
-                elseif evalxm == 1
-                    @views addvc = [-(R[1:initer-1, 1:initer-1] \ R[1:initer-1, initer]) * (w[initer] / R[initer, initer]); w[initer] / R[initer, initer]]
-                    if norm(addvc) < eps() * norm(xm)
-                        stag += 1
-                    else
-                        stag = 0
-                    end
-                    @views additive = U[:, initer] * (-2 * addvc[initer] * conj(U[initer, initer]))
-                    additive[initer] += addvc[initer]
-                    for k = initer-1:-1:1
-                        additive[k] += addvc[k]
-                        @views additive -= U[:, k] * (2 * dot(U[:, k], additive))
-                    end
-                    xm += additive
-                end
-                r = b - ComputeMatrixVectorNew2!(out, work, xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
-                if norm(r) <= tol * n2b
-                    x = xm
-                    flag = 0
-                    iter = [outiter, initer]
-                    break
-                end
-                minv_r = r
+                # Form P1*P2*P3...Pj*ej.
+                # v = Pj*ej = ej - 2*u*u'*ej
                 
-                normr_act = norm(minv_r)
-                resvec[(outiter-1)*inner+initer+1] = normr_act
+                v = -2 * conj(u[initer]) * u
+                v[initer] += 1
+                # v = P1*P2*...Pjm1*(Pj*ej)
+                for k = initer - 1:-1:1
+                    @views v -= U[:, k] * (2 * dot(U[:, k], v))
+                end
+                # Explicitly normalize v to reduce the effects of round-off.
                 
+                v ./= norm(v)
+
+                
+                
+                # Apply A to v.
+                ComputeMatrixVectorNew2!(out, work, v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
+                                        M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
+                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
+                                    );
+                v .= out
+                #println(norm(v))
+                # Form Pj*Pj-1*...P1*Av.
+                for k = 1:initer
+                    @views v -= U[:, k] * (2 * dot(U[:, k], v))
+                end
+                
+                # Determine Pj+1.
+                if initer != length(v)
+                    # Construct u for Householder reflector Pj+1.
+                    u = copy(v)
+                    u[1:initer] .= 0
+                    alpha = norm(u)
+                    #println(alpha)
+                    if alpha != 0
+                        alpha = scalarsign(v[initer+1]) * alpha
+                        u[initer+1] += alpha
+                        u /= norm(u)
+                        U[:, initer+1] = copy(u)
+                        # Apply Pj+1 to v.
+                        v[initer+2:end] .= 0
+                        v[initer+1] = -alpha
+                    end
+                end
+                
+                # Apply Given's rotations to the newly formed v.
+                for colJ = 1:initer-1
+                    tmpv = v[colJ]
+                    v[colJ] = conj(J[1, colJ]) * v[colJ] + conj(J[2, colJ]) * v[colJ+1]
+                    v[colJ+1] = -J[2, colJ] * tmpv + J[1, colJ] * v[colJ+1]
+                end
+                
+                # Compute Given's rotation Jm.
+                if !(initer == length(v))
+                    rho = norm(v[initer:initer+1])
+                    #println(v[initer:initer+1])
+                    J[:, initer] = v[initer:initer+1] ./ rho
+                    w[initer+1] = -J[2, initer] .* w[initer]
+                    w[initer] = conj(J[1, initer]) .* w[initer]
+                    v[initer] = rho
+                    v[initer+1] = 0
+                end
+                
+                @views R[:, initer] = v[1:inner]
+                normr = abs(w[initer+1])
+                resvec[(outiter-1)*inner+initer+1] = normr
+                normr_act = normr
+                #println(tolb)
+                #println(normr)
+                if (normr <= tolb || stag >= maxstagsteps || moresteps == 1)
+                    if evalxm == 0
+                        @views ytmp = R[1:initer, 1:initer] \ w[1:initer]
+                        @views additive = U[:, initer] * (-2 * ytmp[initer] * conj(U[initer, initer]))
+                        additive[initer] += ytmp[initer]
+                        for k = initer-1:-1:1
+                            additive[k] += ytmp[k]
+                            @views additive -= U[:, k] * (2 * dot(U[:, k], additive))
+                        end
+                        if norm(additive) < eps() * norm(x)
+                            stag += 1
+                        else
+                            stag = 0
+                        end
+                        xm = x + additive
+                        evalxm = 1
+                    elseif evalxm == 1
+                        @views addvc = [-(R[1:initer-1, 1:initer-1] \ R[1:initer-1, initer]) * (w[initer] / R[initer, initer]); w[initer] / R[initer, initer]]
+                        if norm(addvc) < eps() * norm(xm)
+                            stag += 1
+                        else
+                            stag = 0
+                        end
+                        @views additive = U[:, initer] * (-2 * addvc[initer] * conj(U[initer, initer]))
+                        additive[initer] += addvc[initer]
+                        for k = initer-1:-1:1
+                            additive[k] += addvc[k]
+                            @views additive -= U[:, k] * (2 * dot(U[:, k], additive))
+                        end
+                        xm += additive
+                    end
+                    ComputeMatrixVectorNew2!(out, work, xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
+                                        M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
+                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
+                                    );
+                    r = b - out
+                    if norm(r) <= tol * n2b
+                        x = xm
+                        flag = 0
+                        iter = [outiter, initer]
+                        break
+                    end
+                    minv_r = r
+                    
+                    normr_act = norm(minv_r)
+                    resvec[(outiter-1)*inner+initer+1] = normr_act
+                    
+                    if normr_act <= normrmin
+                        normrmin = normr_act
+                        imin = outiter
+                        jmin = initer
+                        xmin = xm
+                        minupdated = 1
+                    end
+                    if normr_act <= tolb
+                        x = xm
+                        flag = 0
+                        iter = [outiter, initer]
+                        break
+                    else
+                        if stag >= maxstagsteps && moresteps == 0
+                            stag = 0
+                        end
+                        moresteps += 1
+                        if moresteps >= maxmsteps
+                            if !warned
+                                println("Warning: Tolerance too small, GMRES may not converge.")
+                                warned = true
+                            end
+                            flag = 3
+                            iter = [outiter, initer]
+                            break
+                        end
+                    end
+                end
+                #println("normr_act -> ", normr_act)
+                #println("tolb -> ", tolb)
                 if normr_act <= normrmin
                     normrmin = normr_act
                     imin = outiter
                     jmin = initer
-                    xmin = xm
                     minupdated = 1
                 end
-                if normr_act <= tolb
-                    x = xm
-                    flag = 0
-                    iter = [outiter, initer]
+                
+                if stag >= maxstagsteps
+                    flag = 3
                     break
-                else
-                    if stag >= maxstagsteps && moresteps == 0
-                        stag = 0
-                    end
-                    moresteps += 1
-                    if moresteps >= maxmsteps
-                        if !warned
-                            println("Warning: Tolerance too small, GMRES may not converge.")
-                            warned = true
-                        end
-                        flag = 3
-                        iter = [outiter, initer]
-                        break
-                    end
                 end
             end
-            #println("normr_act -> ", normr_act)
-            #println("tolb -> ", tolb)
-            if normr_act <= normrmin
-                normrmin = normr_act
-                imin = outiter
-                jmin = initer
-                minupdated = 1
-            end
             
-            if stag >= maxstagsteps
-                flag = 3
-                break
-            end
+        
             # if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
             #     publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
             # end
@@ -285,7 +330,11 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
                 x += additive
             end
             xmin = x
-            r = b - ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
+            ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
+                                    M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
+                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
+                                    );
+            r = b - out
             minv_r = r
             normr_act = norm(minv_r)
             r = minv_r
