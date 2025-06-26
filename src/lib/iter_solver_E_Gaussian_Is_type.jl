@@ -99,28 +99,13 @@ function iter_solver_E_Gaussian_Is_type(
 	end
 	
 	diag_Lp = zeros(Float64, size(Lp_data[:Lp_x],1)+size(Lp_data[:Lp_y],1)+size(Lp_data[:Lp_z],1))
-	println("A ", size(incidence_selection[:A]))
-	println("Gamma ", size(incidence_selection[:Gamma]))
 	m_gmres   = size(incidence_selection[:A],1)
-	ns_gmres  = size(incidence_selection[:Gamma],2)
-	out_gmres = similar(Vrest, m_gmres+ns_gmres+size(incidence_selection[:Gamma],1))  # vettore risultato
-	indI = 1:m_gmres
-	indQ = m_gmres+1:m_gmres+ns_gmres
-	indPhi = m_gmres+ns_gmres+1
-	mx, my, mz = incidence_selection[:mx], incidence_selection[:my], incidence_selection[:mz]
-	ind1 = 1:mx
-	ind2 = mx+1:mx+my
-	ind3 = mx+my+1
+	out_gmres = similar(Vrest, ComplexF64, m_gmres+ns+size(incidence_selection[:Gamma],1))  # vettore risultato
 	work = (Y1 = similar(Vrest, ComplexF64, m_gmres),
-        Y2 = similar(Vrest, ComplexF64, ns_gmres),
-        Y3 = similar(Vrest, ComplexF64, size(incidence_selection[:Gamma],1)),
-		indI = indI,
-		indQ = indQ,
-		indPhi = indPhi,
-		ind1 = ind1,
-		ind2 = ind2,
-		ind3 = ind3
+        Y2 = similar(Vrest, ComplexF64, ns),
+        Y3 = similar(Vrest, ComplexF64, size(incidence_selection[:Gamma],1))
 	)
+	pc_work = PCWork(ComplexF64, m_gmres, ns, size(incidence_selection[:Gamma],1))
 	incidence_selection[:A_t]= transpose(incidence_selection[:A])
 	incidence_selection[:Gamma_t] = transpose(incidence_selection[:Gamma])	
 	for k ∈ 1:nfreq
@@ -182,7 +167,7 @@ function iter_solver_E_Gaussian_Is_type(
 			tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
 		end
 
-		V, flag, relres, iter, resvec = @time gmres_custom_new2!(ComplexF64.(out_gmres), work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
+		V, flag, relres, iter, resvec = @time gmres_custom_new2!(out_gmres, work, pc_work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
 		if flag == 99
 			return nothing
 		end

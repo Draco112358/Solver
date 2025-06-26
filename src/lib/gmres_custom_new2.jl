@@ -1,7 +1,9 @@
 include("compute_Matrix_vector_new2.jl")
 include("utility.jl")
 
-function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, incidence_selection, P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F, id, chan, portIndex)
+
+
+function gmres_custom_new2!(out, work, pc_work, b, restarted, tol, maxit, x , wk, incidence_selection, P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F, id, chan, portIndex)
     m = size(b, 1)
     n = m
     if restarted
@@ -57,35 +59,8 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
     @assert n == n1_val + ns_val + n3_val "La dimensione totale del sistema non corrisponde alla somma dei blocchi!"
 
 
-    # --- Pre-allocazione dei vettori temporanei ---
-    # Tutti i M_vec e i temporanei per le operazioni con `lu` (che è n x n) sono di dimensione `n`.
-    M1_pre        = Vector{ComplexF64}(undef, n1_val) # M1_pre è un'eccezione, è invZ*X1 (X1 è solo una parte)
-    M2_pre        = Vector{ComplexF64}(undef, n3_val)
-    M3_pre        = Vector{ComplexF64}(undef, ns_val) # M3_pre è un'eccezione, è invP*X2 (X2 è solo una parte)
-    M4_pre        = Vector{ComplexF64}(undef, n3_val)
-    M5_pre        = Vector{ComplexF64}(undef, n3_val)
 
-    # I vettori temp_vec1 e temp_vec2 nella precond_3_3_vector!
-    # dovranno gestire varie dimensioni a seconda dell'operazione.
-    # temp_vec1 per A*M_qualcosa (n1) o Gamma_t*M_qualcosa (n2)
-    # temp_vec2 per invZ*... (n1) o invP*... (n2)
-    # temp_vec_for_ldiv_input è il vettore che passa a ldiv! (dimensione n)
-    temp_vec_for_ldiv_input = Vector{ComplexF64}(undef, n)
-
-    temp_vec_res_n1 = Vector{ComplexF64}(undef, n1_val) # Per risultati di A*M_vec e invZ*...
-    tempInvZ1 = similar(temp_vec_res_n1)
-    tempInvZ2 = similar(temp_vec_res_n1)
-    tempInvZ3 = similar(temp_vec_res_n1)
-    temp_vec_res_n2 = Vector{ComplexF64}(undef, n3_val)  # Per risultati di Gamma_t*M_vec e invP*...
-    temp_vec_res_n3 = Vector{ComplexF64}(undef, ns_val)  # Per risultati di Gamma_t*M_vec e invP*...
-    tempInvP1 = similar(temp_vec_res_n3)
-    tempInvP2 = similar(temp_vec_res_n3)
-    tempInvP3 = similar(temp_vec_res_n3)
-
-    ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
-                                    M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
-                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
-                                    );
+    ComputeMatrixVectorNew2!(out, work, pc_work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
     r = b - out
     normr = norm(r)
     if normr <= tolb
@@ -156,10 +131,7 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
                 
                 
                 # Apply A to v.
-                ComputeMatrixVectorNew2!(out, work, v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
-                                        M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
-                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
-                                    );
+                ComputeMatrixVectorNew2!(out, work, pc_work, v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
                 v .= out
                 #println(norm(v))
                 # Form Pj*Pj-1*...P1*Av.
@@ -240,10 +212,7 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
                         end
                         xm += additive
                     end
-                    ComputeMatrixVectorNew2!(out, work, xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
-                                        M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
-                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
-                                    );
+                    ComputeMatrixVectorNew2!(out, work, pc_work, xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
                     r = b - out
                     if norm(r) <= tol * n2b
                         x = xm
@@ -330,10 +299,7 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
                 x += additive
             end
             xmin = x
-            ComputeMatrixVectorNew2!(out, work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,
-                                    M1_pre, M2_pre, M3_pre, M4_pre, M5_pre, temp_vec_res_n1, temp_vec_res_n2, temp_vec_res_n3,
-                                    tempInvZ1, tempInvZ2, tempInvZ3, tempInvP1, tempInvP2, tempInvP3
-                                    );
+            ComputeMatrixVectorNew2!(out, work,pc_work, x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F);
             r = b - out
             minv_r = r
             normr_act = norm(minv_r)
@@ -381,6 +347,7 @@ function gmres_custom_new2!(out, work, b, restarted, tol, maxit, x , wk, inciden
     return x, flag, relres, iter, resvec
 
 end
+
 
 function scalarsign(d)
     sgn = sign(d)
