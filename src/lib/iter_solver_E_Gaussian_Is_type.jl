@@ -167,7 +167,7 @@ function iter_solver_E_Gaussian_Is_type(
 			tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
 		end
 
-		V, flag, relres, iter, resvec = @time gmres_custom_new2!(out_gmres, work, pc_work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
+		V, flag, relres, iter, resvec = @time gmres_custom_new2_opt!(out_gmres, work, pc_work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w[k], incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
 		if flag == 99
 			return nothing
 		end
