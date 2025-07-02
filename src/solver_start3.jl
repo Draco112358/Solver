@@ -378,12 +378,14 @@ function main()
 
     println("Avvio del server Genie...")
 
-    # Invia lo stato "ready" dopo aver avviato Genie e precompilato
-    send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
-    solver_overall_status[] = "ready"
-
     try
-        up(8001, async = false) # Blocca il thread principale
+        up(8001, async = true) #con async a true non blocca il thread principale
+        # Invia lo stato "ready" dopo aver avviato Genie e precompilato
+        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
+        solver_overall_status[] = "ready"
+        while true
+            sleep(1)
+        end
     catch ex
         if ex isa InterruptException
             println("Server Genie interrotto da Ctrl-C.")
