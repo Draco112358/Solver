@@ -10,19 +10,12 @@ end
 const solver_overall_status = Ref("ready") # ready, busy, error
 const active_simulations = Dict{String, Dict{String, Any}}() # ID simulazione -> {status, progress, start_time, etc.}
 const simulations_lock = ReentrantLock() # Lock per proteggere `active_simulations`
-# const stopComputation = []
 const stopComputation = Dict{String, Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
 const stop_computation_lock = ReentrantLock() # Aggiungi un lock per proteggere stopComputation
 const commentsEnabled = []
-
-function send_rabbitmq_feedback(data::Dict, routing_key::String)
-    println("Feedback non inviato perchè siamo in fase di test")
-end
-
-@testset "Test Electric Fields Simulation" begin
-    passed1 = false
-    passed2 = false
-    @testset "Test Tx ris 8x8" begin
+const norm_treshold = 1e-10
+test_suites = [
+        ("Test Tx ris 8x8", () -> @testset "Test Tx ris 8x8" begin
         @load "./test/electricFieldsSimulation/test_input_Tx8x8.jld2"
         out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
         outMAT = matread("./test/electricFieldsSimulation/Tx_8x8.mat")
@@ -32,11 +25,12 @@ end
         normEyMAT = norm(outMAT["out"]["Ey"])
         normEzJulia = norm(out["Ez"])
         normEzMAT = norm(outMAT["out"]["Ez"])
-        @test ((normExMAT-normExJulia)/normExMAT < 1e-10 && (normEyMAT-normEyJulia)/normEyMAT < 1e-10 && (normEzMAT-normEzJulia)/normEzMAT < 1e-10)
-        passed1 = ((normExMAT-normExJulia)/normExMAT < 1e-10 && (normEyMAT-normEyJulia)/normEyMAT < 1e-10 && (normEzMAT-normEzJulia)/normEzMAT < 1e-10)
-    end
-    if passed1
-        @testset "Test ris 6x6" begin
+        @test (normExMAT-normExJulia)/normExMAT < norm_treshold
+        @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
+        @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
+        end),
+        
+        ("Test ris 6x6", () -> @testset "Test ris 6x6" begin
             @load "./test/electricFieldsSimulation/test_input_ris6x6.jld2"
             out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
             outMAT = matread("./test/electricFieldsSimulation/ris_6x6.mat")
@@ -46,12 +40,12 @@ end
             normEyMAT = norm(outMAT["out"]["Ey"])
             normEzJulia = norm(out["Ez"])
             normEzMAT = norm(outMAT["out"]["Ez"])
-            @test ((normExMAT-normExJulia)/normExMAT < 1e-10 && (normEyMAT-normEyJulia)/normEyMAT < 1e-10 && (normEzMAT-normEzJulia)/normEzMAT < 1e-10)
-            passed2 = ((normExMAT-normExJulia)/normExMAT < 1e-10 && (normEyMAT-normEyJulia)/normEyMAT < 1e-10 && (normEzMAT-normEzJulia)/normEzMAT < 1e-10)
-        end
-    end
-    if passed2
-        @testset "Test ris 8x8" begin
+            @test (normExMAT-normExJulia)/normExMAT < norm_treshold 
+            @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
+            @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
+        end),
+        
+        ("Test ris 8x8", () -> @testset "Test ris 8x8" begin
             @load "./test/electricFieldsSimulation/test_input_ris8x8.jld2"
             out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
             outMAT = matread("./test/electricFieldsSimulation/ris_8x8.mat")
@@ -61,7 +55,37 @@ end
             normEyMAT = norm(outMAT["out"]["Ey"])
             normEzJulia = norm(out["Ez"])
             normEzMAT = norm(outMAT["out"]["Ez"])
-            @test ((normExMAT-normExJulia)/normExMAT < 1e-10 && (normEyMAT-normEyJulia)/normEyMAT < 1e-10 && (normEzMAT-normEzJulia)/normEzMAT < 1e-10)
-        end
-    end
+            @test (normExMAT-normExJulia)/normExMAT < norm_treshold 
+            @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
+            @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
+        end)
+    ]
+
+function send_rabbitmq_feedback(data::Dict, routing_key::String)
+    println("Feedback non inviato perchè siamo in fase di test")
 end
+
+function risSimulationTest(test_suites)
+    for (i, (suite_name, test_func)) in enumerate(test_suites)
+        println("Eseguendo $suite_name ($(i)/$(length(test_suites)))...")
+        
+        results = test_func()
+        
+        if results.anynonpass
+            println("❌ $suite_name fallito.")
+            println("   Passati: $(results.n_passed)")
+            println("   Falliti: $(results.n_failed)")
+            println("   Errori: $(results.n_error)")
+            println("⏹️  Interrompo l'esecuzione delle suite successive.")
+            return false
+        end
+        
+        println("✅ $suite_name completato ($(results.n_passed) test passati)")
+    end
+    
+    println("🎉 Tutte le $(length(test_suites)) test suite di risSimulation completate con successo!")
+    return true
+end
+
+# Esegui i test
+success = risSimulationTest(test_suites)
