@@ -679,15 +679,23 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             return nothing
         end
         println("data publish")
-        open("Ex_.txt", "w") do io
-        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ex"]))
-    	end
-		open("Ey_.txt", "w") do io
-        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ey"]))
-    	end
-		open("Ez_.txt", "w") do io
-        	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ez"]))
-    	end
+        # if test == true
+        #     Ex = out["Ex"]
+        #     Ey = out["Ey"]
+        #     Ez = out["Ez"]
+        #     @save "Ex.jld2" Ex
+        #     @save "Ey.jld2" Ey
+        #     @save "Ez.jld2" Ez
+        # end
+        # open("Ex_.txt", "w") do io
+        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ex"]))
+    	# end
+		# open("Ey_.txt", "w") do io
+        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ey"]))
+    	# end
+		# open("Ez_.txt", "w") do io
+        # 	JSON.print(io, complex_matrix_to_float_array_matrix(out["Ez"]))
+    	# end
 
         # if is_stopped_computation(id, chan)
         #     return false
@@ -721,6 +729,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             # if !isnothing(chan)
             #     publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
             # end
+            return out
         end
     catch e
         if e isa OutOfMemoryError
