@@ -563,6 +563,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
 end
 
 function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
+    #@save "./test/electricFieldsSimulation/test_input_ris6x6.jld2" incidence_selection volumi superfici nodi_coord escalings solverInput solverAlgoParams solverType theta phi e_theta e_phi baricentro r_circ times signal_type_E ind_freq_interest id aws_config bucket_name
     try
         N_circ = 360
         N_circ_3D = 10
@@ -678,7 +679,6 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         if (isnothing(out))
             return nothing
         end
-        println("data publish")
         # if test == true
         #     Ex = out["Ex"]
         #     Ey = out["Ey"]
@@ -701,6 +701,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         #     return false
         # end
         if (commentsEnabled == true)
+            println("data publish")
             resultsToStoreOnS3 = Dict(
                 "Vp" => JSON.json(complex_matrix_to_float_array_matrix(out["Vp"])),
                 "Ex" => JSON.json(complex_matrix_to_float_array_matrix(out["Ex"])),
@@ -729,8 +730,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             # if !isnothing(chan)
             #     publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
             # end
-            return out
         end
+        return out
     catch e
         if e isa OutOfMemoryError
             send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")

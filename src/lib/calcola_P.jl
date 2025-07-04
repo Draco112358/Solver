@@ -1,7 +1,8 @@
 include("Song_P_improved_Ivana_strategy2.jl")
+using JLD2
 
 function calcola_P(superfici, escalings, QS_Rcc_FW, id)::Dict{Symbol, Union{Matrix{Float64}, Matrix{ComplexF64}}}
-
+    # @save "inpuP.jld2" superfici escalings QS_Rcc_FW id
 	eps0 = 8.854187816997944e-12
 
 	epsilon1 = 5e-3
