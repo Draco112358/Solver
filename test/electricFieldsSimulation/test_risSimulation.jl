@@ -1,5 +1,5 @@
 using JLD2, Test, MAT, LinearAlgebra
-include("../../src/lib/solve3.jl")
+include("../../src/lib/solverRisCampi/do_solving_electric_fields.jl")
 
 function is_stop_requested(sim_id::String)
     lock(stop_computation_lock) do
