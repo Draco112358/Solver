@@ -95,8 +95,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
         initercount=0
         for initer = 1:inner
             #println("start inner iteration number -> ",initer)
-            tic = time()
-            if is_stopped_computation(id, chan)
+            if is_stop_requested(id)
                 return x, 99, 0, [outiter, initer], 0
             end
 
@@ -251,9 +250,9 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
                 flag = 3
                 break
             end
-            if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
-                publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
-            end
+            # if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
+            #     publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
+            # end
             #println("end inner iteration number -> ",time() - tic)
         end
         

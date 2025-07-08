@@ -113,7 +113,7 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
             x0 = Vrest[:, c1]
             V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
             if flag == 99
-                return false
+                return nothing
             end
 
             tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
@@ -141,13 +141,12 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
                 S[c2, c1, k] = S[c1, c2, k]
             end
         end
-        if !isnothing(chan)
-            publish_data(Dict("freqNumber" => k, "id" => id), "solver_feedback", chan)
-        end
-        if commentsEnabled
-            partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
-            publish_data(partial_res, "solver_results", chan)
-        end
+        send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
+        # if commentsEnabled
+        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
+        #     send_rabbitmq_feedback(partial_res, "solver_results")
+        #     #publish_data(partial_res, "solver_results", chan)
+        # end
     end
     out::Dict = Dict()
     out[:S] = S

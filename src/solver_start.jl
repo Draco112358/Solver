@@ -206,6 +206,12 @@ function setup_genie_routes()
                     deep_symbolize_keys(m)
                 end
                 surface = download_json_gz(aws, aws_bucket_name, surface_file_id) # O get_solverInput_from_s3 a seconda del tipo
+                surface["sigma"] = Float64.(surface["sigma"])
+                surface["S"] = Float64.(surface["S"])
+                surface["normale"] = map(inner -> map(Float64, inner), surface["normale"])
+                surface["materials"] = String.(surface["materials"])
+                surface["epsr"] = Float64.(surface["epsr"])
+                surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
                 Threads.@spawn run_simulation_task(
                     simulation_id,
                     doSolvingRis,
@@ -230,7 +236,12 @@ function setup_genie_routes()
                     deep_symbolize_keys(m)
                 end
                 surface = download_json_gz(aws, aws_bucket_name, surface_file_id) # O get_solverInput_from_s3
-
+                surface["sigma"] = Float64.(surface["sigma"])
+                surface["S"] = Float64.(surface["S"])
+                surface["normale"] = map(inner -> map(Float64, inner), surface["normale"])
+                surface["materials"] = String.(surface["materials"])
+                surface["epsr"] = Float64.(surface["epsr"])
+                surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
                 Threads.@spawn run_simulation_task(
                     simulation_id,
                     doSolvingElectricFields,
@@ -254,20 +265,6 @@ function setup_genie_routes()
         end
     end
 
-    # Endpoint per ottenere lo stato di una specifica simulazione
-    # route("/simulation_status/:id") do
-    #     sim_id = params(:id)
-    #     lock(simulations_lock) do
-    #         if haskey(active_simulations, sim_id)
-    #             return json(active_simulations[sim_id])
-    #         else
-    #             return JSON.json(Dict("error" => "Simulation $sim_id not found or completed"))
-    #         end
-    #     end
-    # end
-
-    # Endpoint per ottenere i risultati finali (potrebbero essere molto grandi)
-    # Questa API riceverebbe un ID di un file da S3 e lo restituirebbe.
     route("/get_results_electric_fields", method="POST") do
         file_id = params(:file_id)
         freq_index = jsonpayload()["freq_index"]
