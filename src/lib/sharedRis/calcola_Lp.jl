@@ -1,7 +1,3 @@
-include("Compute_Lp_Self.jl")
-include("Song_improved_Ivana_strategy.jl")
-using MKL
-
 function calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW, id)::Dict{Symbol, Union{Matrix{Float64}, Matrix{ComplexF64}}}
 	epsilon1 = 5e-3
 	epsilon2 = 1e-3

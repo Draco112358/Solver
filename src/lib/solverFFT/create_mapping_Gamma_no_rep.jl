@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-include("bin_search.jl")
-using MKL
-using SparseArrays
-
 function create_mapping_Gamma_no_rep(grids, map_volumes, nodes, nodes_red, externals_grids)
     Nx = size(grids[1], 1)
     Ny = size(grids[1][1], 1)

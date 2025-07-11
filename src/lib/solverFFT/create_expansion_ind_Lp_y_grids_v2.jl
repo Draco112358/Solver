@@ -1,7 +1,3 @@
-include("From_3D_to_1D.jl")
-include("bin_search.jl")
-using MKL
-
 function create_expansion_ind_Lp_y_grids_v2(grids, map, l_ind, mapping_Vox, nodes, nodes_red)
     num_grids = length(grids)
     Nx = size(grids[1],1)

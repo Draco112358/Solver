@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-include("bin_search.jl")
-using MKL
-using SparseArrays
-
 function create_A_mats_and_find_borders_with_map_Zs(grids, mapping_Vox, mapAx, NAx, mapAy, NAy, mapAz, NAz, materials, nodes, nodes_red, nodes_reused_clean)
     num_grids = length(grids)
     Nx = size(grids[1],1)

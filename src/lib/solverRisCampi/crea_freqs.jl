@@ -1,4 +1,3 @@
-using MKL
 function crea_freqs(t)
     fintem = t[end] - t[1]  # Lunghezza finestra temporale
     ncampt = length(t)      # N. di camp. nel tempo

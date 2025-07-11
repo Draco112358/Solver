@@ -1,4 +1,3 @@
-using MKL
 function compute_Zs_with_indices(materials, li_mats, maps_Zs, sx, sy, sz)
     mx = size(li_mats["lix_mat"], 1)
     my = size(li_mats["liy_mat"], 1)

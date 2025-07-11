@@ -1,6 +1,3 @@
-using MKL
-using LinearAlgebra
-
 function Song_P_improved_Ivana_strategy(
     x1v::Vector{Float64}, y1v::Vector{Float64}, z1v::Vector{Float64}, # These are assumed to be 1 or 2 elements
     xc1::Float64, yc1::Float64, zc1::Float64,
@@ -29,16 +26,16 @@ function Song_P_improved_Ivana_strategy(
 
         # No need for intermediate arrays, calculate max_d directly for each axis
         max_d_x = max(abs(x1v[1] - x2v[1]), abs(x1v[1] - x2v[end]), abs(x1v[end] - x2v[1]), abs(x1v[end] - x2v[end]))
-        supp_x1 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_x, min_R, a1, b1, c1)
-        supp_x2 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_x, min_R, a2, b2, c2)
+        supp_x1 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_x, min_R, a1, b1, c1)
+        supp_x2 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_x, min_R, a2, b2, c2)
 
         max_d_y = max(abs(y1v[1] - y2v[1]), abs(y1v[1] - y2v[end]), abs(y1v[end] - y2v[1]), abs(y1v[end] - y2v[end]))
-        supp_y1 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_y, min_R, b1, a1, c1)
-        supp_y2 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_y, min_R, b2, a2, c2)
+        supp_y1 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_y, min_R, b1, a1, c1)
+        supp_y2 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_y, min_R, b2, a2, c2)
 
         max_d_z = max(abs(z1v[1] - z2v[1]), abs(z1v[1] - z2v[end]), abs(z1v[end] - z2v[1]), abs(z1v[end] - z2v[end]))
-        supp_z1 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_z, min_R, c1, a1, b1)
-        supp_z2 = check_condition_P(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_z, min_R, c2, a2, b2)
+        supp_z1 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_z, min_R, c1, a1, b1)
+        supp_z2 = check_condition_P_ivana(epsilon1, epsilon2, epsilon3, epsilon4, sup1, sup2, max_d_z, min_R, c2, a2, b2)
     end
 
     if sup1_yz_plane == 1
@@ -66,20 +63,20 @@ function Song_P_improved_Ivana_strategy(
         is_point_v1 = (supp_x1 + supp_y1 + supp_z1 == 3) ? 1 : 0
         if is_point_v1 == 1
             if supp_x2 == 0
-                integ = sup1 * sup2 / a2 * integ_line_point([x2v[1], x2v[end]], yc2, zc2, xc1, yc1, zc1)
+                integ = sup1 * sup2 / a2 * integ_line_point_P_ivana([x2v[1], x2v[end]], yc2, zc2, xc1, yc1, zc1)
             elseif supp_y2 == 0
-                integ = sup1 * sup2 / b2 * integ_line_point([y2v[1], y2v[end]], xc2, zc2, yc1, xc1, zc1)
+                integ = sup1 * sup2 / b2 * integ_line_point_P_ivana([y2v[1], y2v[end]], xc2, zc2, yc1, xc1, zc1)
             else
-                integ = sup1 * sup2 / c2 * integ_line_point([z2v[1], z2v[end]], xc2, yc2, zc1, xc1, yc1)
+                integ = sup1 * sup2 / c2 * integ_line_point_P_ivana([z2v[1], z2v[end]], xc2, yc2, zc1, xc1, yc1)
             end
             used_form = 2
         else
             if supp_x1 == 0
-                integ = sup1 * sup2 / a1 * integ_line_point([x1v[1], x1v[end]], yc1, zc1, xc2, yc2, zc2)
+                integ = sup1 * sup2 / a1 * integ_line_point_P_ivana([x1v[1], x1v[end]], yc1, zc1, xc2, yc2, zc2)
             elseif supp_y1 == 0
-                integ = sup1 * sup2 / b1 * integ_line_point([y1v[1], y1v[end]], xc1, zc1, yc2, xc2, zc2)
+                integ = sup1 * sup2 / b1 * integ_line_point_P_ivana([y1v[1], y1v[end]], xc1, zc1, yc2, xc2, zc2)
             else
-                integ = sup1 * sup2 / c1 * integ_line_point([z1v[1], z1v[end]], xc1, yc1, zc2, xc2, yc2)
+                integ = sup1 * sup2 / c1 * integ_line_point_P_ivana([z1v[1], z1v[end]], xc1, yc1, zc2, xc2, yc2)
             end
             used_form = 2
         end
@@ -94,55 +91,55 @@ function Song_P_improved_Ivana_strategy(
         end
         if is_point_v1 == 1  # point-surface case
             if supp_x2 == 1  # surface of volume 2 in yz plane
-                integ = sup1 * a2 * integ_point_sup(zc1, yc1, xc1, [z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2)
+                integ = sup1 * a2 * integ_point_sup_P_ivana(zc1, yc1, xc1, [z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2)
             elseif supp_y2 == 1  # surface of volume 2 in xz plane
-                integ = sup1 * b2 * integ_point_sup(xc1, zc1, yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+                integ = sup1 * b2 * integ_point_sup_P_ivana(xc1, zc1, yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
             else  # surface of volume 2 in xy plane
-                integ = sup1 * c2 * integ_point_sup(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+                integ = sup1 * c2 * integ_point_sup_P_ivana(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
             end
             used_form = 3
         elseif is_point_v2 == 1  # point-surface case
             if supp_x1 == 1  # surface of volume 1 in yz plane
-                integ = sup2 * a1 * integ_point_sup(zc2, yc2, xc2, [z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1)
+                integ = sup2 * a1 * integ_point_sup_P_ivana(zc2, yc2, xc2, [z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1)
             elseif supp_y1 == 1  # surface of volume 1 in xz plane
-                integ = sup2 * b1 * integ_point_sup(xc2, zc2, yc2, [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
+                integ = sup2 * b1 * integ_point_sup_P_ivana(xc2, zc2, yc2, [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
             else  # surface of volume 1 in xy plane
-                integ = sup2 * c1 * integ_point_sup(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
+                integ = sup2 * c1 * integ_point_sup_P_ivana(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
             end
             used_form = 3
         else  # line-line case
             if supp_y1 == 1 && supp_z1 == 1
                 if supp_y2 == 1 && supp_z2 == 1  # parallel lines
-                    integ = b1 * c1 * b2 * c2 * integ_line_line_parall([x1v[1], x1v[end]], yc1, zc1, [x2v[1], x2v[end]], yc2, zc2)
+                    integ = b1 * c1 * b2 * c2 * integ_line_line_parall_P_ivana([x1v[1], x1v[end]], yc1, zc1, [x2v[1], x2v[end]], yc2, zc2)
 
                 elseif supp_x2 == 1 && supp_z2 == 1  # orthogonal lines
-                    integ = b1 * c1 * a2 * c2 * integ_line_line_ortho_xy([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], zc2)
+                    integ = b1 * c1 * a2 * c2 * integ_line_line_ortho_xy_P_ivana([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], zc2)
                 else
-                    integ = b1 * c1 * a2 * b2 * integ_line_line_ortho_xy([x1v[1], x1v[end]], zc1, yc1, xc2, [z2v[1], z2v[end]], yc2)
+                    integ = b1 * c1 * a2 * b2 * integ_line_line_ortho_xy_P_ivana([x1v[1], x1v[end]], zc1, yc1, xc2, [z2v[1], z2v[end]], yc2)
 
                 end
                 used_form = 4
             elseif supp_x1 == 1 && supp_z1 == 1
                 if supp_x2 == 1 && supp_z2 == 1  # parallel lines
-                    integ = a1 * c1 * a2 * c2 * integ_line_line_parall([y1v[1], y1v[end]], xc1, zc1, [y2v[1], y2v[end]], xc2, zc2)
+                    integ = a1 * c1 * a2 * c2 * integ_line_line_parall_P_ivana([y1v[1], y1v[end]], xc1, zc1, [y2v[1], y2v[end]], xc2, zc2)
 
                 elseif supp_x2 == 1 && supp_y2 == 1  # orthogonal lines
-                    integ = a1 * c1 * a2 * b2 * integ_line_line_ortho_xy([y1v[1], y1v[end]], zc1, xc1, yc2, [z2v[1], z2v[end]], xc2)
+                    integ = a1 * c1 * a2 * b2 * integ_line_line_ortho_xy_P_ivana([y1v[1], y1v[end]], zc1, xc1, yc2, [z2v[1], z2v[end]], xc2)
 
                 else
-                    integ = a1 * c1 * b2 * c2 * integ_line_line_ortho_xy([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], zc2)
+                    integ = a1 * c1 * b2 * c2 * integ_line_line_ortho_xy_P_ivana([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], zc2)
 
                 end
                 used_form = 4
             else
                 if supp_x2 == 1 && supp_y2 == 1  # parallel lines
-                    integ = a1 * b1 * a2 * b2 * integ_line_line_parall([z1v[1], z1v[end]], xc1, yc1, [z2v[1], z2v[end]], xc2, yc2)
+                    integ = a1 * b1 * a2 * b2 * integ_line_line_parall_P_ivana([z1v[1], z1v[end]], xc1, yc1, [z2v[1], z2v[end]], xc2, yc2)
 
                 elseif supp_x2 == 1 && supp_z2 == 1  # orthogonal lines
-                    integ = a1 * b1 * a2 * c2 * integ_line_line_ortho_xy([z1v[1], z1v[end]], yc1, xc1, zc2, [y2v[1], y2v[end]], xc2)
+                    integ = a1 * b1 * a2 * c2 * integ_line_line_ortho_xy_P_ivana([z1v[1], z1v[end]], yc1, xc1, zc2, [y2v[1], y2v[end]], xc2)
 
                 else
-                    integ = a1 * b1 * b2 * c2 * integ_line_line_ortho_xy([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], yc2)
+                    integ = a1 * b1 * b2 * c2 * integ_line_line_ortho_xy_P_ivana([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], yc2)
 
                 end
                 used_form = 4
@@ -158,70 +155,70 @@ function Song_P_improved_Ivana_strategy(
         if is_surf_v1 == 1  # bar1 is a surface
             if supp_x1 == 1  # bar1 is a surface in y-z plane
                 if supp_x2 == 0  # bar 2 is a line along x
-                    integ = a1 * b2 * c2 * integ_line_surf_ortho([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+                    integ = a1 * b2 * c2 * integ_line_surf_ortho_P_ivana([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
 
                 elseif supp_y2 == 0  # bar 2 is a line along y
-                    integ = a1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
+                    integ = a1 * a2 * c2 * integ_line_surf_para_P_ivana([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
 
                 else  # bar 2 is a line along z
-                    integ = a1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
+                    integ = a1 * a2 * b2 * integ_line_surf_para_P_ivana([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
 
                 end
             elseif supp_y1 == 1  # bar1 is a surface in x-z plane
                 if supp_x2 == 0  # bar 2 is a line along x
-                    integ = b1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
+                    integ = b1 * b2 * c2 * integ_line_surf_para_P_ivana([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
 
                 elseif supp_y2 == 0  # bar 2 is a line along y
-                    integ = b1 * a2 * c2 * integ_line_surf_ortho([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
+                    integ = b1 * a2 * c2 * integ_line_surf_ortho_P_ivana([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
 
                 else  # bar 2 is a line along z
-                    integ = b1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
+                    integ = b1 * a2 * b2 * integ_line_surf_para_P_ivana([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
 
                 end
             else  # bar1 is a surface in x-y plane
                 if supp_x2 == 0  # bar 2 is a line along x
-                    integ = c1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
+                    integ = c1 * b2 * c2 * integ_line_surf_para_P_ivana([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
 
                 elseif supp_y2 == 0  # bar 2 is a line along y
-                    integ = c1 * a2 * c2 * integ_line_surf_para( [y1v[1], y1v[end]],[x1v[1], x1v[end]],zc1,[y2v[1], y2v[end]],xc2,zc2)
+                    integ = c1 * a2 * c2 * integ_line_surf_para_P_ivana( [y1v[1], y1v[end]],[x1v[1], x1v[end]],zc1,[y2v[1], y2v[end]],xc2,zc2)
 
                 else  # bar 2 is a line along z
-                    integ = c1 * a2 * b2 * integ_line_surf_ortho([z2v[1], z2v[end]],xc2,yc2, zc1,[x1v[1], x1v[end]],[y1v[1], y1v[end]])
+                    integ = c1 * a2 * b2 * integ_line_surf_ortho_P_ivana([z2v[1], z2v[end]],xc2,yc2, zc1,[x1v[1], x1v[end]],[y1v[1], y1v[end]])
 
                 end
             end
         else  # bar2 is a surface
             if supp_x2 == 1  # bar2 is a surface in y-z plane
                 if supp_x1 == 0  # bar 1 is a line along x
-                    integ = a2 * b1 * c1 * integ_line_surf_ortho([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+                    integ = a2 * b1 * c1 * integ_line_surf_ortho_P_ivana([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
 
                 elseif supp_y1 == 0  # bar 1 is a line along y
-                    integ = a2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
+                    integ = a2 * a1 * c1 * integ_line_surf_para_P_ivana([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
 
                 else  # bar 1 is a line along z
-                    integ = a2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
+                    integ = a2 * a1 * b1 * integ_line_surf_para_P_ivana([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
 
                 end
             elseif supp_y2 == 1  # bar2 is a surface in x-z plane
                 if supp_x1 == 0  # bar 1 is a line along x
-                    integ = b2 * b1 * c1 * integ_line_surf_para( [x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2,[x1v[1], x1v[end]],zc1,yc1)
+                    integ = b2 * b1 * c1 * integ_line_surf_para_P_ivana( [x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2,[x1v[1], x1v[end]],zc1,yc1)
 
                 elseif supp_y1 == 0  # bar 1 is a line along y
-                    integ = b2 * a1 * c1 * integ_line_surf_ortho([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
+                    integ = b2 * a1 * c1 * integ_line_surf_ortho_P_ivana([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
 
                 else  # bar 1 is a line along z
-                    integ = b2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc1, [z1v[1], z1v[end]], xc1, yc2)
+                    integ = b2 * a1 * b1 * integ_line_surf_para_P_ivana([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc1, [z1v[1], z1v[end]], xc1, yc2)
 
                 end
             else  # bar2 is a surface in x-y plane
                 if supp_x1 == 0  # bar 1 is a line along x
-                    integ = c2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
+                    integ = c2 * b1 * c1 * integ_line_surf_para_P_ivana([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
 
                 elseif supp_y1 == 0  # bar 1 is a line along y
-                    integ = c2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]],[x2v[1], x2v[end]],zc2,[y1v[1], y1v[end]],xc1,zc1)
+                    integ = c2 * a1 * c1 * integ_line_surf_para_P_ivana([y2v[1], y2v[end]],[x2v[1], x2v[end]],zc2,[y1v[1], y1v[end]],xc1,zc1)
         
                 else  # bar 1 is a line along z
-                    integ = c2 * a1 * b1 * integ_line_surf_ortho([z1v[1], z1v[end]],xc1,yc1, zc2,[x2v[1], x2v[end]],[y2v[1], y2v[end]])
+                    integ = c2 * a1 * b1 * integ_line_surf_ortho_P_ivana([z1v[1], z1v[end]],xc1,yc1, zc2,[x2v[1], x2v[end]],[y2v[1], y2v[end]])
 
                 end
             end
@@ -230,27 +227,27 @@ function Song_P_improved_Ivana_strategy(
         used_form = 8
         if supp_x1 == 1  # bar1 is a surface in yz plane
             if supp_x2 == 1  # bar2 is a surface in yz plane
-                integ = a1 * a2 * integ_surf_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+                integ = a1 * a2 * integ_surf_surf_para_P_ivana([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
             elseif supp_y2 == 1  # bar2 is a surface in xz plane
-                integ = a1 * b2 * integ_surf_surf_ortho([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, [x2v[1], x2v[end]])
+                integ = a1 * b2 * integ_surf_surf_ortho_P_ivana([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, [x2v[1], x2v[end]])
             else  # bar2 is a surface in xy plane
-                integ = a1 * c2 * integ_surf_surf_ortho([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, [x2v[1], x2v[end]])
+                integ = a1 * c2 * integ_surf_surf_ortho_P_ivana([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, [x2v[1], x2v[end]])
             end
         elseif supp_y1 == 1  # bar1 is a surface in xz plane
             if supp_x2 == 1  # bar2 is a surface in yz plane
-                integ = b1 * a2 * integ_surf_surf_ortho([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, [y2v[1], y2v[end]])
+                integ = b1 * a2 * integ_surf_surf_ortho_P_ivana([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, [y2v[1], y2v[end]])
             elseif supp_y2 == 1  # bar2 is a surface in xz plane
-                integ = b1 * b2 * integ_surf_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+                integ = b1 * b2 * integ_surf_surf_para_P_ivana([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
             else  # bar2 is a surface in xy plane
-                integ = b1 * c2 * integ_surf_surf_ortho([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, [y2v[1], y2v[end]])
+                integ = b1 * c2 * integ_surf_surf_ortho_P_ivana([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, [y2v[1], y2v[end]])
             end
         else  # bar1 is a surface in xy plane
             if supp_x2 == 1  # bar2 is a surface in yz plane
-                integ = c1 * a2 * integ_surf_surf_ortho([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, [z2v[1], z2v[end]])
+                integ = c1 * a2 * integ_surf_surf_ortho_P_ivana([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, [z2v[1], z2v[end]])
             elseif supp_y2 == 1  # bar2 is a surface in xz plane
-                integ = c1 * b2 * integ_surf_surf_ortho([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, [z2v[1], z2v[end]])
+                integ = c1 * b2 * integ_surf_surf_ortho_P_ivana([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, [z2v[1], z2v[end]])
             else  # bar2 is a surface in xy plane
-                integ = c1 * c2 * integ_surf_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+                integ = c1 * c2 * integ_surf_surf_para_P_ivana([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
             end
         end
     end
@@ -258,7 +255,7 @@ function Song_P_improved_Ivana_strategy(
     return integ, used_form
 end
 
-function check_condition_P(eps1, eps2, eps3, eps4, Sup1, Sup2, max_d, min_R, size_dim, other_dim1, other_dim2)
+function check_condition_P_ivana(eps1, eps2, eps3, eps4, Sup1, Sup2, max_d, min_R, size_dim, other_dim1, other_dim2)
     max_oth = other_dim1 * other_dim2
 
     condS = max(max_oth, size_dim) / (min_R + 1e-15)
@@ -274,7 +271,7 @@ function check_condition_P(eps1, eps2, eps3, eps4, Sup1, Sup2, max_d, min_R, siz
     return supp_dim
 end
 
-function integ_line_point(x1v, y3, z3, x1, y1, z1)
+function integ_line_point_P_ivana(x1v, y3, z3, x1, y1, z1)
     x3 = x1v[1]
     x4 = x1v[end]
     check = 1 / (x1 - x3)
@@ -300,7 +297,7 @@ function integ_line_point(x1v, y3, z3, x1, y1, z1)
     return Ip
 end
 
-function integ_point_sup(x1, y1, z1, x2v, y2v, z2)
+function integ_point_sup_P_ivana(x1, y1, z1, x2v, y2v, z2)
     sol = 0
 
     for c1 in 1:2
@@ -331,12 +328,12 @@ function integ_point_sup(x1, y1, z1, x2v, y2v, z2)
     return sol
 end
 
-function integ_line_line_parall(x1v, y1, z1, x2v, y2, z2)
+function integ_line_line_parall_P_ivana(x1v, y1, z1, x2v, y2, z2)
     dy = y1 - y2
     dz = z1 - z2
 
     if abs(dy) < 1e-10 && abs(dz) < 1e-10
-        sol = integ_line_line_sp(x1v, x2v)
+        sol = integ_line_line_sp_P_ivana(x1v, x2v)
     else
         sol = 0
         for c1 in 1:2
@@ -360,7 +357,7 @@ function integ_line_line_parall(x1v, y1, z1, x2v, y2, z2)
     return sol
 end
 
-function integ_line_line_sp(x1v, x2v)
+function integ_line_line_sp_P_ivana(x1v, x2v)
     sol = 0
     for c1 in 1:2
         x1 = x1v[c1]
@@ -382,7 +379,7 @@ function integ_line_line_sp(x1v, x2v)
     return sol
 end
 
-function integ_line_line_ortho_xy(x1v, y1, z1, x2, y2v, z2)
+function integ_line_line_ortho_xy_P_ivana(x1v, y1, z1, x2, y2v, z2)
     sol = 0
 
     for c1 in 1:2
@@ -413,7 +410,7 @@ function integ_line_line_ortho_xy(x1v, y1, z1, x2, y2v, z2)
     return sol
 end
 
-function integ_line_surf_ortho(x1v, y1, z1, x2, y2v, z2v)
+function integ_line_surf_ortho_P_ivana(x1v, y1, z1, x2, y2v, z2v)
     sol = 0
 
     for c1 in 1:2
@@ -457,7 +454,7 @@ function integ_line_surf_ortho(x1v, y1, z1, x2, y2v, z2v)
     return sol
 end
 
-function integ_line_surf_para(x1v, y1v, z1, x2v, y2, z2)
+function integ_line_surf_para_P_ivana(x1v, y1v, z1, x2v, y2, z2)
     sol = 0
 
     for c1 in 1:2
@@ -493,7 +490,7 @@ function integ_line_surf_para(x1v, y1v, z1, x2v, y2, z2)
     return sol
 end
 
-function integ_surf_surf_para(x1v, y1v, z1, x2v, y2v, z2)
+function integ_surf_surf_para_P_ivana(x1v, y1v, z1, x2v, y2v, z2)
     sol = 0
 
     for c1 in 1:2
@@ -532,7 +529,7 @@ function integ_surf_surf_para(x1v, y1v, z1, x2v, y2v, z2)
     return sol
 end
 
-function integ_surf_surf_ortho(x1v, y1v, z1, x2v, y2, z2v)
+function integ_surf_surf_ortho_P_ivana(x1v, y1v, z1, x2v, y2, z2v)
     sol = 0
 
     for c1 in 1:2

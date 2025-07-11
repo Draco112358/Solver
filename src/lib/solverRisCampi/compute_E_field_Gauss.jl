@@ -1,4 +1,3 @@
-using MKL
 function compute_E_field_Gauss(indx, indy, indz, centriOsservazione, hc, ha, J, sigma, f)
 
     numCentri = size(centriOsservazione, 1)

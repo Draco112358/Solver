@@ -1,14 +1,3 @@
-using MKL
-using SparseArrays, IterativeSolvers, FFTW, LinearAlgebra, LinearMaps, FLoops
-include("build_Yle_FFT.jl")
-include("compute_Z_self.jl")
-include("gmres_custom.jl")
-include("../utility.jl")
-include("compute_Matrix_vector.jl")
-include("compute_Circulant_Lp_Rcc.jl")
-include("compute_Circulant_P_sup_Rcc.jl")
-
-
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, ports_scatter_value, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW, id, chan, commentsEnabled::Bool)
     freq = freq .* escalings["freq"]
     # GMRES settings ----------------------------
@@ -135,7 +124,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             is[n1] = escalings["Is"]
             # is[n1] = 1 * escalings["Is"]
             is[n2] = -1 * escalings["Is"]
-            precond_3_3_Kt!(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, vec(is), tn, resProd)
+            precond_3_3_Kt_fft!(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, vec(is), tn, resProd)
             #println("end precond 3 3 kt")
             #ComputeMatrixVector(x , wk, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
             # products_law = x ->   ComputeMatrixVector(x , w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector);
@@ -221,7 +210,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
         # pubblicazione risultati parziali
         # if (commentsEnabled == true)
-        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports["port_nodes"], 1), id; partial=true, freqIndex=k)
+        #     partial_res = dump_json_data(s2z_fft(S, ports_scatter_value), S, s2y_fft(S, ports_scatter_value), size(ports["port_nodes"], 1), id; partial=true, freqIndex=k)
         #     dataToReturn = Dict(
         #         "portIndex" => 0,
         #         "partial" => true,
@@ -237,15 +226,15 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     end
     out::Dict = Dict()
     out["S"] = S
-    out["Z"] = s2z(S, ports_scatter_value)
-    out["Y"] = s2y(S, ports_scatter_value)
+    out["Z"] = s2z_fft(S, ports_scatter_value)
+    out["Y"] = s2y_fft(S, ports_scatter_value)
     out["f"] = freq ./ escalings["freq"]
     return out
 
 end
 
 
-function precond_3_3_Kt!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
+function precond_3_3_Kt_fft!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
     n3 = length(X3)
     i1 = range(1, stop=n1)
     i2 = range(n1 + 1, stop=n1 + n2)
@@ -273,7 +262,7 @@ function precond_3_3_Kt!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
 end
 
 
-function s2z(S, Zo)
+function s2z_fft(S, Zo)
     num_ports = size(S)[1]
     nfreq = size(S)[3]
     Z = zeros(ComplexF64, num_ports, num_ports, nfreq)
@@ -284,7 +273,7 @@ function s2z(S, Zo)
     return Z
 end
 
-function s2y(S, Zo)
+function s2y_fft(S, Zo)
     num_ports = size(S)[1]
     nfreq = size(S)[3]
     Y = zeros(ComplexF64, num_ports, num_ports, nfreq)

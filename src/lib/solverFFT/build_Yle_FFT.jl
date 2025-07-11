@@ -1,6 +1,3 @@
-using MKL
-using SparseArrays
-
 function build_Yle_FFT(lumped_elements, grounding_nodes, ports, escalings, n, w, val_chiusura)
     le_nodes = vcat(lumped_elements["le_nodes"][:, 1], lumped_elements["le_nodes"][:, 2])
     port_nodes = vcat(ports["port_nodes"][:, 1], ports["port_nodes"][:, 2])
@@ -17,7 +14,7 @@ function build_Yle_FFT(lumped_elements, grounding_nodes, ports, escalings, n, w,
         ind1 = findall(ind_r .== n1)
         ind2 = findall(ind_c .== n1)
         ind = intersect(ind1, ind2)
-        val_le=get_lumped_elements_admittance(lumped_elements["type"][c1],lumped_elements["R_value"][c1],lumped_elements["L_value"][c1],lumped_elements["C_value"][c1],w);
+        val_le=get_lumped_elements_admittance_fft(lumped_elements["type"][c1],lumped_elements["R_value"][c1],lumped_elements["L_value"][c1],lumped_elements["C_value"][c1],w);
         if isempty(ind)
             cont += 1
             ind_r[cont] = n1
@@ -128,7 +125,7 @@ function build_Yle_FFT(lumped_elements, grounding_nodes, ports, escalings, n, w,
     return Yle
 end
 
-function get_lumped_elements_admittance(type, R, L, C, w)
+function get_lumped_elements_admittance_fft(type, R, L, C, w)
     y = 0.0
     if (type == 1)
         z = R + 1im * w * L + 1 / (1im * w * C)

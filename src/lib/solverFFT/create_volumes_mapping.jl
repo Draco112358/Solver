@@ -1,6 +1,3 @@
-include("From_3D_to_1D.jl")
-using MKL
-
 function create_volumes_mapping(grids)
     num_grids = length(grids)
     #println(size(grids))

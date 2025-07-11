@@ -1,12 +1,3 @@
-using MKL
-using Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv
-using Genie, Genie.Router, Genie.Renderer.Json, Genie.Requests
-
-include("./lib/utility.jl") # Contiene download_json_gz, get_solverInput_from_s3, ecc.
-include("./lib/solverFFT/do_solving_fft.jl")
-include("./lib/solverRis/do_solving_ris.jl")
-include("./lib/solverRisCampi/do_solving_electric_fields.jl")
-
 DotEnv.load!()
 
 aws_access_key_id = ENV["AWS_ACCESS_KEY_ID"]
@@ -16,12 +7,24 @@ aws_bucket_name = ENV["AWS_BUCKET_NAME"]
 creds = AWSCredentials(aws_access_key_id, aws_secret_access_key)
 aws = global_aws_config(; region=aws_region, creds=creds)
 
-Genie.config.run_as_server = true
-Genie.config.cors_headers["Access-Control-Allow-Origin"] = "*"
-# This has to be this way - you should not include ".../*"
-Genie.config.cors_headers["Access-Control-Allow-Headers"] = "Content-Type"
-Genie.config.cors_headers["Access-Control-Allow-Methods"] ="GET,POST,PUT,DELETE,OPTIONS" 
-Genie.config.cors_allowed_origins = ["*"]
+const CORS_HEADERS = [
+    "Access-Control-Allow-Origin" => "*",
+    "Access-Control-Allow-Headers" => "*",
+    "Access-Control-Allow-Methods" => "POST, GET, OPTIONS"
+]
+
+# https://juliaweb.github.io/HTTP.jl/stable/examples/#Cors-Server
+function CorsMiddleware(handler)
+    return function(req::HTTP.Request)
+        # determine if this is a pre-flight request from the browser
+        if HTTP.method(req)=="OPTIONS"
+            return HTTP.Response(200, CORS_HEADERS)  
+        else 
+            return handler(req) # passes the request to the Application
+        end
+    end
+end
+
 
 const VIRTUALHOST = "/"
 const HOST = "127.0.0.1"
@@ -31,7 +34,7 @@ const HOST = "127.0.0.1"
 # Sarà necessario usare Locks per proteggere l'accesso a queste variabili
 # se più thread/tasks le modificano contemporaneamente.
 # In questo scenario, le modifiche provengono principalmente dai Tasks delle simulazioni
-# e dalle API di Genie.
+# e dalle API di Oxygen.
 # ==============================================================================
 const solver_overall_status = Ref("ready") # ready, busy, error
 const active_simulations = Dict{String, Dict{String, Any}}() # ID simulazione -> {status, progress, start_time, etc.}
@@ -139,12 +142,12 @@ function run_simulation_task(
 end
 
 # ==============================================================================
-# Funzioni Genie.jl (API Web)
+# Funzioni Oxygen.jl (API Web)
 # ==============================================================================
 
-function setup_genie_routes()
+function setup_oxygen_routes()
     # Endpoint per lo stato generale del server: NON USATA PER IL MOMENTO
-    route("/status") do
+    get("/status") do
         lock(simulations_lock) do
             json(Dict(
                 "solver_overall_status" => solver_overall_status[],
@@ -156,15 +159,16 @@ function setup_genie_routes()
 
 
     # Endpoint per avviare simulazioni
-    route("/solve", method="POST" ) do
+    @post "/solve" function(req)
         try
-            req_data = jsonpayload() # Assume JSON body
+            req_data = Oxygen.json(req) # Assume JSON body
             simulation_id = get(req_data, "id", "randomid") # Genera ID se non fornito
             simulation_type = get(req_data, "simulationType", "matrix") # 'matrix', 'ris', 'electric fields'
             mesher = get(req_data, "mesher", "standard")
             lock(simulations_lock) do
                 if haskey(active_simulations, simulation_id)
-                    return JSON.json(Dict("error" => "Simulazione con ID $simulation_id già in corso"))
+                    #return JSON.json(Dict("error" => "Simulazione con ID $simulation_id già in corso"))
+                    HTTP.Response(500, CORS_HEADERS)
                 end
                 active_simulations[simulation_id] = Dict(
                     "status" => "pending",
@@ -255,20 +259,22 @@ function setup_genie_routes()
                     simulation_type="electric fields"
                 )
             else
-                return JSON.json(Dict("error" => "Unsupported simulation type: $(simulation_type)"))
+                #return JSON.json(Dict("error" => "Unsupported simulation type: $(simulation_type)"))
+                return HTTP.Response(500, CORS_HEADERS)
             end
-
-            JSON.json(Dict("message" => "Simulation started", "id" => simulation_id, "status" => "accepted"))
+            return HTTP.Response(200, CORS_HEADERS)
+            #JSON.json(Dict("message" => "Simulation started", "id" => simulation_id, "status" => "accepted"))
         catch e
             println("Errore nell'avvio della simulazione: $(e)")
-            JSON.json(Dict("error" => "Failed to start simulation: $(e)"))
+            #JSON.json(Dict("error" => "Failed to start simulation: $(e)"))
+            return HTTP.Response(500, CORS_HEADERS)
         end
     end
 
-    route("/get_results_electric_fields", method="POST") do
-        file_id = params(:file_id)
-        freq_index = jsonpayload()["freq_index"]
-        id = jsonpayload()["id"]
+    @post "/get_results_electric_fields" function(req)
+        file_id = queryparams(req)["file_id"]
+        freq_index = Oxygen.json(req)["freq_index"]
+        id = Oxygen.json(req)["id"]
         try
             # Scarica il file grezzo o il JSON gz compresso da S3
             res = download_json_gz(aws, aws_bucket_name, file_id)
@@ -298,16 +304,18 @@ function setup_genie_routes()
                 "id" => id
             )
             send_rabbitmq_feedback(dataToReturn, "solver_results")
-            JSON.json("dati restituiti")
+            #JSON.json("dati restituiti")
+            return HTTP.Response(200, CORS_HEADERS)
         catch e
             println("Errore nel recupero dei risultati per $(file_id): $(e)")
-            JSON.json(Dict("error" => "Could not retrieve results for $(file_id): $(e)"))
+            #JSON.json(Dict("error" => "Could not retrieve results for $(file_id): $(e)"))
+            return HTTP.Response(500, CORS_HEADERS)
         end
     end
 
-    route("/get_results_matrix", method="POST") do
-        file_id = params(:file_id)
-        port_index = jsonpayload()["port_index"]
+    @post "/get_results_matrix" function(req)
+        file_id = queryparams(req)["file_id"]
+        port_index = Oxygen.json(req)["port_index"]
         try
             res = download_json_gz(aws, aws_bucket_name, file_id)
             matrixZ = JSON.parse(res["matrices"]["matrix_Z"])
@@ -324,16 +332,18 @@ function setup_genie_routes()
             )
             #println(dataToReturn)
             send_rabbitmq_feedback(dataToReturn, "solver_results")
-            JSON.json("dati restituiti")
+            #JSON.json("dati restituiti")
+            return HTTP.Response(200, CORS_HEADERS)
         catch e
             println("Errore nel recupero dei risultati per $(file_id): $(e)")
-            JSON.json(Dict("error" => "Could not retrieve results for $(file_id): $(e)"))
+            #JSON.json(Dict("error" => "Could not retrieve results for $(file_id): $(e)"))
+            return HTTP.Response(500, CORS_HEADERS)
         end
     end
 
     # Endpoint per fermare una simulazione (solo se supportato dal solver)
-    route("/stop_computation", method = "POST") do
-        sim_id = params(:sim_id)
+    @post "/stop_computation" function(req)
+        sim_id = queryparams(req)["sim_id"]
     
         lock(stop_computation_lock) do
             if haskey(active_simulations, sim_id)
@@ -346,10 +356,12 @@ function setup_genie_routes()
                 # Opzionale: Invia un feedback immediato al client via RabbitMQ che la richiesta è stata accettata
                 #send_rabbitmq_feedback(Dict("id" => sim_id, "status" => "stopping", "type" => active_simulations[sim_id]["type"]), "solver_results")
 
-                return JSON.json(Dict("message" => "Stop request for simulation $(sim_id) acknowledged.", "status" => "stopping"))
+                #return JSON.json(Dict("message" => "Stop request for simulation $(sim_id) acknowledged.", "status" => "stopping"))
+                return HTTP.Response(200, CORS_HEADERS)
             else
                 println("Richiesta di stop per simulazione $(sim_id) ma la simulazione non è attiva.")
-                return JSON.json(Dict("error" => "Simulation $sim_id not found or already completed/stopped."))
+                #return JSON.json(Dict("error" => "Simulation $sim_id not found or already completed/stopped."))
+                return HTTP.Response(200, CORS_HEADERS)
             end
         end
     end
@@ -365,53 +377,67 @@ end
 # Main execution flow
 # ==============================================================================
 
-function main()
+function julia_main()
     # Invia lo stato iniziale del solver tramite RabbitMQ
-    send_rabbitmq_feedback(Dict("target" => "solver", "status" => "starting"), "server_init")
-    solver_overall_status[] = "starting"
+    is_building_app = get(ENV, "JULIA_APP_BUILD", "false") == "true"
+    if !is_building_app
+        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "starting"), "server_init")
+        solver_overall_status[] = "starting"
+        println("Configurazione delle rotte Oxygen...")
+        setup_oxygen_routes()
 
-    # Precompilazione del solver (se lunga, farla qui prima di servire richieste)
-    # force_compile2() # Scommenta se vuoi precompilare all'avvio
+        println("Avvio del server Oxygen...")
+    end
 
-    println("Configurazione delle rotte Genie...")
-    setup_genie_routes()
-
-    println("Avvio del server Genie...")
-
-    try
-        up(8001, async = true) #con async a true non blocca il thread principale
-        # Invia lo stato "ready" dopo aver avviato Genie e precompilato
-        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
-        solver_overall_status[] = "ready"
-        while true
-            sleep(1)
+    if !is_building_app
+        try
+            #up(8001, async = true) #con async a true non blocca il thread principale
+            serve(middleware=[CorsMiddleware],port=8001, async=true)
+            # Invia lo stato "ready" dopo aver avviato Oxygen e precompilato
+            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
+            solver_overall_status[] = "ready"
+            while true
+                sleep(1)
+            end
+        catch ex
+            if ex isa InterruptException
+                println("Server Oxygen interrotto da Ctrl-C.")
+            else
+                println("Eccezione durante l'esecuzione del server Oxygen: $(ex)")
+            end
+        finally
+            println("Server Oxygen sta per spegnersi. Invio stato 'idle' a RabbitMQ.")
+            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
+            solver_overall_status[] = "idle"
+            exit() # Chiude il processo Julia
         end
-    catch ex
-        if ex isa InterruptException
-            println("Server Genie interrotto da Ctrl-C.")
-        else
-            println("Eccezione durante l'esecuzione del server Genie: $(ex)")
-        end
-    finally
-        println("Server Genie sta per spegnersi. Invio stato 'idle' a RabbitMQ.")
-        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
-        solver_overall_status[] = "idle"
-        exit() # Chiude il processo Julia
+    else
+        # Se siamo nel processo di PackageCompiler.jl, facciamo solo le configurazioni
+        # e poi la funzione `main` terminerà naturalmente.
+        println("Processo di PackageCompiler.jl in corso (generazione output). Il server non verrà avviato.")
+        # Non è necessario aggiungere qui chiamate a `Pkg.precompile()` perché
+        # `PackageCompiler.jl` lo gestisce già.
+        # Evita chiamate a funzioni che hanno effetti collaterali esterni (es. network I/O)
+        # o che richiedono un ambiente di runtime completo.
     end
 end
 
 # Punto di ingresso principale del tuo server
 Base.exit_on_sigint(false) # Non uscire su Ctrl-C immediatamente
 try
-    main()
+    julia_main()
 catch ex
     if ex isa InterruptException
         println("Catturato Ctrl-C nel blocco principale. Chiusura pulita.")
-        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
+        if get(ENV, "JULIA_APP_BUILD", "false") != "true" # Invia solo se non è il compilatore
+            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
+        end
         exit()
     else
         println("Eccezione non gestita nel server principale: $(ex)")
-        send_rabbitmq_feedback(Dict("target" => "solver", "status" => "error", "message" => string(ex)), "server_init")
+        if get(ENV, "JULIA_APP_BUILD", "false") != "true" # Invia solo se non è il compilatore
+            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "error", "message" => string(ex)), "server_init")
+        end
         exit()
     end
 end

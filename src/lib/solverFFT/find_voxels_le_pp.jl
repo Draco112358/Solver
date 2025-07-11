@@ -1,6 +1,3 @@
-include("bin_search.jl")
-using MKL
-
 function find_voxels_le_pp(nodi_centri, lumped_elements, nodes, nodes_red)
     N = size(lumped_elements["le_start"], 1)
     lumped_elements["le_voxels"] = zeros(N, 2)

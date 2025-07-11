@@ -1,4 +1,3 @@
-using MKL
 function create_Grids_externals(grids)
     Nx = size(grids[1], 1)
     Ny = size(grids[1][1], 1)

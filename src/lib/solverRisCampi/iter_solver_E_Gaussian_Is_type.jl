@@ -1,15 +1,3 @@
-using MKL
-using SparseArrays, IterativeSolvers, LinearAlgebra, LinearMaps, FLoops, DelimitedFiles
-using Base.Threads, JLD2
-include("gmres_custom.jl")
-include("build_Yle.jl")
-include("compute_Ec_Gauss.jl")
-include("compute_Ar_Gauss.jl")
-include("compute_lambda_numeric.jl")
-include("compute_E_field_Gauss.jl")
-include("compute_H_field_Gauss.jl")
-
-
 const μ0  = 4π * 1e-7
 const ε0  = 8.854_187_816_997_944e-12
 const TWO_PI = 2π

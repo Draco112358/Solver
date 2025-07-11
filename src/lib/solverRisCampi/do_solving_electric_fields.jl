@@ -1,26 +1,3 @@
-include("genera_segnale_esponenziale.jl")
-include("genera_segnale_Gaussiano_modulato.jl")
-include("genera_segnale_sinusoidale.jl")
-include("get_signal.jl")
-include("crea_freqs.jl")
-include("build_trapezoidal_pulse.jl")
-include("compute_fields_components.jl")
-include("computeVs.jl")
-include("fft_UAq.jl")
-include("genera_punti_circonferenza.jl")
-include("get_punti_oss_3D.jl")
-include("iter_solver_E_Gaussian_Is_type.jl")
-include("complex_matrix_to_float_array_matrix.jl")
-include("../format_input_output_solver_functions.jl")
-include("../sharedRis/calcola_P.jl")
-include("../sharedRis/calcola_Lp.jl")
-include("../sharedRis/find_nodes_ports_or_le.jl")
-include("../utility.jl")
-
-using MKL
-using JSON
-
-
 function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     #@save "./test/electricFieldsSimulation/test_input_ris6x6.jld2" incidence_selection volumi superfici nodi_coord escalings solverInput solverAlgoParams solverType theta phi e_theta e_phi baricentro r_circ times signal_type_E ind_freq_interest id aws_config bucket_name
     try

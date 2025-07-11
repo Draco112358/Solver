@@ -1,4 +1,3 @@
-using MKL
 function compute_H_field_Gauss(Lambda_x, Lambda_y, Lambda_z, I)
 
     mu0 = 4 * pi * 1e-7

@@ -1,6 +1,3 @@
-using MKL
-using LinearAlgebra
-
 struct PCWork{T}
     b1::Vector{T}      # n3
     b2::Vector{T}      # n3

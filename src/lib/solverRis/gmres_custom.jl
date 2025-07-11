@@ -1,6 +1,3 @@
-include("compute_matrix_vector.jl")
-include("../utility.jl")
-
 function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd, id, chan, portIndex)
     m = size(b, 1)
     n = m
@@ -48,7 +45,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
     minupdated = 0;
     warned = false;
 
-    r = b - ComputeMatrixVector(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+    r = b - ComputeMatrixVectorRis(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
     normr = norm(r)
     if normr <= tolb
         x::Union{Vector{ComplexF64}, Vector{Float64}} .= xmin
@@ -83,7 +80,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
         # Construct u for Householder reflector.
         # u = r + sign(r[1])*norm(r)*e1
         u = copy(r)
-        beta = scalarsign(r[1]) * normr
+        beta = scalarsignRis(r[1]) * normr
         u[1] += beta
         u /= norm(u)
         
@@ -117,7 +114,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
             
             
             # Apply A to v.
-            v = ComputeMatrixVector(v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+            v = ComputeMatrixVectorRis(v,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
             #println(norm(v))
             # Form Pj*Pj-1*...P1*Av.
             for k = 1:initer
@@ -132,7 +129,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
                 alpha = norm(u)
                 #println(alpha)
                 if alpha != 0
-                    alpha = scalarsign(v[initer+1]) * alpha
+                    alpha = scalarsignRis(v[initer+1]) * alpha
                     u[initer+1] += alpha
                     u /= norm(u)
                     U[:, initer+1] = copy(u)
@@ -197,7 +194,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
                     end
                     xm += additive
                 end
-                r = b - ComputeMatrixVector(xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+                r = b - ComputeMatrixVectorRis(xm,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
                 if norm(r) <= tol * n2b
                     x = xm
                     flag = 0
@@ -280,7 +277,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
                 x += additive
             end
             xmin = x
-            r = b - ComputeMatrixVector(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
+            r = b - ComputeMatrixVectorRis(x,wk,incidence_selection,P_rebuilted,Lp_rebuilted,Z_self,Yle,invZ,invP,F,resProd);
             minv_r = r
             normr_act = norm(minv_r)
             r = minv_r
@@ -328,7 +325,7 @@ function gmres_custom(b, restarted, tol, maxit, x , wk, incidence_selection, P_r
 
 end
 
-function scalarsign(d)
+function scalarsignRis(d)
     sgn = sign(d)
     if sgn == 0
         sgn = 1

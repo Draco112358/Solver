@@ -1,6 +1,3 @@
-using MKL
-using LinearAlgebra
-
 function get_punti_oss_3D(r, N_circ, baricentro)
     theta = LinRange(0, pi, N_circ)      # theta from 0 to pi
     phi = LinRange(0, 2*pi, N_circ)      # phi from 0 to 2pi

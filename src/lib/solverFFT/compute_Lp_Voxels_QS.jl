@@ -387,7 +387,7 @@ function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
             end
         
     else  # volume-volume case
-        integ = integ_vol_vol([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], 
+        integ = Integ_vol_vol_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], 
                             [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
     end
     
@@ -823,54 +823,54 @@ function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
     return sol
 end
 
-function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
-    sol = 0.0
+# function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
+#     sol = 0.0
     
-    for c1 in 1:2
-        x1 = x1v[c1]
-        for c2 in 1:2
-            y1 = y1v[c2]
-            for c3 in 1:2
-                z1 = z1v[c3]
-                for c4 in 1:2
-                    x2 = x2v[c4]
-                    for c5 in 1:2
-                        y2 = y2v[c5]
+#     for c1 in 1:2
+#         x1 = x1v[c1]
+#         for c2 in 1:2
+#             y1 = y1v[c2]
+#             for c3 in 1:2
+#                 z1 = z1v[c3]
+#                 for c4 in 1:2
+#                     x2 = x2v[c4]
+#                     for c5 in 1:2
+#                         y2 = y2v[c5]
                         
-                        R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+#                         R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
                         
-                        term1 = ((z1 - z2)^2 / 12 - ((x1 - x2)^2 + (y1 - y2)^2) / 8) * (z1 - z2) * R
-                        term2 = ((y1 - y2)^2 / 2 - (z1 - z2)^2 / 6) * (x1 - x2) * (z1 - z2) * real(log((x1 - x2) + R))
+#                         term1 = ((z1 - z2)^2 / 12 - ((x1 - x2)^2 + (y1 - y2)^2) / 8) * (z1 - z2) * R
+#                         term2 = ((y1 - y2)^2 / 2 - (z1 - z2)^2 / 6) * (x1 - x2) * (z1 - z2) * real(log((x1 - x2) + R))
                         
-                        if isnan(term2) || isinf(term2)
-                            term2 = 0.0
-                        end
+#                         if isnan(term2) || isinf(term2)
+#                             term2 = 0.0
+#                         end
                         
-                        term3 = ((x1 - x2)^2 / 2 - (z1 - z2)^2 / 6) * (y1 - y2) * (z1 - z2) * real(log((y1 - y2) + R))
+#                         term3 = ((x1 - x2)^2 / 2 - (z1 - z2)^2 / 6) * (y1 - y2) * (z1 - z2) * real(log((y1 - y2) + R))
                         
-                        if isnan(term3) || isinf(term3)
-                            term3 = 0.0
-                        end
+#                         if isnan(term3) || isinf(term3)
+#                             term3 = 0.0
+#                         end
                         
-                        term4 = (-(x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log((z1 - z2) + R))
+#                         term4 = (-(x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log((z1 - z2) + R))
                         
-                        if isnan(term4) || isinf(term4)
-                            term4 = 0.0
-                        end
+#                         if isnan(term4) || isinf(term4)
+#                             term4 = 0.0
+#                         end
                         
-                        term5 = -abs(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
-                        term6 = -(x1 - x2) * abs(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
-                        term7 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
+#                         term5 = -abs(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
+#                         term6 = -(x1 - x2) * abs(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
+#                         term7 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
                         
-                        sol += (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
-                    end
-                end
-            end
-        end
-    end
+#                         sol += (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
+#                     end
+#                 end
+#             end
+#         end
+#     end
     
-    return sol
-end
+#     return sol
+# end
 
 
 

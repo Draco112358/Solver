@@ -1,6 +1,4 @@
-using MKL
-
-function ComputeMatrixVector(x, w, incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, resProd)
+function ComputeMatrixVectorRis(x, w, incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, resProd)
     m = size(incidence_selection[:A], 1)
     ns = size(incidence_selection[:Gamma], 2)
 
@@ -45,31 +43,23 @@ function precond_3_3_vector(lu, invZ, invP, A, Gamma, w, X1, X2, X3)
 
     Y = zeros(ComplexF64, n1 + n2 + n3)
 
-    M1 = prod_real_complex(invZ, X1)
-    M2 = lu \ prod_real_complex(transpose(A), M1)
-    M3 = prod_real_complex(invP, X2)
-    M4 = lu \ prod_real_complex(Gamma, M3)
+    M1 = prod_real_complex_Ris(invZ, X1)
+    M2 = lu \ prod_real_complex_Ris(transpose(A), M1)
+    M3 = prod_real_complex_Ris(invP, X2)
+    M4 = lu \ prod_real_complex_Ris(Gamma, M3)
     M5 = lu \ X3
 
-    @views Y[i1] .= M1 .- prod_real_complex(invZ, prod_real_complex(A, M2)) .+ 1im * w * prod_real_complex(invZ, prod_real_complex(A, M4)) .- prod_real_complex(invZ, prod_real_complex(A, M5))
-    @views Y[i2] .= prod_real_complex(invP, prod_real_complex(transpose(Gamma), M2)) .+ M3 .- 1im * w * prod_real_complex(invP, prod_real_complex(transpose(Gamma), M4)) .+ prod_real_complex(invP, prod_real_complex(transpose(Gamma), M5))
+    @views Y[i1] .= M1 .- prod_real_complex_Ris(invZ, prod_real_complex_Ris(A, M2)) .+ 1im * w * prod_real_complex_Ris(invZ, prod_real_complex_Ris(A, M4)) .- prod_real_complex_Ris(invZ, prod_real_complex_Ris(A, M5))
+    @views Y[i2] .= prod_real_complex_Ris(invP, prod_real_complex_Ris(transpose(Gamma), M2)) .+ M3 .- 1im * w * prod_real_complex_Ris(invP, prod_real_complex_Ris(transpose(Gamma), M4)) .+ prod_real_complex_Ris(invP, prod_real_complex_Ris(transpose(Gamma), M5))
     @views Y[i3] .= M2 .- 1im * w * M4 .+ M5
 
     return Y
 end
 
-function prod_real_complex(A, x)
+function prod_real_complex_Ris(A, x)
     # A is a N x N real matrix and x is a complex vector
     N = size(A, 1)
     y = zeros(ComplexF64, N)
     y .= A * real(x) .+ 1im * (A * imag(x))
-    return y
-end
-
-function prod_complex_real(A, x)
-    # A is a N x N complex matrix and x is a real vector
-    N = size(A, 1)
-    y = zeros(ComplexF64, N)
-    y .= real(A) * x .+ 1im * (imag(A) * x)
     return y
 end

@@ -1,7 +1,3 @@
-include("compute_Matrix_vector.jl")
-include("../utility.jl")
-using MKL
-
 function gmres_custom!(
     out, work, pc_work, b, restarted, tol, maxit, x, wk, 
     incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, 

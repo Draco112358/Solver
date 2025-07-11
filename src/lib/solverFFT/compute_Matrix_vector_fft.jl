@@ -1,6 +1,4 @@
-using MKL
-
-function ComputeMatrixVector(x, w::Float64, incidence_selection::Dict, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
+function ComputeMatrixVectorFTT(x, w::Float64, incidence_selection::Dict, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector, chi2Vector)
     m = size(incidence_selection["A"], 1)
     ns = size(incidence_selection["Gamma"], 2)
     I = @view x[1:m]

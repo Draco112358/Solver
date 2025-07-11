@@ -1,6 +1,3 @@
-using MKL
-using AMQPClient, JSON, GZip, AWSS3, AWS, CodecZlib, Serialization, MAT
-
 function publish_data(result::Dict, queue::String, chan)
 	data = convert(Vector{UInt8}, codeunits(JSON.json(result)))
 	message = Message(data, content_type = "application/json", delivery_mode = PERSISTENT)

@@ -1,7 +1,3 @@
-include("build_row_vox_Rcc.jl")
-using MKL
-using LinearAlgebra, FFTW
-
 # Main function to compute FFT of Circulant matrices for Lp using Rcc
 function compute_Circulant_Lp_Rcc(rows_Lp, escalings, freq)
     escaling = escalings["Lp"]
@@ -43,13 +39,13 @@ function store_circulant(row_Lp, Nx, Ny, Nz)
     i2z = (Nz + 2):(2 * Nz)
     i3z = Nz:-1:2
 
-    Circ = zeros(Nx, Ny, Nz)
+    Circ = zeros(ComplexF64, Nx, Ny, Nz)
     for cont in range(1,length(row_Lp))
-        (m, n, k) = From_1D_to_3D(Nx, Ny, cont)
+        (m, n, k) = from_1D_to_3D_circulant(Nx, Ny, cont)
         Circ[m, n, k] = row_Lp[cont]
     end
 
-    Cout = zeros(2 * Nx, 2 * Ny, 2 * Nz)
+    Cout = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
     Cout[i1x, i1y, i1z] = Circ[i1x, i1y, i1z]
     Cout[i2x, i1y, i1z] = Circ[i3x, i1y, i1z]
     Cout[i1x, i2y, i1z] = Circ[i1x, i3y, i1z]
@@ -62,7 +58,7 @@ function store_circulant(row_Lp, Nx, Ny, Nz)
     return Cout
 end
 
-function from_1D_to_3D(M, N, pos)
+function from_1D_to_3D_circulant(M, N, pos)
     pos = pos - 1
     k = floor(pos / (M * N))
     j = floor((pos - k * M * N) / M)

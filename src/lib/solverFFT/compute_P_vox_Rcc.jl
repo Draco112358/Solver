@@ -1,4 +1,3 @@
-using MKL
 function compute_P_vox_Rcc(centers_o, centers, sx, sy, sz, caser, caser2, id)
     # Define xc1, yc1, zc1 based on the value of `caser`
     if caser == 1

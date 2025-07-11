@@ -1,4 +1,3 @@
-using MKL
 function genera_segnale_Gaussiano_modulato(f0::Float64, dev_stand::Float64, time, time_delay_vs::Float64)
     vs = zeros(length(time))
     for i in eachindex(time)

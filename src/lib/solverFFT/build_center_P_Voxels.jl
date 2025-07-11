@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-using MKL
-using LinearAlgebra
-
-
 function build_center_P_Voxels(min_v, Nx, Ny, Nz, sx, sy, sz)
     centri_vox = Dict()
     centri_vox["p12_se"] = Array{Float64}(undef,(Nx) * (Ny + 1) * (Nz), 3)

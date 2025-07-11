@@ -1,23 +1,3 @@
-include("create_nodes_ref.jl")
-include("create_mapping_Gamma_no_rep.jl")
-include("create_mapping_Ax_v2.jl")
-include("create_mapping_Ay_v2.jl")
-include("create_mapping_Az_v2.jl")
-include("compute_Zs_with_indices.jl")
-include("create_expansion_ind_Lp_x_grids_v2.jl")
-include("create_expansion_ind_Lp_y_grids_v2.jl")
-include("create_expansion_ind_Lp_z_grids_v2.jl")
-include("compute_diagonals.jl")
-include("compute_row_P_sup.jl")
-include("find_voxels_port_pp.jl")
-include("find_voxels_le_pp.jl")
-include("build_center_P_Voxels.jl")
-include("build_centers_Lp_with_air.jl")
-include("build_center_air_Voxels.jl")
-include("create_A_mats_and_find_borders_with_map_Zs.jl")
-using MKL
-using SparseArrays
-
 function mesher_FFT(use_escalings, materials, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, ports, lumped_elements, origin, commentsEnabled, dominant_list, id)
 
     # dominant_list = 1

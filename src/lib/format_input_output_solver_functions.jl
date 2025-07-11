@@ -1,7 +1,3 @@
-using MKL
-using JSON
-using MLUtils: unsqueeze
-
 function dump_json_data(matrix_Z, matrix_S, matrix_Y, num_ports, id; partial=false, freqIndex=nothing)
     z = [[[[0.1, 0.0]]]]
     pop!(z)

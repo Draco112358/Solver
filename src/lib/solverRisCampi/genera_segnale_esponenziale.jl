@@ -1,6 +1,3 @@
-using MKL
-using SpecialFunctions
-
 function genera_segnale_esponenziale(tw::Float64, power::Float64, time, time_delay_vs::Float64)
   ratio = power^(-power-1) * gamma(power + 1) * exp(power)
   tr = tw / ratio

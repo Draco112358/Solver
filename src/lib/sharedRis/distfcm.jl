@@ -1,5 +1,3 @@
-using MKL
-
 function distfcm(center, data)
     # DISTFCM Distance measure in fuzzy c-mean clustering.
     # OUT = DISTFCM(CENTER, DATA) calculates the Euclidean distance

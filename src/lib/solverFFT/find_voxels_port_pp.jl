@@ -1,6 +1,3 @@
-include("bin_search.jl")
-using MKL
-
 function find_voxels_port_pp(nodi_centri, ports, nodes, nodes_red)
     N = size(ports["port_start"], 1)
     ports["port_nodes"] = zeros(N, 2)

@@ -1,7 +1,3 @@
-using MKL
-using LinearAlgebra
-using FFTW
-
 function compute_Circulant_P_sup_Rcc(rows_P, escalings, freq)
     # Extract scaling factor
     escaling = escalings["P"]
@@ -21,7 +17,7 @@ function compute_Circulant_P_sup_Rcc(rows_P, escalings, freq)
             row_P = escaling * build_row_vox_Rcc(rows_P["QS"][c1, c2], rows_P["Rcc"][c1, c2], freq)
             
             # Create the circulant matrix
-            CP = store_circulant(row_P, Nx[c1, c2], Ny[c1, c2], Nz[c1, c2])
+            CP = store_circulant_P(row_P, Nx[c1, c2], Ny[c1, c2], Nz[c1, c2])
             
             # Compute the FFT of the circulant matrix
             FFTCP[c1, c2] = fft(CP)
@@ -31,7 +27,7 @@ function compute_Circulant_P_sup_Rcc(rows_P, escalings, freq)
     return FFTCP
 end
 
-function store_circulant(row_P, Nx, Ny, Nz)
+function store_circulant_P(row_P, Nx, Ny, Nz)
     i1x = 1:Nx
     i2x = (Nx + 2):(2 * Nx)
     i3x = Nx:-1:2
@@ -44,13 +40,13 @@ function store_circulant(row_P, Nx, Ny, Nz)
     i2z = (Nz + 2):(2 * Nz)
     i3z = Nz:-1:2
 
-    Circ = zeros(Nx, Ny, Nz)
+    Circ = zeros(ComplexF64, Nx, Ny, Nz)
     for cont in range(1,length(row_P))
-        (m, n, k) = From_1D_to_3D(Nx, Ny, cont)
+        (m, n, k) = from_1D_to_3D_P(Nx, Ny, cont)
         Circ[m, n, k] = row_P[cont]
     end
 
-    Cout = zeros(2 * Nx, 2 * Ny, 2 * Nz)
+    Cout = zeros(ComplexF64, 2 * Nx, 2 * Ny, 2 * Nz)
     Cout[i1x, i1y, i1z] = Circ[i1x, i1y, i1z]
     Cout[i2x, i1y, i1z] = Circ[i3x, i1y, i1z]
     Cout[i1x, i2y, i1z] = Circ[i1x, i3y, i1z]
@@ -63,7 +59,7 @@ function store_circulant(row_P, Nx, Ny, Nz)
     return Cout
 end
 
-function from_1D_to_3D(M, N, pos)
+function from_1D_to_3D_P(M, N, pos)
     pos = pos - 1
     k = floor(pos / (M * N))
     j = floor((pos - k * M * N) / M)

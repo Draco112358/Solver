@@ -1,6 +1,3 @@
-using MKL
-using LinearAlgebra
-
 function compute_fields_components(phi, tetha, E_theta, E_phi)
     T = [sin(tetha)*cos(phi) cos(tetha)*cos(phi) -sin(phi);
          sin(tetha)*sin(phi) cos(tetha)*sin(phi)  cos(phi);

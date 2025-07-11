@@ -1,7 +1,3 @@
-include("compute_Voxels_Rcc.jl")
-include("compute_Lp_Voxels_QS.jl")
-using MKL
-
 function compute_rows_Rcc_Lp(circulant_centers, id)
     # Extract properties from circulant_centers
     sx = circulant_centers["sx"]

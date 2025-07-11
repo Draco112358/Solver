@@ -1,16 +1,3 @@
-include("FFT_solver_QS_S_type.jl")
-include("create_volume_centers.jl")
-include("create_Grids_externals.jl")
-include("compute_FFT_mutual_coupling_mats.jl")
-include("mesher_FFT.jl")
-include("is_material_conductor.jl")
-include("create_volumes_mapping.jl")
-include("../utility.jl")
-
-using MKL
-using JSON
-using MLUtils: unsqueeze
-
 function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     try
         mesherDict = mesherOutput

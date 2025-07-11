@@ -1,6 +1,3 @@
-using MKL
-using SparseArrays
-
 function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, val_chiusura, 
                          type_le, R_le, L_le, C_le)
     # Extract node information
@@ -16,7 +13,7 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
         n1 = lumped_elements[:le_nodes][c1, 1]
         n2 = lumped_elements[:le_nodes][c1, 2]
         
-        val_le = get_lumped_elements_admittance(type_le[c1], R_le[c1], L_le[c1], C_le[c1], w)
+        val_le = get_lumped_elements_admittance_S(type_le[c1], R_le[c1], L_le[c1], C_le[c1], w)
         
         # Add to diagonal for n1
         ind_dict[(n1, n1)] = get(ind_dict, (n1, n1), 0.0) + val_le
@@ -70,7 +67,7 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
     return Yle
 end
 
-function get_lumped_elements_admittance(type, R, L, C, w)
+function get_lumped_elements_admittance_S(type, R, L, C, w)
     y = 0.0
     if type == 1
         z = R + im*w*L + 1/(im*w*C)

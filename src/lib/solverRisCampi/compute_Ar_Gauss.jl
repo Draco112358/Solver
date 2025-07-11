@@ -1,144 +1,3 @@
-using MKL
-using LinearAlgebra
-using StaticArrays # Essenziale per prestazioni elevate con array di piccole dimensioni
-using Base.Threads
-using Printf
-
-# function compute_Ar_Gauss(barre, centriOss, ordine, beta, simulation_id, chan)
-# 	numCentri = size(centriOss, 1)
-# 	numBarre = size(barre, 1)
-
-# 	ha = zeros(ComplexF64, numBarre, numCentri)
-#     rootkx, wekx = qrule(ordine)
-# 	rootky, weky = qrule(ordine)
-# 	rootkz, wekz = qrule(ordine)
-
-# 	block_size = 100
-# 	for m_block in 1:block_size:numBarre
-# 		m_end = min(m_block + block_size - 1, numBarre)
-# 		Base.Threads.@threads for cont in m_block:m_end
-# 			barra = barre[cont, :]
-
-# 			xb = barra[[1, 4, 7, 10, 13, 16, 19, 22]]
-# 			yb = barra[[2, 5, 8, 11, 14, 17, 20, 23]]
-# 			zb = barra[[3, 6, 9, 12, 15, 18, 21, 24]]
-
-# 			x_bar = [minimum(xb), maximum(xb)]
-# 			y_bar = [minimum(yb), maximum(yb)]
-# 			z_bar = [minimum(zb), maximum(zb)]
-
-# 			for cc in 1:numCentri
-# 				x_o = centriOss[cc, 1]
-# 				y_o = centriOss[cc, 2]
-# 				z_o = centriOss[cc, 3]
-
-# 				ha[cont, cc] = compute_ha(x_o, x_bar, y_o, y_bar, z_o, z_bar, ordine, beta, rootkx, wekx, rootky, weky, rootkz, wekz)
-# 			end
-# 		end
-# 		sleep(0)
-# 		println("block Ar : ", round(m_end / block_size), " / ", round(numBarre / block_size))
-# 		if is_stop_requested(simulation_id)
-# 			println("Simulazione $(simulation_id) interrotta per richiesta stop.")
-# 			return nothing # O un altro valore che indica interruzione
-# 		end
-# 	end
-
-
-# 	if is_stop_requested(simulation_id)
-# 		println("Simulazione $(simulation_id) interrotta per richiesta stop.")
-# 		return nothing # O un altro valore che indica interruzione
-# 	else
-# 		return ha
-# 	end
-# end
-
-# function compute_ha(
-#     xo::Float64, x_vect_bar::Vector{Float64}, yo::Float64, y_vect_bar::Vector{Float64}, 
-#     zo::Float64, z_vect_bar::Vector{Float64}, 
-#     ordine::Int, beta,
-#     rootkx::Vector{Float64}, wekx::Vector{Float64},
-#     rootky::Vector{Float64}, weky::Vector{Float64},
-#     rootkz::Vector{Float64}, wekz::Vector{Float64})
-# 	x1 = x_vect_bar[1]
-# 	x2 = x_vect_bar[2]
-# 	y1 = y_vect_bar[1]
-# 	y2 = y_vect_bar[2]
-# 	z1 = z_vect_bar[1]
-# 	z2 = z_vect_bar[2]
-# 	barra = [x1 y1 z1; x2 y1 z1; x1 y2 z1; x2 y2 z1; x1 y1 z2; x2 y1 z2; x1 y2 z2; x2 y2 z2]
-
-# 	xi1 = barra[[1, 2, 3, 4], 1]
-# 	yi1 = barra[[1, 2, 3, 4], 2]
-# 	zi1 = barra[[1, 2, 3, 4], 3]
-# 	xi2 = barra[[5, 6, 7, 8], 1]
-# 	yi2 = barra[[5, 6, 7, 8], 2]
-# 	zi2 = barra[[5, 6, 7, 8], 3]
-
-# 	# vectors pointing to the vertices of the quadrilateral i
-# 	ri = zeros(ComplexF64, 8, 3)
-# 	ri[1, :] = [xi1[1], yi1[1], zi1[1]]
-# 	ri[2, :] = [xi1[2], yi1[2], zi1[2]]
-# 	ri[3, :] = [xi1[3], yi1[3], zi1[3]]
-# 	ri[4, :] = [xi1[4], yi1[4], zi1[4]]
-
-# 	ri[5, :] = [xi2[1], yi2[1], zi2[1]]
-# 	ri[6, :] = [xi2[2], yi2[2], zi2[2]]
-# 	ri[7, :] = [xi2[3], yi2[3], zi2[3]]
-# 	ri[8, :] = [xi2[4], yi2[4], zi2[4]]
-
-# 	# nuovo approccio
-# 	rmi = vec(0.125 * sum(ri, dims = 1))
-# 	rai = 0.125 * (-ri[1, :] + ri[2, :] + ri[4, :] - ri[3, :] - ri[5, :] + ri[6, :] + ri[8, :] - ri[7, :])
-# 	rbi = 0.125 * (-ri[1, :] - ri[2, :] + ri[4, :] + ri[3, :] - ri[5, :] - ri[6, :] + ri[8, :] + ri[7, :])
-# 	rci = 0.125 * (-ri[1, :] - ri[2, :] - ri[4, :] - ri[3, :] + ri[5, :] + ri[6, :] + ri[8, :] + ri[7, :])
-# 	rabi = 0.125 * (ri[1, :] - ri[2, :] + ri[4, :] - ri[3, :] + ri[5, :] - ri[6, :] + ri[8, :] - ri[7, :])
-# 	rbci = 0.125 * (ri[1, :] + ri[2, :] - ri[4, :] - ri[3, :] - ri[5, :] - ri[6, :] + ri[8, :] + ri[7, :])
-# 	raci = 0.125 * (ri[1, :] - ri[2, :] - ri[4, :] + ri[3, :] - ri[5, :] + ri[6, :] + ri[8, :] - ri[7, :])
-# 	rabci = 0.125 * (-ri[1, :] + ri[2, :] - ri[4, :] + ri[3, :] + ri[5, :] - ri[6, :] + ri[8, :] - ri[7, :])
-
-# 	nlkx = length(wekx)
-# 	nlky = length(weky)
-# 	nlkz = length(wekz)
-
-# 	sum_a1 = 0.0 + 0.0im
-# 	@inbounds for a1 in 1:nlkx
-# 		sum_b1 = 0.0 + 0.0im
-# 		for b1 in 1:nlky
-# 			sum_c1 = 0.0 + 0.0im
-# 			for c1 in 1:nlkz
-# 				drai = rai + rabi * rootky[b1] + raci * rootkz[c1] + rabci * rootky[b1] * rootkz[c1]
-# 				drbi = rbi + rabi * rootkx[a1] + rbci * rootkz[c1] + rabci * rootkx[a1] * rootkz[c1]
-# 				drci = rci + raci * rootkx[a1] + rbci * rootky[b1] + rabci * rootkx[a1] * rootky[b1]
-# 				draim = norm(drai)
-# 				drbim = norm(drbi)
-# 				drcim = norm(drci)
-
-# 				r1 = rmi + rai * rootkx[a1] + rbi * rootky[b1] + rci * rootkz[c1] + rabi * rootkx[a1] * rootky[b1] + raci * rootkx[a1] * rootkz[c1] + rbci * rootky[b1] * rootkz[c1] +
-# 					 rabci * rootkx[a1] * rootky[b1] * rootkz[c1]
-
-# 				x = real(r1[1])
-# 				y = real(r1[2])
-# 				z = real(r1[3])
-
-# 				delta_x = (xo - x)
-# 				delta_y = (yo - y)
-# 				delta_z = (zo - z)
-
-# 				R = sqrt(delta_x^2 + delta_y^2 + delta_z^2)
-
-# 				G = (1 / R) * exp(-1im * beta * R)
-
-# 				f = draim * drbim * drcim * G
-
-# 				sum_c1 += wekz[c1] * f
-# 			end   # (c1)
-# 			sum_b1 += weky[b1] * sum_c1
-# 		end  # (b1)
-# 		sum_a1 += wekx[a1] * sum_b1
-# 	end # (a1)
-
-# 	return sum_a1
-# end
 function compute_Ar_Gauss(barre::Transpose{Float64, Matrix{Float64}},
                                     centriOss::Matrix{Float64}, ordine::Int, beta::ComplexF64,
                                     simulation_id=nothing, chan=nothing)
@@ -173,9 +32,9 @@ function compute_Ar_Gauss(barre::Transpose{Float64, Matrix{Float64}},
 
     ha_local = Vector{Matrix{ComplexF64}}(undef, Nq)
 
-    rootkx, wekx = qrule(ordine)
-    rootky, weky = qrule(ordine)
-    rootkz, wekz = qrule(ordine)
+    rootkx, wekx = qrule_Ar(ordine)
+    rootky, weky = qrule_Ar(ordine)
+    rootkz, wekz = qrule_Ar(ordine)
 
     Threads.@threads for c = 1:Nq
         ha_local[c] = compute_Ar_Gauss_to_para(barrec[c], centriOss, beta, rootkx, wekx, rootky, weky, rootkz, wekz)
@@ -361,7 +220,7 @@ function compute_ha_fast(xo::Float64, yo::Float64, zo::Float64,
     return sum_a1
 end
 
-function qrule(n::Int)
+function qrule_Ar(n::Int)
 	iter = 2
 	m = trunc((n + 1) / 2)
 	e1 = n * (n + 1)

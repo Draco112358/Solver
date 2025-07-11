@@ -1,4 +1,3 @@
-using MKL
 function genera_punti_circonferenza(r, N, baricentro, cases)
     angolo = collect(LinRange(0, 2*pi, N))
   

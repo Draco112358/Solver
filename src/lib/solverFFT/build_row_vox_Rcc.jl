@@ -1,5 +1,3 @@
-using MKL
-
 function build_row_vox_Rcc(mat_QS, Rcc, freq)
     # Constants
     mu0 = 4 * π * 1e-7

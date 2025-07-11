@@ -1,4 +1,3 @@
-using MKL
 function genera_segnale_sinusoidale(f0::Float64, time, time_delay_vs::Float64)
   vs = zeros(length(time))
   for i in eachindex(time)

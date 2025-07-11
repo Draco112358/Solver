@@ -1,8 +1,3 @@
-include("compute_row_P_sup.jl")
-include("compute_P_vox_Rcc.jl")
-using MKL
-using FLoops
-
 function compute_rows_Rcc_P(circulant_centers, id)
     sx = circulant_centers["sx"]
     sy = circulant_centers["sy"]
@@ -70,7 +65,7 @@ end
 # Helper function to compute entries for QS
 function compute_qs_entry!(rows_P, p_se, sx, sy, sz, size_subs, row, col, id)
     num_ele_P_par = size(p_se, 1)
-    VS, VE = generate_indices_sub_blocks(num_ele_P_par, size_subs)
+    VS, VE = generate_indices_sub_blocks_P(num_ele_P_par, size_subs)
     row_PS = Vector{Any}(undef, length(VS))
     coss = p_se[1, :]
     #deve essere fatto in parallelo
@@ -84,7 +79,7 @@ function compute_qs_entry!(rows_P, p_se, sx, sy, sz, size_subs, row, col, id)
 end
 
 # Function to generate indices sub-blocks
-function generate_indices_sub_blocks(N, Ns)
+function generate_indices_sub_blocks_P(N, Ns)
     if Ns < N
         vect_ind_start = collect(1:Ns:N)
         vect_ind_end = vect_ind_end=collect(vect_ind_start[2]-1:Ns:N)

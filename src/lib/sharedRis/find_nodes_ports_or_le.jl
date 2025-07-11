@@ -1,7 +1,3 @@
-include("distfcm.jl")
-using MKL
-using Printf
-
 function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coord, escal)
     input_positions = []
     output_positions = []

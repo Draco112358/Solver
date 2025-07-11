@@ -1,9 +1,3 @@
-using MKL
-using SparseArrays, IterativeSolvers, LinearAlgebra, LinearMaps, FLoops
-include("compute_matrix_vector.jl")
-include("gmres_custom.jl")
-include("build_Yle_S.jl")
-
 function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_data, ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled)
     freq .= freq .* escalings[:freq]
     # GMRES settings ----------------------------
@@ -107,10 +101,10 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
             n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
             is[n1] = escalings[:Is]
             is[n2] = -1.0 * escalings[:Is]
-            tn = precond_3_3_Kt!(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], m, ns, vec(is), tn, resProd)
-            products_law = x -> ComputeMatrixVector(x, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd)
-            prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
-            x0 = Vrest[:, c1]
+            tn = precond_3_3_Kt_S!(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], m, ns, vec(is), tn, resProd)
+            # products_law = x -> ComputeMatrixVector(x, w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd)
+            # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
+            # x0 = Vrest[:, c1]
             V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, c1)
             if flag == 99
                 return nothing
@@ -143,20 +137,20 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
         end
         send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
         # if commentsEnabled
-        #     partial_res = dump_json_data(s2z(S, ports_scatter_value), S, s2y(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
+        #     partial_res = dump_json_data(s2z_S(S, ports_scatter_value), S, s2y_S(S, ports_scatter_value), size(ports[:port_nodes], 1), id; partial=true, freqIndex=k)
         #     send_rabbitmq_feedback(partial_res, "solver_results")
         #     #publish_data(partial_res, "solver_results", chan)
         # end
     end
     out::Dict = Dict()
     out[:S] = S
-    out[:Z] = s2z(S, R_chiusura)
-    out[:Y] = s2y(S, R_chiusura)
+    out[:Z] = s2z_S(S, R_chiusura)
+    out[:Y] = s2y_S(S, R_chiusura)
     out[:f] = freq ./ escalings[:freq]
     return out
 end
 
-function precond_3_3_Kt!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
+function precond_3_3_Kt_S!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
     n3 = length(X3)
     i1 = 1:n1
     i2 = n1 + 1:n1 + n2
@@ -179,7 +173,7 @@ function precond_3_3_Kt!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
     return Y
 end
 
-function s2z(S, Zo)
+function s2z_S(S, Zo)
     num_ports = size(S)[1]
     nfreq = size(S)[3]
     Z = zeros(ComplexF64, num_ports, num_ports, nfreq)
@@ -190,7 +184,7 @@ function s2z(S, Zo)
     return Z
 end
 
-function s2y(S, Zo)
+function s2y_S(S, Zo)
     num_ports = size(S)[1]
     nfreq = size(S)[3]
     Y = zeros(ComplexF64, num_ports, num_ports, nfreq)

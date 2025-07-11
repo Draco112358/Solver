@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-include("bin_search.jl")
-using MKL
-using LinearAlgebra
-
 function create_mapping_Az_v2(grids, mapping_Vox, nodes, nodes_red)
     num_grids = length(grids)
     Nx = size(grids[1],1)

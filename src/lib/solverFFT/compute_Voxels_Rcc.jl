@@ -1,4 +1,3 @@
-using MKL
 function compute_Voxels_Rcc(centri_m, centri_n)
     N = size(centri_n, 1)
     Rcc = zeros(N)

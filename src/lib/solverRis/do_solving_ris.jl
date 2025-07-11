@@ -1,11 +1,3 @@
-include("../utility.jl")
-include("iter_solver_QS_S_type.jl")
-include("../sharedRis/find_nodes_ports_or_le.jl")
-include("../sharedRis/calcola_P.jl")
-include("../sharedRis/calcola_Lp.jl")
-using MKL
-using JSON
-
 function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     try
         inputDict = solverInput

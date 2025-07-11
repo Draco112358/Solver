@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-using MKL
-using LinearAlgebra
-
-
 function create_volume_centers(grids, map, num_centri, sx, sy, sz, min_v)
     centri_vox = zeros(num_centri, 3)
     id_mat = zeros(num_centri, 1)

@@ -1,4 +1,3 @@
-using MKL
 function complex_matrix_to_float_array_matrix(complex_matrix::Matrix{ComplexF64})
     rows, cols = size(complex_matrix)
     float_array_matrix = Array{Array{Float64, 1}, 2}(undef, rows, cols)

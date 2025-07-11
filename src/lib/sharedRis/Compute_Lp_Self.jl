@@ -1,5 +1,3 @@
-using MKL
-
 function Compute_Lp_Self(l::Float64, W::Float64, T::Float64)
 
     Lp_Self_Rect = 0.0

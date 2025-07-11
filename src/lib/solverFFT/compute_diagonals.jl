@@ -1,4 +1,3 @@
-using MKL
 function compute_diagonals(escalings, materials, sx, sy, sz, lix_mat, liy_mat, liz_mat, lix_border, liy_border, liz_border)
     escaling_R = escalings["R"]
     escaling_Cd = escalings["Cd"]

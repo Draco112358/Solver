@@ -1,6 +1,3 @@
-using MKL
-using SparseArrays
-
 function build_Yle(lumped_elements, grounding_nodes, ports, escalings, n, w, val_chiusura, 
                          type_le, R_le, L_le, C_le)
     # Extract node information

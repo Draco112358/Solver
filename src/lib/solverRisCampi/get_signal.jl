@@ -1,9 +1,3 @@
-include("genera_segnale_esponenziale.jl")
-include("genera_segnale_Gaussiano_modulato.jl")
-include("genera_segnale_sinusoidale.jl")
-include("build_trapezoidal_pulse.jl")
-using MKL
-
 function getSignalbasedOn(signal_type, times)
     if signal_type["type"] == "exponential"
         f0=0

@@ -1,6 +1,3 @@
-include("From_3D_to_1D.jl")
-using MKL
-
 function build_center_air_Voxels(grids, sx, sy, sz, min_v)
     Nx = size(grids[1], 1)
     Ny = size(grids[1][1], 1)

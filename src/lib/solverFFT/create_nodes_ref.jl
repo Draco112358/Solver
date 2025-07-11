@@ -1,8 +1,3 @@
-include("From_3D_to_1D.jl")
-include("bin_search.jl")
-using MKL
-using LinearAlgebra
-
 function create_nodes_ref(grids, num_full_vox, external_grids, mapping_vols, dominant_list)
     num_grids = size(external_grids, 1)
     Nx = size(grids[1],1)
