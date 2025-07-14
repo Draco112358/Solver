@@ -358,7 +358,8 @@ function integ_line_line_parall_P_ivana(x1v, y1, z1, x2v, y2, z2)
 end
 
 function integ_line_line_sp_P_ivana(x1v, x2v)
-    sol = 0
+    sol = 0.0
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
@@ -366,10 +367,11 @@ function integ_line_line_sp_P_ivana(x1v, x2v)
 
             R = sqrt((x1 - x2)^2)
 
-            term1 = (x1 - x2) / R * (x1 - x2 * real(log(complex((x2 - x1))))) + x1 * real(log(complex((x1 - x2))))
+            term1 = (x1 - x2) / R * 
+                    (x1 - x2 * real(log(complex(x2 - x1))) + x1 * real(log(complex(x1 - x2))))
 
             if isnan(term1) || isinf(term1)
-                term1 = 0
+                term1 = 0.0
             end
 
             sol += (-1)^(c1 + c2 + 1) * term1
