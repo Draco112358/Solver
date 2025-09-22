@@ -91,7 +91,7 @@ end
 
 
 function ComputeMatrixVector!(y, work, pc_work, x, w,isc, P, Lp, Zs, Yle,invZ, invP, luF)
-    @time begin
+    begin
         A      = isc[:A]
         Γ      = isc[:Gamma]
         At     = isc[:A_t]      # ⇒ pre‐calcola fuori: At = A'
@@ -131,9 +131,7 @@ function ComputeMatrixVector!(y, work, pc_work, x, w,isc, P, Lp, Zs, Yle,invZ, i
         #                         M1_pre, M2_pre, M3_pre, M4_pre, M5_pre,
         #                         temp_res_n1, temp_res_n2, temp_res_n3
         #     )
-        println("time precond")
-        @time precond_3_3_vector!(y, luF, invZ, invP, A, At, Γ, Γt, w, Y1, Y2, Y3, pc_work)
-        println("time compute matrix vector")
+        precond_3_3_vector!(y, luF, invZ, invP, A, At, Γ, Γt, w, Y1, Y2, Y3, pc_work)
     end
     
 end

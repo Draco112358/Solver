@@ -97,7 +97,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             #Is[k,:].=0.02+0im
             # println(angle.(Is))
         end
-        Is[1,:].=0.02+0im
+        #Is[1,:].=0.02+0im
         r_circ = r_circ*escal
         baricentro = baricentro .* escal
         punti_xy=genera_punti_circonferenza(r_circ,N_circ,baricentro,1);

@@ -87,7 +87,6 @@ function gmres_custom!(
 
         initercount = 0
         for initer = 1:inner
-            println("Iteration = $initercount")
             initercount += 1
             
             # --- Inizio Logica Originale (ma ottimizzata) ---
