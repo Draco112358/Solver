@@ -92,8 +92,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
 
         Is = zeros(ComplexF64, size(ports[:port_nodes], 1), n_freq)
         for k in 1:size(ports[:port_nodes], 1)
-            #Trasformata=fft_UAq(times, is_matrix[k, :])
-            #Is[k,:]=Trasformata[2, ind_freq_interest]
+            Trasformata=fft_UAq2(times, is_matrix[k, :])
+            Is[k,:]=Trasformata[2, ind_freq_interest]
             #Is[k,:].=0.02+0im
             # println(angle.(Is))
         end

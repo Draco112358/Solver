@@ -14,7 +14,7 @@ end
 Performs the FFT on a signal `x` using a pre-computed plan.
 Returns only the positive frequency components of the spectrum.
 """
-function fft_UAq(x::Vector{Float64}, planfft::FFTW.cFFTWPlan)
+function fft_UAq(x, planfft::FFTW.cFFTWPlan)
     ncampt = length(x)
     dtem = 1.0 # This should be derived from the time vector if not uniform
                # Assuming uniform sampling, dtem is implicitly handled by scaling.
@@ -30,3 +30,24 @@ function fft_UAq(x::Vector{Float64}, planfft::FFTW.cFFTWPlan)
     # Return the view of the relevant part of the spectrum
     return @view XAA[1:Int(floor(ncampt / 2)) + 1]
 end
+
+function fft_UAq2(t, x) # Assuming x can be complex
+    fintem = t[end] - t[1]          # Length of the time window
+    ncampt = length(t)              # Number of samples in time
+    dtem = t[2] - t[1]              # Interval between two consecutive samples
+  
+    frecamp = 1 / dtem              # Sampling frequency
+    fremax = frecamp / 2            # Nyquist frequency
+    frefond = 1 / fintem            # Frequency resolution
+    # Perform the FFT
+    XAA = fft(x) * dtem
+    XA = XAA[1:Int64(floor(ncampt/2)) + 1]
+  
+    # The MATLAB code comments out doubling the spectrum.
+    # If you need to do this, uncomment the following line:
+    # XA[2:end] = 2 * XA[2:end]
+  
+    f = (0:Int64(floor(ncampt/2))) * frefond
+    Trasformata = [transpose(f); transpose(XA)] # Transpose to match MATLAB's column-wise output
+    return Trasformata
+  end

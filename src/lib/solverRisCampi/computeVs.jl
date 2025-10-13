@@ -26,11 +26,11 @@ function computeVs(
     ft = zeros(Float64, length(time))
     
     # Deconstruct vector E once
-    E1, E2, E3 = E[1], E[2], E[3]
+    #E1, E2, E3 = E[1], E[2], E[3]
 
     # --- OPTIMIZATION 1 & 5: Setup FFT plan and pre-calculate frequency vector
     planfft = plan_fft(ft) # Plan is now based on the pre-allocated array
-    freq_vector = fft_frequencies(time) # Calculate frequencies only once
+    #freq_vector = fft_frequencies(time) # Calculate frequencies only once
 
     # --- OPTIMIZATION 2: Pre-calculate all geometric properties
     midpoints = zeros(Float64, num_cells, 3)

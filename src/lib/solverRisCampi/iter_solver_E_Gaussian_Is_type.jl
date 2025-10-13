@@ -177,7 +177,7 @@ function iter_solver_E_Gaussian_Is_type(
 		I = V[1:m] ./ escalings[:Is]
 		J = I ./ volumi[:S]
 
-		#send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
 
 		sigma = (V[m+1:m+ns] ./ superfici["S"]) / escalings[:Cd]
 		beta = 2 * pi * freq[k] / escalings[:freq] * sqrt(ε0 * μ0)
@@ -185,38 +185,38 @@ function iter_solver_E_Gaussian_Is_type(
 		if isnothing(hc)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 1, "electric_fields_results_name" => "hc_3D", "id" => id), "solver_feedback")
 		hc_3D = @time compute_Ec_Gauss(Float64.(superfici["estremi_celle"]), map(v -> Float64.(v), superfici["normale"]), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(hc_3D)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback")
 		ha = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(ha)
 			return nothing
 		end
 		#saveComplexMatrix("ha_Opt3.mat", ha, varname="haOpt3")
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
 		ha_3D = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(ha_3D)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 4, "electric_fields_results_name" => "Lambda_x", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 4, "electric_fields_results_name" => "Lambda_x", "id" => id), "solver_feedback")
 		Lambda_x = @time compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [unitario zeroo zeroo], ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(Lambda_x)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 5, "electric_fields_results_name" => "Lambda_y", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 5, "electric_fields_results_name" => "Lambda_y", "id" => id), "solver_feedback")
 		Lambda_y = @time compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo unitario zeroo], ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(Lambda_y)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 6, "electric_fields_results_name" => "Lambda_z", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 6, "electric_fields_results_name" => "Lambda_z", "id" => id), "solver_feedback")
 		Lambda_z = @time compute_lambda_numeric(centri_oss_3D, volumi, incidence_selection, [zeroo zeroo unitario], ordine_int, complex(beta, 0.0), id, chan)
 		if isnothing(Lambda_z)
 			return nothing
 		end
-		#send_rabbitmq_feedback(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback")
+		send_rabbitmq_feedback(Dict("electric_fields_results_step" => 7, "electric_fields_results_name" => "Loading Results", "id" => id), "solver_feedback")
 
 		out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k] / escalings[:freq])
 		out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k] / escalings[:freq])
