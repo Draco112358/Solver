@@ -27,7 +27,8 @@ end
 
 
 const VIRTUALHOST = "/"
-const HOST = "127.0.0.1"
+const HOST = "rabbitmq"
+const PORT = 8001
 
 # ==============================================================================
 # Variabili condivise per lo stato del server e delle simulazioni
@@ -392,7 +393,7 @@ function julia_main()
     if !is_building_app
         try
             #up(8001, async = true) #con async a true non blocca il thread principale
-            serve(middleware=[CorsMiddleware],port=8001, async=true)
+            serve(middleware=[CorsMiddleware], host="0.0.0.0", port=8001, async=true)
             # Invia lo stato "ready" dopo aver avviato Oxygen e precompilato
             send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
             solver_overall_status[] = "ready"
