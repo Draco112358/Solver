@@ -1,7 +1,7 @@
 function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, Nz, QS_Rcc_FW, id, chan)
     # FFTCP, FFTCLp = Array{Array{ComplexF64}}(undef, 3, 3), nothing
     # if QS_Rcc_FW == 1
-    FFTW.set_num_threads(Base.Threads.nthreads()*2)
+    FFTW.set_num_threads(Base.Threads.nthreads() * 2)
     #FFTW.set_num_threads(1)
     if QS_Rcc_FW == 1
         FFTCP = compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz, id)
@@ -25,9 +25,9 @@ function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, 
             return nothing
         end
         send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
-    # else
-    #     FFTCP = compute_rows_Taylor_P(circulant_centers)
-    #     FFTCLp = compute_rows_Taylor_Lp(circulant_centers)
+        # else
+        #     FFTCP = compute_rows_Taylor_P(circulant_centers)
+        #     FFTCLp = compute_rows_Taylor_Lp(circulant_centers)
     end
     return FFTCP, FFTCLp
 end
@@ -50,9 +50,6 @@ function compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz, id)
     Nlz = size(circulant_centers["Lpz"], 1)
     if Nlx > 0
         Lpx_row = escaling * compute_Lp_Voxels(circulant_centers["Lpx"][1, :], circulant_centers["Lpx"], sx, sy, sz, sx, sy, sz, dc, is_sym, id)
-        if isnothing(Lpx_row)
-            return nothing
-        end
         Lpx_row[1] = 0
         FFTCLp[1, 1] = fft(store_circulant_fft(Lpx_row, Nx - 1, Ny, Nz))
     else
@@ -62,9 +59,6 @@ function compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz, id)
     dc = 2
     if Nly > 0
         Lpy_row = escaling * compute_Lp_Voxels(circulant_centers["Lpy"][1, :], circulant_centers["Lpy"], sx, sy, sz, sx, sy, sz, dc, is_sym, id)
-        if isnothing(Lpy_row)
-            return nothing
-        end
         Lpy_row[1] = 0
         FFTCLp[2, 1] = fft(store_circulant_fft(Lpy_row, Nx, Ny - 1, Nz))
     else
@@ -74,9 +68,6 @@ function compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz, id)
     dc = 3
     if Nlz > 0
         Lpz_row = escaling * compute_Lp_Voxels(circulant_centers["Lpz"][1, :], circulant_centers["Lpz"], sx, sy, sz, sx, sy, sz, dc, is_sym, id)
-        if isnothing(Lpz_row)
-            return nothing
-        end
         Lpz_row[1] = 0
         FFTCLp[3, 1] = fft(store_circulant_fft(Lpz_row, Nx, Ny, Nz - 1))
     else
@@ -94,36 +85,17 @@ function compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz, id)
     sz = circulant_centers["sz"]
     FFTCP = Array{Array{ComplexF64}}(undef, 3, 3)
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p12_se"][1, :], circulant_centers["p12_se"], sx, sy, sz, 1, 1, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[1, 1] = fft(store_circulant_fft(row_P, Nx, Ny + 1, Nz))
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p34_se"][1, :], circulant_centers["p34_se"], sx, sy, sz, 3, 3, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[2, 2] = fft(store_circulant_fft(row_P, Nx + 1, Ny, Nz))
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p56_se"][1, :], circulant_centers["p56_se"], sx, sy, sz, 5, 5, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[3, 3] = fft(store_circulant_fft(row_P, Nx, Ny, Nz + 1))
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p1234"][1, :], circulant_centers["p1234"], sx, sy, sz, 3, 2, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[1, 2] = fft(store_circulant_fft(row_P, 2 * (Nx + 1) - 1, 2 * (Ny + 1) - 1, Nz))
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p1256"][1, :], circulant_centers["p1256"], sx, sy, sz, 5, 2, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[1, 3] = fft(store_circulant_fft(row_P, Nx, 2 * (Ny + 1) - 1, 2 * (Nz + 1) - 1))
     row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p3456"][1, :], circulant_centers["p3456"], sx, sy, sz, 5, 4, id)
-    if isnan(row_P)
-        return nothing
-    end
     FFTCP[2, 3] = fft(store_circulant_fft(row_P, 2 * (Nx + 1) - 1, Ny, 2 * (Nz + 1) - 1))
-    # println("P computation ended. Elapsed time = ")
     return FFTCP
 end
 

@@ -1,5 +1,5 @@
 module Solver
-using MKL, Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv, Oxygen, HTTP, JSON3
+using MKL, Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv, Oxygen, HTTP, JSON3, Statistics
 using GZip, CodecZlib, Serialization, MAT, SparseArrays, LinearAlgebra, FLoops, DelimitedFiles
 using JLD2, Printf, SpecialFunctions, Interpolations, Base.Sort, StaticArrays, FFTW
 using MLUtils: unsqueeze
@@ -18,6 +18,7 @@ include("./lib/sharedRis/distfcm.jl")
 include("./lib/sharedRis/find_nodes_ports_or_le.jl")
 include("./lib/sharedRis/calcola_P.jl")
 include("./lib/sharedRis/calcola_Lp.jl")
+include("./lib/sharedRis/mean_length_rev.jl")
 #SHAREDRIS INCLUDE END
 
 # SOLVER FFT INCLUDE START
@@ -94,7 +95,27 @@ include("./lib/solverRisCampi/compute_E_field_Gauss.jl")
 include("./lib/solverRisCampi/compute_H_field_Gauss.jl")
 include("./lib/solverRisCampi/iter_solver_E_Gaussian_Is_type.jl")
 include("./lib/solverRisCampi/do_solving_electric_fields.jl")
+
+# SOLVER RSI CAMPI ACA
+include("./lib/risACA/prepare_multilevel.jl")
+include("./lib/risACA/last_level_fill.jl")
+include("./lib/risACA/ACA_Lp.jl")
+include("./lib/risACA/ACA_P.jl")
+include("./lib/risACA/process_surface_ACA.jl")
+include("./lib/risACA/calcola_P_Sym.jl")
+include("./lib/risACA/calcola_P_noSym.jl")
+include("./lib/risACA/calcola_Lp_Sym.jl")
+include("./lib/risACA/calcola_Lp_noSym.jl")
+include("./lib/risACA/calcola_P_ACA_cpp.jl")
+include("./lib/risACA/calcola_Lp_ACA_cpp.jl")
+include("./lib/risACA/ACA_P_delays.jl")
+include("./lib/risACA/ACA_Lp_delays.jl")
+include("./lib/risACA/prepare_sparse_mats_prec_ACA.jl")
+include("./lib/risACA/gmres_ACA.jl")
+include("./lib/risACA/iter_solver_S_type_ACA_ports_sym.jl")
+include("./lib/risACA/do_solving_ACA.jl")
 # SOLVER RSI CAMPI INCLUDE END
 include("solver_start.jl")
+
 export julia_main
-end 
+end

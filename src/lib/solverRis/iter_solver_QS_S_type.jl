@@ -15,7 +15,7 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
     is = zeros(Float64, n)
     S = zeros(ComplexF64, size(ports[:port_nodes], 1), size(ports[:port_nodes], 1), nfreq)
     Vrest = zeros(ComplexF64, m + n + ns, size(ports[:port_nodes], 1))
-    invP::SparseMatrixCSC{Float64, Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
+    invP::SparseMatrixCSC{Float64,Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
     R_chiusura = ports_scatter_value
     keeped_diag = 0
     invCd = zeros(ComplexF64, m)
@@ -93,8 +93,8 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
 
         invZ = sparse(1:m, 1:m, 1 ./ (Z_self + 1im * w[k] * diag_Lp), m, m)
         # --------------------- preconditioner ------------------------
-        SS::SparseArrays.SparseMatrixCSC{ComplexF64, Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
-        F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64, Int64} = lu(SS)
+        SS::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = Yle + (transpose(incidence_selection[:A]) * (invZ * incidence_selection[:A])) + 1im * w[k] * (incidence_selection[:Gamma] * invP) * transpose(incidence_selection[:Gamma])
+        F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64,Int64} = lu(SS)
         # --------------------------------------------------------------
         for c1::Int64 = 1:size(ports[:port_nodes], 1)
             n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
@@ -128,9 +128,9 @@ function iter_solver_QS_S_type(freq, escalings, incidence_selection, P_data, Lp_
                 n3::Int64 = convert(Int64, ports[:port_nodes][c2, 1])
                 n4::Int64 = convert(Int64, ports[:port_nodes][c2, 2])
                 if c1 == c2
-                    S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4]) - R_chiusura) / R_chiusura
+                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4]) - R_chiusura) / R_chiusura
                 else
-                    S[c1, c2, k] = (2 * (V[m + ns + n3] - V[m + ns + n4])) / R_chiusura
+                    S[c1, c2, k] = (2 * (V[m+ns+n3] - V[m+ns+n4])) / R_chiusura
                 end
                 S[c2, c1, k] = S[c1, c2, k]
             end
@@ -153,17 +153,17 @@ end
 function precond_3_3_Kt_S!(F, invZ, invP, A, Gamma, n1, n2, X3, Y, resProd)
     n3 = length(X3)
     i1 = 1:n1
-    i2 = n1 + 1:n1 + n2
-    i3 = n1 + n2 + 1:n1 + n2 + n3
+    i2 = n1+1:n1+n2
+    i3 = n1+n2+1:n1+n2+n3
 
     M5 = F \ X3
 
     A_view = @view resProd[1:size(A, 1)]
-    invZ_view = @view resProd[size(resProd, 1) - size(invZ, 1) + 1:end]
+    invZ_view = @view resProd[size(resProd, 1)-size(invZ, 1)+1:end]
     mul!(A_view, A, M5)
     mul!(invZ_view, invZ, A_view)
     Y[i1] .= lmul!(-1.0, invZ_view)
-    Gamma_view = @view resProd[size(resProd, 1) - size(Gamma, 2) + 1:end]
+    Gamma_view = @view resProd[size(resProd, 1)-size(Gamma, 2)+1:end]
     mul!(Gamma_view, transpose(Gamma), M5)
     invP_view = @view resProd[1:size(invP, 1)]
     mul!(invP_view, invP, Gamma_view)

@@ -15,11 +15,11 @@ const CORS_HEADERS = [
 
 # https://juliaweb.github.io/HTTP.jl/stable/examples/#Cors-Server
 function CorsMiddleware(handler)
-    return function(req::HTTP.Request)
+    return function (req::HTTP.Request)
         # determine if this is a pre-flight request from the browser
-        if HTTP.method(req)=="OPTIONS"
-            return HTTP.Response(200, CORS_HEADERS)  
-        else 
+        if HTTP.method(req) == "OPTIONS"
+            return HTTP.Response(200, CORS_HEADERS)
+        else
             return handler(req) # passes the request to the Application
         end
     end
@@ -27,7 +27,8 @@ end
 
 
 const VIRTUALHOST = "/"
-const HOST = "rabbitmq"
+#const HOST = "rabbitmq"
+const HOST = "127.0.0.1"
 const PORT = 8001
 
 # ==============================================================================
@@ -38,10 +39,10 @@ const PORT = 8001
 # e dalle API di Oxygen.
 # ==============================================================================
 const solver_overall_status = Ref("ready") # ready, busy, error
-const active_simulations = Dict{String, Dict{String, Any}}() # ID simulazione -> {status, progress, start_time, etc.}
+const active_simulations = Dict{String,Dict{String,Any}}() # ID simulazione -> {status, progress, start_time, etc.}
 const simulations_lock = ReentrantLock() # Lock per proteggere `active_simulations`
 # const stopComputation = []
-const stopComputation = Dict{String, Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
+const stopComputation = Dict{String,Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
 const stop_computation_lock = ReentrantLock() # Aggiungi un lock per proteggere stopComputation
 const commentsEnabled = []
 
@@ -160,7 +161,7 @@ function setup_oxygen_routes()
 
 
     # Endpoint per avviare simulazioni
-    @post "/solve" function(req)
+    @post "/solve" function (req)
         try
             req_data = Oxygen.json(req) # Assume JSON body
             simulation_id = get(req_data, "id", "randomid") # Genera ID se non fornito
@@ -217,9 +218,18 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
+                # Threads.@spawn run_simulation_task(
+                #     simulation_id,
+                #     doSolvingRis,
+                #     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
+                #     req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
+                #     simulation_id, # ID della simulazione
+                #     aws, aws_bucket_name;
+                #     simulation_type="ris"
+                # )
                 Threads.@spawn run_simulation_task(
                     simulation_id,
-                    doSolvingRis,
+                    doSolvingACA,
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
                     req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
                     simulation_id, # ID della simulazione
@@ -272,7 +282,7 @@ function setup_oxygen_routes()
         end
     end
 
-    @post "/get_results_electric_fields" function(req)
+    @post "/get_results_electric_fields" function (req)
         file_id = queryparams(req)["file_id"]
         freq_index = Oxygen.json(req)["freq_index"]
         id = Oxygen.json(req)["id"]
@@ -280,24 +290,24 @@ function setup_oxygen_routes()
             # Scarica il file grezzo o il JSON gz compresso da S3
             res = download_json_gz(aws, aws_bucket_name, file_id)
             resultsToPublish = Dict(
-                    "Vp" => res["Vp"],
-                    "Ex" => JSON.json(JSON.parse(res["Ex"])[freq_index]),
-                    "Ey" => JSON.json(JSON.parse(res["Ey"])[freq_index]),
-                    "Ez" => JSON.json(JSON.parse(res["Ez"])[freq_index]),
-                    "Ex_3D" => JSON.json(JSON.parse(res["Ex_3D"])[freq_index]),
-                    "Ey_3D" => JSON.json(JSON.parse(res["Ey_3D"])[freq_index]),
-                    "Ez_3D" => JSON.json(JSON.parse(res["Ez_3D"])[freq_index]),
-                    "Hx_3D" => JSON.json(JSON.parse(res["Hx_3D"])[freq_index]),
-                    "Hy_3D" => JSON.json(JSON.parse(res["Hy_3D"])[freq_index]),
-                    "Hz_3D" => JSON.json(JSON.parse(res["Hz_3D"])[freq_index]),
-                    "centri_oss_3D" => res["centri_oss_3D"],
-                    "distanze_3D" => res["distanze_3D"],
-                    "theta_vals" => res["theta_vals"],
-                    "x_grid" => res["x_grid"],
-                    "y_grid" => res["y_grid"],
-                    "z_grid" => res["z_grid"],
-                    "baricentro" => res["baricentro"],
-                    "f" => res["f"]
+                "Vp" => res["Vp"],
+                "Ex" => JSON.json(JSON.parse(res["Ex"])[freq_index]),
+                "Ey" => JSON.json(JSON.parse(res["Ey"])[freq_index]),
+                "Ez" => JSON.json(JSON.parse(res["Ez"])[freq_index]),
+                "Ex_3D" => JSON.json(JSON.parse(res["Ex_3D"])[freq_index]),
+                "Ey_3D" => JSON.json(JSON.parse(res["Ey_3D"])[freq_index]),
+                "Ez_3D" => JSON.json(JSON.parse(res["Ez_3D"])[freq_index]),
+                "Hx_3D" => JSON.json(JSON.parse(res["Hx_3D"])[freq_index]),
+                "Hy_3D" => JSON.json(JSON.parse(res["Hy_3D"])[freq_index]),
+                "Hz_3D" => JSON.json(JSON.parse(res["Hz_3D"])[freq_index]),
+                "centri_oss_3D" => res["centri_oss_3D"],
+                "distanze_3D" => res["distanze_3D"],
+                "theta_vals" => res["theta_vals"],
+                "x_grid" => res["x_grid"],
+                "y_grid" => res["y_grid"],
+                "z_grid" => res["z_grid"],
+                "baricentro" => res["baricentro"],
+                "f" => res["f"]
             )
             dataToReturn = Dict(
                 "results" => resultsToPublish,
@@ -314,7 +324,7 @@ function setup_oxygen_routes()
         end
     end
 
-    @post "/get_results_matrix" function(req)
+    @post "/get_results_matrix" function (req)
         file_id = queryparams(req)["file_id"]
         port_index = Oxygen.json(req)["port_index"]
         try
@@ -325,9 +335,9 @@ function setup_oxygen_routes()
             dataToReturn = Dict(
                 "portIndex" => port_index,
                 "results" => Dict(
-                "matrixZ" => matrixZ[port_index+1],
-                "matrixS" => matrixS[port_index+1],
-                "matrixY" => matrixY[port_index+1],
+                    "matrixZ" => matrixZ[port_index+1],
+                    "matrixS" => matrixS[port_index+1],
+                    "matrixY" => matrixY[port_index+1],
                 ),
                 "simulationType" => "matrix"
             )
@@ -343,9 +353,9 @@ function setup_oxygen_routes()
     end
 
     # Endpoint per fermare una simulazione (solo se supportato dal solver)
-    @post "/stop_computation" function(req)
+    @post "/stop_computation" function (req)
         sim_id = queryparams(req)["sim_id"]
-    
+
         lock(stop_computation_lock) do
             if haskey(active_simulations, sim_id)
                 if !haskey(stopComputation, sim_id) # Crea il Ref{Bool} se non esiste
@@ -353,7 +363,7 @@ function setup_oxygen_routes()
                 end
                 stopComputation[sim_id][] = true # Imposta il flag di stop su true
                 println("Richiesta di stop per simulazione $(sim_id) ricevuta. Flag impostato su $(stopComputation[sim_id][]).")
-                
+
                 # Opzionale: Invia un feedback immediato al client via RabbitMQ che la richiesta è stata accettata
                 #send_rabbitmq_feedback(Dict("id" => sim_id, "status" => "stopping", "type" => active_simulations[sim_id]["type"]), "solver_results")
 
@@ -393,7 +403,8 @@ function julia_main()
     if !is_building_app
         try
             #up(8001, async = true) #con async a true non blocca il thread principale
-            serve(middleware=[CorsMiddleware], host="0.0.0.0", port=8001, async=true)
+            #serve(middleware=[CorsMiddleware], host="0.0.0.0", port=8001, async=true)
+            serve(middleware=[CorsMiddleware], host="127.0.0.1", port=8001, async=true)
             # Invia lo stato "ready" dopo aver avviato Oxygen e precompilato
             send_rabbitmq_feedback(Dict("target" => "solver", "status" => "ready"), "server_init")
             solver_overall_status[] = "ready"
