@@ -146,12 +146,6 @@ function calculate_Rx(
             end
         end
 
-        # Check for stop request after each block is fully processed.
-        # This is generally a more appropriate place for external checks than inside the inner loop.
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # Indicate interruption
-        end
 
         #println("Processed block $(block_idx) / $(num_blocks) for Rx calculation.")
     end
@@ -189,12 +183,6 @@ function calculate_Ry(
             end
         end
 
-        # Check for stop request after each block is fully processed.
-        # This is generally a more appropriate place for external checks than inside the inner loop.
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # Indicate interruption
-        end
 
         println("Processed block $(block_idx) / $(num_blocks) for Ry calculation.")
     end
@@ -233,12 +221,6 @@ function calculate_Rz(
             end
         end
 
-        # Check for stop request after each block is fully processed.
-        # This is generally a more appropriate place for external checks than inside the inner loop.
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # Indicate interruption
-        end
 
         println("Processed block $(block_idx) / $(num_blocks) for Rz calculation.")
     end
@@ -294,11 +276,6 @@ function calculate_Lp_matrix(
             end
         end
 
-        # Check for stop request after each block is fully processed
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing
-        end
 
         #println("Processed block $(block_idx) / $(num_blocks) for Lpx calculation.")
     end

@@ -1,5 +1,5 @@
 module Solver
-using MKL, Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv, Oxygen, HTTP, JSON3, Statistics
+using MKL, Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv, Oxygen, HTTP, JSON3, Statistics, Distributed
 using GZip, CodecZlib, Serialization, MAT, SparseArrays, LinearAlgebra, FLoops, DelimitedFiles
 using JLD2, Printf, SpecialFunctions, Interpolations, Base.Sort, StaticArrays, FFTW
 using MLUtils: unsqueeze

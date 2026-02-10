@@ -58,9 +58,9 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     tn = zeros(ComplexF64, m + ns + n, 1)
 
     for k = 1:nfreq
-        if QS_Rcc_FW==2
-            FFTCLp_rebuilted=compute_Circulant_Lp_Rcc(FFTCLp,escalings,freq[k]/escalings["freq"]);
-            FFTCP_rebuilted=compute_Circulant_P_sup_Rcc(FFTCP,escalings,freq[k]/escalings["freq"]);
+        if QS_Rcc_FW == 2
+            FFTCLp_rebuilted = compute_Circulant_Lp_Rcc(FFTCLp, escalings, freq[k] / escalings["freq"])
+            FFTCP_rebuilted = compute_Circulant_P_sup_Rcc(FFTCP, escalings, freq[k] / escalings["freq"])
             PVector = []
             PLIVector = []
             for cont = 1:3
@@ -91,17 +91,13 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                     # Chi2Vector[cont1, cont2] = padded_CircKt
                 end
             end
-        # elseif QS_Rcc_FW==3
-        #     FFTCLp_rebuilted=compute_Circulant_Lp_FW(FFTCLp,escalings,freq(k)/escalings["freq"]);
-        #     FFTCP_rebuilted=compute_Circulant_P_sup_FW(FFTCP,escalings,freq(k)/escalings["freq"]);
+            # elseif QS_Rcc_FW==3
+            #     FFTCLp_rebuilted=compute_Circulant_Lp_FW(FFTCLp,escalings,freq(k)/escalings["freq"]);
+            #     FFTCP_rebuilted=compute_Circulant_P_sup_FW(FFTCP,escalings,freq(k)/escalings["freq"]);
         end
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
         Yle::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = build_Yle_FFT(lumped_elements, [], ports, escalings, n, w[k] / escalings["freq"], ports_scatter_value)
         Z_self::Vector{ComplexF64} = compute_Z_self(diagonals["R"], diagonals["Cd"], w[k])
         Zs::Matrix{ComplexF64} = escalings["R"] * (Zs_info["Zs"] * sqrt(w[k] / escalings["freq"]))
@@ -141,7 +137,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 if flag == 99
                     return nothing
                 end
-                
+
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
                 if commentsEnabled
                     if (flag == 0)
@@ -180,7 +176,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 if flag == 99
                     return nothing
                 end
-                
+
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
                 if commentsEnabled
                     if (flag == 0)

@@ -137,13 +137,7 @@ function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escali
             send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
         end
     finally
-        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
-        lock(stop_computation_lock) do
-            if haskey(stopComputation, id)
-                delete!(stopComputation, id)
-                println("Flag di stop per simulazione $(id) rimosso.")
-            end
-        end
+        # Nessuna pulizia necessaria: il meccanismo di stop è ora basato su processi
     end
 
 end

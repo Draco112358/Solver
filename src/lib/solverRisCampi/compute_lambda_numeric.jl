@@ -1,6 +1,6 @@
-function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incidence_selection::Dict{Symbol, Any},
-                                          vers_punti_oss::Matrix{Float64}, ordine_int::Int, beta::ComplexF64,
-                                          id=nothing, chan=nothing)
+function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incidence_selection::Dict{Symbol,Any},
+    vers_punti_oss::Matrix{Float64}, ordine_int::Int, beta::ComplexF64,
+    id=nothing, chan=nothing)
 
     volumi[:coordinate] = transpose(Float64.(volumi[:coordinate].parent))
     N = size(volumi[:coordinate], 1) # Number of volumes
@@ -22,7 +22,7 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
     # 3. Pre-calcola barra_n_svec_arr e S_n_arr per TUTTI i volumi (N)
     # Spostato FUORI dal Threads.@threads loop.
     # Questi array saranno accessibili da tutti i thread.
-    barra_n_svec_arr = Vector{SVector{24, Float64}}(undef, N)
+    barra_n_svec_arr = Vector{SVector{24,Float64}}(undef, N)
     S_n_arr = Vector{Float64}(undef, N)
     @inbounds Threads.@threads for n = 1:N
         barra_n_svec_arr[n] = SVector{24}(@view volumi[:coordinate][n, :])
@@ -31,8 +31,8 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
 
     # 4. Pre-calcola punti_oss_m_svec, vers_punti_oss_m_svec, is_pox, is_poy per TUTTI i punti di osservazione (M)
     # Spostato FUORI dal Threads.@threads loop.
-    punti_oss_m_svec_arr = Vector{SVector{3, Float64}}(undef, M)
-    vers_punti_oss_m_svec_arr = Vector{SVector{3, Float64}}(undef, M)
+    punti_oss_m_svec_arr = Vector{SVector{3,Float64}}(undef, M)
+    vers_punti_oss_m_svec_arr = Vector{SVector{3,Float64}}(undef, M)
     is_pox_arr = Vector{Bool}(undef, M)
     is_poy_arr = Vector{Bool}(undef, M)
 
@@ -103,11 +103,7 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
         end
         # MATLAB had sleep and print; comment out for benchmarking, uncomment for progress
         # sleep(0.01)
-        @printf "Processing block %d of %d (M: %d-%d)\n" round(Int, m_block_end/block_size_M) round(Int, M/block_size_M) m_block_start m_block_end
-        if id !== nothing && is_stop_requested(id) # Check for stop request
-           println("Simulation $(id) interrupted by stop request.")
-           return nothing
-        end
+        @printf "Processing block %d of %d (M: %d-%d)\n" round(Int, m_block_end / block_size_M) round(Int, M / block_size_M) m_block_start m_block_end
     end
 
     return Lambda
@@ -120,9 +116,9 @@ end
 Optimized helper function to compute the integral for a single volume and observation point.
 Uses StaticArrays for all internal vector operations to maximize performance.
 """
-@inline function compute_hi_optimized(barra::SVector{24, Float64}, centro_oss::SVector{3, Float64},
-                                      scelta::Symbol, rootk::AbstractVector{Float64}, wek::AbstractVector{Float64},
-                                      beta::ComplexF64)
+@inline function compute_hi_optimized(barra::SVector{24,Float64}, centro_oss::SVector{3,Float64},
+    scelta::Symbol, rootk::AbstractVector{Float64}, wek::AbstractVector{Float64},
+    beta::ComplexF64)
 
     # Pre-calculate constant inverse
     inv8 = 0.125
@@ -214,7 +210,7 @@ Uses StaticArrays for all internal vector operations to maximize performance.
                 delta_y = (yo - r1[2])
                 delta_z = (zo - r1[3])
 
-                R_squared = delta_x*delta_x + delta_y*delta_y + delta_z*delta_z
+                R_squared = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z
                 R = sqrt(R_squared + 1e-12) # Add a tiny epsilon to prevent division by zero
 
                 # Pre-calculate common terms for G

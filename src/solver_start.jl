@@ -41,9 +41,7 @@ const PORT = 8001
 const solver_overall_status = Ref("ready") # ready, busy, error
 const active_simulations = Dict{String,Dict{String,Any}}() # ID simulazione -> {status, progress, start_time, etc.}
 const simulations_lock = ReentrantLock() # Lock per proteggere `active_simulations`
-# const stopComputation = []
-const stopComputation = Dict{String,Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
-const stop_computation_lock = ReentrantLock() # Aggiungi un lock per proteggere stopComputation
+
 const commentsEnabled = []
 
 # ==============================================================================
@@ -55,11 +53,6 @@ function send_rabbitmq_feedback(data::Dict, routing_key::String, virtualhost::St
         connection(; virtualhost=VIRTUALHOST, host=HOST) do conn
             # 2. Create a channel to send messages
             AMQPClient.channel(conn, AMQPClient.UNUSED_CHANNEL, true) do chan
-                # Dichiara la coda dei risultati come durevole, se non lo è già
-                # Questo è importante se il client RabbitMQ si aspetta messaggi durevoli
-                # AMQPClient.queue_declare(chan, "solver_results"; durable=true)
-                # AMQPClient.queue_declare(chan, "server_init"; durable=true) # Per stati generali
-
                 # 3. Publish the message (make it persistent if it's critical)
                 publish_data(data, routing_key, chan)
                 println("Feedback RabbitMQ inviato a $(routing_key)")
@@ -76,66 +69,126 @@ end
 # Funzioni per lo stato del solver e la gestione delle simulazioni
 # ==============================================================================
 
-# Funzione wrapper per le tue funzioni di solving originali
-# Questa funzione gestirà il ciclo di vita di una simulazione
-# e invierà feedback su RabbitMQ.
-function run_simulation_task(
-    simulation_id::String,
-    solver_function::Function, # es. doSolvingFFT, doSolvingRis, doSolvingElectricFields
-    args...; # Argomenti specifici per la funzione solver
-    simulation_type::String
-)
-    lock(simulations_lock) do
-        active_simulations[simulation_id] = Dict(
-            "status" => "running",
-            "progress" => 0,
-            "start_time" => time(),
-            "type" => simulation_type
-        )
+# ==============================================================================
+# Funzione eseguita sul worker Distributed - usa aws/bucket del worker
+# ==============================================================================
+function run_solver_on_worker(solver_type_key::String, args...)
+    if solver_type_key == "fft"
+        doSolvingFFT(args..., aws, aws_bucket_name)
+    elseif solver_type_key == "ris"
+        doSolvingRis(args..., aws, aws_bucket_name)
+    elseif solver_type_key == "aca"
+        doSolvingACA(args..., aws, aws_bucket_name)
+    elseif solver_type_key == "electric_fields"
+        doSolvingElectricFields(args..., aws, aws_bucket_name)
+    else
+        error("Tipo di simulazione sconosciuto: $(solver_type_key)")
     end
+end
+
+# ==============================================================================
+# Spawn di una simulazione su un worker Distributed
+# ==============================================================================
+function spawn_worker_simulation(simulation_id::String, simulation_type::String, solver_type_key::String, args...)
+    # Crea un worker process dedicato
+    worker_id = addprocs(1)[1]
+    println("Worker $(worker_id) creato per simulazione $(simulation_id)")
+
+    # Carica il modulo Solver sul worker (remotecall_eval instead of @everywhere, which is toplevel-only)
+    Distributed.remotecall_eval(Main, worker_id, :(using Solver))
+
+    # Traccia la simulazione
+    is_already_stopped = lock(simulations_lock) do
+        # Salva il worker_id così può essere terminato se arriva un comando nel frattempo
+        if haskey(active_simulations, simulation_id)
+            active_simulations[simulation_id]["worker_id"] = worker_id
+            active_simulations[simulation_id]["status"] = "running"
+            active_simulations[simulation_id]["start_time"] = time()
+            active_simulations[simulation_id]["progress"] = 0
+            return get(active_simulations[simulation_id], "stopped", false)
+        end
+        return false
+    end
+
+    if is_already_stopped
+        println("Simulazione $(simulation_id) fermata prima ancora di iniziare. Rimuovo worker $(worker_id).")
+        rmprocs(worker_id)
+        lock(simulations_lock) do
+            if haskey(active_simulations, simulation_id)
+                active_simulations[simulation_id]["status"] = "stopped"
+                active_simulations[simulation_id]["end_time"] = time()
+            end
+        end
+        send_rabbitmq_feedback(Dict("id" => simulation_id, "isStopped" => true), "solver_feedback")
+        return
+    end
+
     send_rabbitmq_feedback(Dict("id" => simulation_id, "status" => "running", "type" => simulation_type), "solver_results")
 
+    # Lancia la computazione sul worker
+    future = remotecall(run_solver_on_worker, worker_id, solver_type_key, args...)
+
+    # Monitora in background
+    Threads.@spawn monitor_worker_simulation(simulation_id, simulation_type, worker_id, future)
+end
+
+# ==============================================================================
+# Monitoraggio del worker: gestisce completamento, errore, stop
+# ==============================================================================
+function monitor_worker_simulation(simulation_id::String, simulation_type::String, worker_id::Int, future::Future)
     try
-        # Precompila, se non lo hai già fatto in fase di avvio del server
-        # force_compile2() # Potresti volerlo fare una volta all'avvio del server Julia
-
-        # Esegui la simulazione
-        # La funzione solver_function DOVRA' essere modificata per accettare
-        # un callback o un canale per il progresso, e per i feedback intermedi.
-        # Per ora, si assume che pubblichi solo il risultato finale.
-        results = solver_function(args...)
-
-        # Simulazione completata
+        fetch(future)
+        # Completata con successo
         lock(simulations_lock) do
-            active_simulations[simulation_id]["status"] = "completed"
-            active_simulations[simulation_id]["progress"] = 100
-            active_simulations[simulation_id]["end_time"] = time()
+            if haskey(active_simulations, simulation_id)
+                active_simulations[simulation_id]["status"] = "completed"
+                active_simulations[simulation_id]["progress"] = 100
+                active_simulations[simulation_id]["end_time"] = time()
+            end
         end
-        send_rabbitmq_feedback(Dict("id" => simulation_id, "status" => "completed", "type" => simulation_type, "results" => results), "solver_results")
-
+        send_rabbitmq_feedback(Dict("id" => simulation_id, "status" => "completed", "type" => simulation_type), "solver_results")
     catch e
-        println("Errore critico nella simulazione $(simulation_id): $(e)")
-        lock(simulations_lock) do
-            active_simulations[simulation_id]["status"] = "failed"
-            active_simulations[simulation_id]["error_message"] = string(e)
-            active_simulations[simulation_id]["end_time"] = time()
+        was_stopped = lock(simulations_lock) do
+            haskey(active_simulations, simulation_id) && get(active_simulations[simulation_id], "stopped", false)
         end
-        send_rabbitmq_feedback(Dict("id" => simulation_id, "status" => "failed", "type" => simulation_type, "message" => string(e)), "solver_results")
-    finally
-        # Rimuovi la simulazione dalla lista delle attive dopo un po'
-        # o sposta in una lista di "simulate terminate"
-        Threads.@spawn begin
-            sleep(60) # Mantieni i risultati per 1 minut0
+        if was_stopped || e isa ProcessExitedException
             lock(simulations_lock) do
-                if haskey(active_simulations, simulation_id) && active_simulations[simulation_id]["status"] in ["completed", "failed"]
+                if haskey(active_simulations, simulation_id)
+                    active_simulations[simulation_id]["status"] = "stopped"
+                    active_simulations[simulation_id]["end_time"] = time()
+                end
+            end
+            println("Simulazione $(simulation_id) fermata dall'utente.")
+            send_rabbitmq_feedback(Dict("id" => simulation_id, "isStopped" => true), "solver_feedback")
+        else
+            println("Errore nella simulazione $(simulation_id): $(e)")
+            lock(simulations_lock) do
+                if haskey(active_simulations, simulation_id)
+                    active_simulations[simulation_id]["status"] = "failed"
+                    active_simulations[simulation_id]["error_message"] = string(e)
+                    active_simulations[simulation_id]["end_time"] = time()
+                end
+            end
+            send_rabbitmq_feedback(Dict("id" => simulation_id, "status" => "failed", "type" => simulation_type, "message" => string(e)), "solver_results")
+        end
+    finally
+        # Rimuovi il worker
+        try
+            rmprocs(worker_id)
+        catch
+        end
+        # Pulizia dopo un delay
+        Threads.@spawn begin
+            sleep(60)
+            lock(simulations_lock) do
+                if haskey(active_simulations, simulation_id) && active_simulations[simulation_id]["status"] in ["completed", "failed", "stopped"]
                     delete!(active_simulations, simulation_id)
-                    println("Simulazione $(simulation_id) rimossa dalla lista attiva.")
                 end
             end
         end
-        # Aggiorna lo stato generale del solver se non ci sono altre simulazioni attive
         lock(simulations_lock) do
-            if isempty(active_simulations)
+            running = any(v -> v["status"] == "running", values(active_simulations))
+            if !running
                 solver_overall_status[] = "ready"
                 send_rabbitmq_feedback(Dict("target" => "solver", "status" => solver_overall_status[]), "server_init")
             end
@@ -186,16 +239,13 @@ function setup_oxygen_routes()
             if simulation_type == "Matrix" && mesher == "standard"
                 mesher_file_id = req_data["mesherFileId"]
                 mesherOutput = download_json_gz(aws, aws_bucket_name, mesher_file_id)
-                Threads.@spawn run_simulation_task(
-                    simulation_id,
-                    doSolvingFFT,
+                spawn_worker_simulation(
+                    simulation_id, "matrix", "fft",
                     mesherOutput,
                     req_data["solverInput"],
                     req_data["solverAlgoParams"],
                     req_data["solverType"],
-                    simulation_id, # ID della simulazione passato al solver
-                    aws, aws_bucket_name;
-                    simulation_type="matrix"
+                    simulation_id
                 )
             elseif simulation_type == "Matrix" && mesher == "ris"
                 mesher_file_id = req_data["mesherFileId"]
@@ -218,14 +268,11 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
-                Threads.@spawn run_simulation_task(
-                    simulation_id,
-                    doSolvingRis,
+                spawn_worker_simulation(
+                    simulation_id, "ris", "ris",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
                     req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
-                    simulation_id, # ID della simulazione
-                    aws, aws_bucket_name;
-                    simulation_type="ris"
+                    simulation_id
                 )
             elseif simulation_type == "Matrix_ACA" && mesher == "ris"
                 mesher_file_id = req_data["mesherFileId"]
@@ -256,13 +303,11 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
-                Threads.@spawn run_simulation_task(
-                    simulation_id,
-                    doSolvingACA,
+                spawn_worker_simulation(
+                    simulation_id, "ris", "aca",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
-                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"], ports_to_excite, simulation_id, # ID della simulazione
-                    aws, aws_bucket_name;
-                    simulation_type="ris"
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"], ports_to_excite,
+                    simulation_id
                 )
             elseif simulation_type == "Electric Fields"
                 mesher_file_id = req_data["mesherFileId"]
@@ -285,17 +330,14 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
-                Threads.@spawn run_simulation_task(
-                    simulation_id,
-                    doSolvingElectricFields,
+                spawn_worker_simulation(
+                    simulation_id, "electric fields", "electric_fields",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
                     req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
                     req_data["theta"], req_data["phi"], req_data["e_theta"], req_data["e_phi"],
                     req_data["baricentro"], req_data["r_circ"], req_data["times"],
                     req_data["signal_type_E"], req_data["ind_freq_interest"],
-                    simulation_id, # ID della simulazione
-                    aws, aws_bucket_name;
-                    simulation_type="electric fields"
+                    simulation_id
                 )
             else
                 #return JSON.json(Dict("error" => "Unsupported simulation type: $(simulation_type)"))
@@ -380,35 +422,38 @@ function setup_oxygen_routes()
         end
     end
 
-    # Endpoint per fermare una simulazione (solo se supportato dal solver)
+    # Endpoint per fermare una simulazione - termina il worker process
     @post "/stop_computation" function (req)
         sim_id = queryparams(req)["sim_id"]
 
-        lock(stop_computation_lock) do
+        worker_id = lock(simulations_lock) do
             if haskey(active_simulations, sim_id)
-                if !haskey(stopComputation, sim_id) # Crea il Ref{Bool} se non esiste
-                    stopComputation[sim_id] = Ref(false)
+                status = active_simulations[sim_id]["status"]
+                if status in ["running", "pending"]
+                    active_simulations[sim_id]["stopped"] = true
+                    val = get(active_simulations[sim_id], "worker_id", nothing)
+                    println("Richiesta stop per simulazione $(sim_id) (stato: $(status), worker: $(val))")
+                    return val
                 end
-                stopComputation[sim_id][] = true # Imposta il flag di stop su true
-                println("Richiesta di stop per simulazione $(sim_id) ricevuta. Flag impostato su $(stopComputation[sim_id][]).")
-
-                # Opzionale: Invia un feedback immediato al client via RabbitMQ che la richiesta è stata accettata
-                #send_rabbitmq_feedback(Dict("id" => sim_id, "status" => "stopping", "type" => active_simulations[sim_id]["type"]), "solver_results")
-
-                #return JSON.json(Dict("message" => "Stop request for simulation $(sim_id) acknowledged.", "status" => "stopping"))
-                return HTTP.Response(200, CORS_HEADERS)
-            else
-                println("Richiesta di stop per simulazione $(sim_id) ma la simulazione non è attiva.")
-                #return JSON.json(Dict("error" => "Simulation $sim_id not found or already completed/stopped."))
-                return HTTP.Response(200, CORS_HEADERS)
             end
+            return nothing
         end
-    end
-end
 
-function is_stop_requested(sim_id::String)
-    lock(stop_computation_lock) do
-        return haskey(stopComputation, sim_id) && stopComputation[sim_id][]
+        if !isnothing(worker_id)
+            try
+                println("Terminazione worker $(worker_id) per simulazione $(sim_id)...")
+                rmprocs(worker_id)
+                println("Worker $(worker_id) terminato.")
+            catch e
+                println("Errore nella terminazione del worker $(worker_id): $(e)")
+            end
+            return HTTP.Response(200, CORS_HEADERS)
+        else
+            # Se worker_id è nothing ma abbiamo settato stopped = true (caso pending), 
+            # lo spawn_worker_simulation se ne accorgerà e pulirà tutto.
+            println("Simulazione $(sim_id) non ancora avviata su un worker o già completata. Flag stop impostato.")
+            return HTTP.Response(200, CORS_HEADERS)
+        end
     end
 end
 
@@ -463,22 +508,26 @@ function julia_main()
 end
 
 # Punto di ingresso principale del tuo server
-Base.exit_on_sigint(false) # Non uscire su Ctrl-C immediatamente
-try
-    julia_main()
-catch ex
-    if ex isa InterruptException
-        println("Catturato Ctrl-C nel blocco principale. Chiusura pulita.")
-        if get(ENV, "JULIA_APP_BUILD", "false") != "true" # Invia solo se non è il compilatore
-            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
+# Avvia il server solo sul processo principale (myid()==1).
+# Quando un worker Distributed carica il modulo, NON deve avviare il server.
+if myid() == 1
+    Base.exit_on_sigint(false)
+    try
+        julia_main()
+    catch ex
+        if ex isa InterruptException
+            println("Catturato Ctrl-C nel blocco principale. Chiusura pulita.")
+            if get(ENV, "JULIA_APP_BUILD", "false") != "true"
+                send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
+            end
+            exit()
+        else
+            println("Eccezione non gestita nel server principale: $(ex)")
+            if get(ENV, "JULIA_APP_BUILD", "false") != "true"
+                send_rabbitmq_feedback(Dict("target" => "solver", "status" => "error", "message" => string(ex)), "server_init")
+            end
+            exit()
         end
-        exit()
-    else
-        println("Eccezione non gestita nel server principale: $(ex)")
-        if get(ENV, "JULIA_APP_BUILD", "false") != "true" # Invia solo se non è il compilatore
-            send_rabbitmq_feedback(Dict("target" => "solver", "status" => "error", "message" => string(ex)), "server_init")
-        end
-        exit()
     end
 end
 

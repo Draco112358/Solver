@@ -1,9 +1,9 @@
 function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is_sym, id)
     #M = size(centri_m, 1)
-    M = convert(Int64,size(centri_m, 1)/3)
+    M = convert(Int64, size(centri_m, 1) / 3)
     N = size(centri_n, 1)
     if is_sym
-        N = convert(Int64,size(centri_m, 1)/3)
+        N = convert(Int64, size(centri_m, 1) / 3)
     end
     Lp = zeros(M, N)
     S = sy * sz * sy2 * sz2
@@ -19,10 +19,8 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
             x1v = round_ud_fft([c1[1] - sx / 2, c1[1] + sx / 2], round_precision)
             y1v = round_ud_fft([c1[2] - sy / 2, c1[2] + sy / 2], round_precision)
             z1v = round_ud_fft([c1[3] - sz / 2, c1[3] + sz / 2], round_precision)
-            if is_stop_requested(id)
-                println("Simulazione $(id) interrotta per richiesta stop.")
-                return nothing # O un altro valore che indica interruzione
-            end
+
+
             for n = m:N
                 c2 = centri_m[1:3]
                 x2v = round_ud_fft([c2[1] - sx2 / 2, c2[1] + sx2 / 2], round_precision)
@@ -30,10 +28,6 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
                 z2v = round_ud_fft([c2[3] - sz2 / 2, c2[3] + sz2 / 2], round_precision)
                 Lp[m, n] = 1e-7 / S * Integ_vol_vol_fft(x1v, y1v, z1v, x2v, y2v, z2v)
                 Lp[n, m] = Lp[m, n]
-                if is_stop_requested(id)
-                    println("Simulazione $(id) interrotta per richiesta stop.")
-                    return nothing # O un altro valore che indica interruzione
-                end
             end
         end
     else
@@ -42,20 +36,14 @@ function compute_Lp_Voxels(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc, is
             x1v = round_ud_fft([c1[1] - sx / 2, c1[1] + sx / 2], round_precision)
             y1v = round_ud_fft([c1[2] - sy / 2, c1[2] + sy / 2], round_precision)
             z1v = round_ud_fft([c1[3] - sz / 2, c1[3] + sz / 2], round_precision)
-            if is_stop_requested(id)
-                println("Simulazione $(id) interrotta per richiesta stop.")
-                return nothing # O un altro valore che indica interruzione
-            end
+
+
             for n = 1:N
-                c2 = [centri_n[n,1], centri_n[n,2], centri_n[n,3]]
+                c2 = [centri_n[n, 1], centri_n[n, 2], centri_n[n, 3]]
                 x2v = round_ud_fft([c2[1] - sx2 / 2, c2[1] + sx2 / 2], round_precision)
                 y2v = round_ud_fft([c2[2] - sy2 / 2, c2[2] + sy2 / 2], round_precision)
                 z2v = round_ud_fft([c2[3] - sz2 / 2, c2[3] + sz2 / 2], round_precision)
                 Lp[m, n] = 1e-7 / S * Integ_vol_vol_fft(x1v, y1v, z1v, x2v, y2v, z2v)
-                if is_stop_requested(id)
-                    println("Simulazione $(id) interrotta per richiesta stop.")
-                    return nothing # O un altro valore che indica interruzione
-                end
             end
         end
     end
@@ -169,267 +157,267 @@ function Integ_vol_vol_fft(x1v, y1v, z1v, x2v, y2v, z2v)
             end
         end
     end
-    sum_supp=supp_x1+supp_y1+supp_z1+supp_x2+supp_y2+supp_z2
+    sum_supp = supp_x1 + supp_y1 + supp_z1 + supp_x2 + supp_y2 + supp_z2
 
-    if sum_supp==6 #point-point to use
-        integ=V1*V2/sqrt((xc1-xc2)^2+(yc1-yc2)^2+(zc1-zc2)^2);
-    elseif sum_supp==5 #point-line to use
-        is_point_v1=0;
-        if (supp_x1+supp_y1+supp_z1==3)
-            is_point_v1=1;
+    if sum_supp == 6 #point-point to use
+        integ = V1 * V2 / sqrt((xc1 - xc2)^2 + (yc1 - yc2)^2 + (zc1 - zc2)^2)
+    elseif sum_supp == 5 #point-line to use
+        is_point_v1 = 0
+        if (supp_x1 + supp_y1 + supp_z1 == 3)
+            is_point_v1 = 1
         end
-        if is_point_v1==1
-            if supp_x2==0 #line of volume 2 along x
-                integ=V1*V2/a2*integ_line_point_fft([x2v[1], x2v[end]],yc2,zc2, xc1,yc1,zc1);
-            elseif supp_y2==0 #line of volume 2 along y
-                integ=V1*V2/b2*integ_line_point_fft([y2v[1], y2v[end]],xc2,zc2, yc1,xc1,zc1);
+        if is_point_v1 == 1
+            if supp_x2 == 0 #line of volume 2 along x
+                integ = V1 * V2 / a2 * integ_line_point_fft([x2v[1], x2v[end]], yc2, zc2, xc1, yc1, zc1)
+            elseif supp_y2 == 0 #line of volume 2 along y
+                integ = V1 * V2 / b2 * integ_line_point_fft([y2v[1], y2v[end]], xc2, zc2, yc1, xc1, zc1)
             else #line of volume 2 along z
-                integ=V1*V2/c2*integ_line_point_fft([z2v[1], z2v[end]],xc2,yc2, zc1,xc1,yc1);
+                integ = V1 * V2 / c2 * integ_line_point_fft([z2v[1], z2v[end]], xc2, yc2, zc1, xc1, yc1)
             end
         else
-            if supp_x1==0 #line of volume 1 along x
-                integ=V1*V2/a1*integ_line_point_fft([x1v[1], x1v[end]],yc1,zc1, xc2,yc2,zc2);
-            elseif supp_y1==0 #line of volume 1 along y
-                integ=V1*V2/b1*integ_line_point_fft([y1v[1], y1v[end]],xc1,zc1, yc2,xc2,zc2);
+            if supp_x1 == 0 #line of volume 1 along x
+                integ = V1 * V2 / a1 * integ_line_point_fft([x1v[1], x1v[end]], yc1, zc1, xc2, yc2, zc2)
+            elseif supp_y1 == 0 #line of volume 1 along y
+                integ = V1 * V2 / b1 * integ_line_point_fft([y1v[1], y1v[end]], xc1, zc1, yc2, xc2, zc2)
             else #line of volume 1 along z
-                integ=V1*V2/c1*integ_line_point_fft([z1v[1], z1v[end]],xc1,yc1, zc2,xc2,yc2);
+                integ = V1 * V2 / c1 * integ_line_point_fft([z1v[1], z1v[end]], xc1, yc1, zc2, xc2, yc2)
             end
         end
-    elseif sum_supp==4 #point-surface or line-line case
-        
-        is_point_v1=0;
-        if(supp_x1+supp_y1+supp_z1==3)
-            is_point_v1=1;
+    elseif sum_supp == 4 #point-surface or line-line case
+
+        is_point_v1 = 0
+        if (supp_x1 + supp_y1 + supp_z1 == 3)
+            is_point_v1 = 1
         end
-        is_point_v2=0;
-        if(supp_x2+supp_y2+supp_z2==3)
-            is_point_v2=1;
+        is_point_v2 = 0
+        if (supp_x2 + supp_y2 + supp_z2 == 3)
+            is_point_v2 = 1
         end
-        
-        if is_point_v1==1 #point-surface case
-            
-            if supp_x2==1 #surface of volume 2 in yz plane
-                integ=V1*a2*integ_point_sup_fft(zc1,yc1,xc1,[z2v[1], z2v[end]],[y2v[1], y2v[end]],xc2);
-            elseif supp_y2==1 #surface of volume 2 in xz plane
-                integ=V1*b2*integ_point_sup_fft(xc1,zc1,yc1,[x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2);
+
+        if is_point_v1 == 1 #point-surface case
+
+            if supp_x2 == 1 #surface of volume 2 in yz plane
+                integ = V1 * a2 * integ_point_sup_fft(zc1, yc1, xc1, [z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2)
+            elseif supp_y2 == 1 #surface of volume 2 in xz plane
+                integ = V1 * b2 * integ_point_sup_fft(xc1, zc1, yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
             else #surface of volume 2 in xy plane
-                integ=V1*c2*integ_point_sup_fft(xc1,yc1,zc1,[x2v[1], x2v[end]],[y2v[1], y2v[end]],zc2);
+                integ = V1 * c2 * integ_point_sup_fft(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
             end
-        elseif is_point_v2==1 #point-surface case
-            
-            if supp_x1==1 #surface of volume 1 in yz plane
-                integ=V2*a1*integ_point_sup_fft(zc2,yc2,xc2,[z1v[1], z1v[end]],[y1v[1], y1v[end]],xc1);
-            elseif supp_y1==1 #surface of volume 1 in xz plane
-                integ=V2*b1*integ_point_sup_fft(xc2,zc2,yc2,[x1v[1], x1v[end]],[z1v[1], z1v[end]],yc1);
+        elseif is_point_v2 == 1 #point-surface case
+
+            if supp_x1 == 1 #surface of volume 1 in yz plane
+                integ = V2 * a1 * integ_point_sup_fft(zc2, yc2, xc2, [z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1)
+            elseif supp_y1 == 1 #surface of volume 1 in xz plane
+                integ = V2 * b1 * integ_point_sup_fft(xc2, zc2, yc2, [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
             else #surface of volume 1 in xy plane
-                integ=V2*c1*integ_point_sup_fft(xc2,yc2,zc2,[x1v[1], x1v[end]],[y1v[1], y1v[end]],zc1);
+                integ = V2 * c1 * integ_point_sup_fft(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
             end
         else #line-line case
-            
-            if supp_y1==1 && supp_z1==1
-                if supp_y2==1 && supp_z2==1 # parallel lines
-                    integ= b1*c1*b2*c2* integ_line_line_parall_fft([x1v[1], x1v[end]],yc1,zc1,[x2v[1], x2v[end]],yc2,zc2);
-                elseif supp_x2==1 && supp_z2==1 # orthogonal lines
-                    integ= b1*c1*a2*c2*integ_line_line_ortho_xy_fft([x1v[1], x1v[end]],yc1,zc1,xc2,[y2v[1], y2v[end]],zc2);
+
+            if supp_y1 == 1 && supp_z1 == 1
+                if supp_y2 == 1 && supp_z2 == 1 # parallel lines
+                    integ = b1 * c1 * b2 * c2 * integ_line_line_parall_fft([x1v[1], x1v[end]], yc1, zc1, [x2v[1], x2v[end]], yc2, zc2)
+                elseif supp_x2 == 1 && supp_z2 == 1 # orthogonal lines
+                    integ = b1 * c1 * a2 * c2 * integ_line_line_ortho_xy_fft([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], zc2)
                 else
-                    integ= b1*c1*a2*b2*integ_line_line_ortho_xy_fft([x1v[1], x1v[end]],zc1,yc1,xc2,[z2v[1], z2v[end]],yc2);
+                    integ = b1 * c1 * a2 * b2 * integ_line_line_ortho_xy_fft([x1v[1], x1v[end]], zc1, yc1, xc2, [z2v[1], z2v[end]], yc2)
                 end
-                
-            elseif supp_x1==1 && supp_z1==1
-                if supp_x2==1 && supp_z2==1 # parallel lines
-                    integ= a1*c1*a2*c2* integ_line_line_parall_fft([y1v[1], y1v[end]],xc1,zc1,[y2v[1], y2v[end]],xc2,zc2);
-                elseif supp_x2==1 && supp_y2==1 # orthogonal lines
-                    integ= a1*c1*a2*b2*integ_line_line_ortho_xy_fft([y1v[1], y1v[end]],zc1,xc1,yc2,[z2v[1], z2v[end]],xc2);
+
+            elseif supp_x1 == 1 && supp_z1 == 1
+                if supp_x2 == 1 && supp_z2 == 1 # parallel lines
+                    integ = a1 * c1 * a2 * c2 * integ_line_line_parall_fft([y1v[1], y1v[end]], xc1, zc1, [y2v[1], y2v[end]], xc2, zc2)
+                elseif supp_x2 == 1 && supp_y2 == 1 # orthogonal lines
+                    integ = a1 * c1 * a2 * b2 * integ_line_line_ortho_xy_fft([y1v[1], y1v[end]], zc1, xc1, yc2, [z2v[1], z2v[end]], xc2)
                 else
-                    integ= a1*c1*b2*c2*integ_line_line_ortho_xy_fft([y1v[1], y1v[end]],xc1,zc1,yc2,[x2v[1], x2v[end]],zc2);
+                    integ = a1 * c1 * b2 * c2 * integ_line_line_ortho_xy_fft([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], zc2)
                 end
-                
+
             else
-                if supp_x2==1 && supp_y2==1 # parallel lines
-                    integ= a1*b1*a2*b2* integ_line_line_parall_fft([z1v[1], z1v[end]],xc1,yc1,[z2v[1], z2v[end]],xc2,yc2);
-                elseif supp_x2==1 && supp_z2==1 # orthogonal lines
-                    integ= a1*b1*a2*c2*integ_line_line_ortho_xy_fft([z1v[1], z1v[end]],yc1,xc1,zc2,[y2v[1], y2v[end]],xc2);
+                if supp_x2 == 1 && supp_y2 == 1 # parallel lines
+                    integ = a1 * b1 * a2 * b2 * integ_line_line_parall_fft([z1v[1], z1v[end]], xc1, yc1, [z2v[1], z2v[end]], xc2, yc2)
+                elseif supp_x2 == 1 && supp_z2 == 1 # orthogonal lines
+                    integ = a1 * b1 * a2 * c2 * integ_line_line_ortho_xy_fft([z1v[1], z1v[end]], yc1, xc1, zc2, [y2v[1], y2v[end]], xc2)
                 else
-                    integ= a1*b1*b2*c2*integ_line_line_ortho_xy_fft([z1v[1], z1v[end]],xc1,yc1,zc2,[x2v[1], x2v[end]],yc2);
+                    integ = a1 * b1 * b2 * c2 * integ_line_line_ortho_xy_fft([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], yc2)
                 end
-                
+
             end
         end
-    elseif sum_supp==3 #point-volume or surface-line
-        
-        is_point_v1=0;
-        if(supp_x1+supp_y1+supp_z1==3)
-            is_point_v1=1;
+    elseif sum_supp == 3 #point-volume or surface-line
+
+        is_point_v1 = 0
+        if (supp_x1 + supp_y1 + supp_z1 == 3)
+            is_point_v1 = 1
         end
-        is_point_v2=0;
-        if(supp_x2+supp_y2+supp_z2==3)
-            is_point_v2=1;
+        is_point_v2 = 0
+        if (supp_x2 + supp_y2 + supp_z2 == 3)
+            is_point_v2 = 1
         end
-        
-        
-        is_surf_v1=0;
-        if(supp_x1+supp_y1+supp_z1==1)
-            is_surf_v1=1;
+
+
+        is_surf_v1 = 0
+        if (supp_x1 + supp_y1 + supp_z1 == 1)
+            is_surf_v1 = 1
         end
-        
-        if is_point_v1==1 #point-volume case
-            integ=a1*b1*c1*integ_point_vol_fft(xc1,yc1,zc1, [x2v[1], x2v[end]],[y2v[1], y2v[end]],[z2v[1], z2v[end]]);
-            
-        elseif is_point_v2==1 #point-volume case
-            integ=a2*b2*c2*integ_point_vol_fft(xc2,yc2,zc2, [x1v[1], x1v[end]],[y1v[1], y1v[end]],[z1v[1], z1v[end]]);
-            
+
+        if is_point_v1 == 1 #point-volume case
+            integ = a1 * b1 * c1 * integ_point_vol_fft(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+
+        elseif is_point_v2 == 1 #point-volume case
+            integ = a2 * b2 * c2 * integ_point_vol_fft(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+
         else #line-surface case
-            
-            if is_surf_v1==1 # bar1 is a surface
-                
-                if supp_x1==1# bar1 is a surface in y-z plane
-                    
-                    if supp_x2==0 #bar 2 is a line along x
-                        integ=a1*b2*c2 * integ_line_surf_ortho_fft([x2v[1], x2v[end]],yc2,zc2, xc1,[y1v[1], y1v[end]],[z1v[1], z1v[end]]);
-                        
-                    elseif supp_y2==0 #bar 2 is a line along y
-                        integ=a1*a2*c2 *integ_line_surf_para_fft( [y1v[1], y1v[end]],[z1v[1], z1v[end]],xc1,[y2v[1], y2v[end]],zc2,xc2);
+
+            if is_surf_v1 == 1 # bar1 is a surface
+
+                if supp_x1 == 1# bar1 is a surface in y-z plane
+
+                    if supp_x2 == 0 #bar 2 is a line along x
+                        integ = a1 * b2 * c2 * integ_line_surf_ortho_fft([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+
+                    elseif supp_y2 == 0 #bar 2 is a line along y
+                        integ = a1 * a2 * c2 * integ_line_surf_para_fft([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
                     else #bar 2 is a line along z
-                        integ=a1*a2*b2 *integ_line_surf_para_fft( [z1v[1], z1v[end]],[y1v[1], y1v[end]],xc1,[z2v[1], z2v[end]],yc2,xc2);
+                        integ = a1 * a2 * b2 * integ_line_surf_para_fft([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
                     end
-                elseif supp_y1==1# bar1 is a surface in x-z plane
-                    
-                    if supp_x2==0 #bar 2 is a line along x
-                        integ=b1*b2*c2 * integ_line_surf_para_fft( [x1v[1], x1v[end]],[z1v[1], z1v[end]],yc1,[x2v[1], x2v[end]],zc2,yc2);
-                    elseif supp_y2==0 #bar 2 is a line along y
-                        integ=b1*a2*c2 *integ_line_surf_ortho_fft([y2v[1], y2v[end]],xc2,zc2, yc1,[x1v[1], x1v[end]],[z1v[1], z1v[end]]);
-                        
+                elseif supp_y1 == 1# bar1 is a surface in x-z plane
+
+                    if supp_x2 == 0 #bar 2 is a line along x
+                        integ = b1 * b2 * c2 * integ_line_surf_para_fft([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
+                    elseif supp_y2 == 0 #bar 2 is a line along y
+                        integ = b1 * a2 * c2 * integ_line_surf_ortho_fft([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
+
                     else #bar 2 is a line along z
-                        integ=b1*a2*b2 *integ_line_surf_para_fft( [z1v[1], z1v[end]],[x1v[1], x1v[end]],yc1,[z2v[1], z2v[end]],xc2,yc2);
+                        integ = b1 * a2 * b2 * integ_line_surf_para_fft([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
                     end
                 else # bar1 is a surface in x-y plane
-                    
-                    if supp_x2==0 #bar 2 is a line along x
-                        integ=c1*b2*c2 * integ_line_surf_para_fft( [x1v[1], x1v[end]],[y1v[1], y1v[end]],zc1,[x2v[1], x2v[end]],yc2,zc2);
-                    elseif supp_y2==0 #bar 2 is a line along y
-                        integ=c1*a2*c2 *integ_line_surf_para_fft( [y1v[1], y1v[end]],[x1v[1], x1v[end]],zc1,[y2v[1], y2v[end]],xc2,zc2);
+
+                    if supp_x2 == 0 #bar 2 is a line along x
+                        integ = c1 * b2 * c2 * integ_line_surf_para_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
+                    elseif supp_y2 == 0 #bar 2 is a line along y
+                        integ = c1 * a2 * c2 * integ_line_surf_para_fft([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, zc2)
                     else #bar 2 is a line along z
-                        integ=c1*a2*b2 *integ_line_surf_ortho_fft([z2v[1], z2v[end]],xc2,yc2, zc1,[x1v[1], x1v[end]],[y1v[1], y1v[end]]);
-                        
+                        integ = c1 * a2 * b2 * integ_line_surf_ortho_fft([z2v[1], z2v[end]], xc2, yc2, zc1, [x1v[1], x1v[end]], [y1v[1], y1v[end]])
+
                     end
                 end
             else #bar2 is a surface
-                if supp_x2==1# bar2 is a surface in y-z plane
-                    
-                    if supp_x1==0 #bar 1 is a line along x
-                        integ=a2*b1*c1 * integ_line_surf_ortho_fft([x1v[1], x1v[end]],yc1,zc1, xc2,[y2v[1], y2v[end]],[z2v[1], z2v[end]]);
-                        
-                    elseif supp_y1==0 #bar 1 is a line along y
-                        integ=a2*a1*c1 *integ_line_surf_para_fft( [y2v[1], y2v[end]],[z2v[1], z2v[end]],xc2,[y1v[1], y1v[end]],zc1,xc1);
+                if supp_x2 == 1# bar2 is a surface in y-z plane
+
+                    if supp_x1 == 0 #bar 1 is a line along x
+                        integ = a2 * b1 * c1 * integ_line_surf_ortho_fft([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+
+                    elseif supp_y1 == 0 #bar 1 is a line along y
+                        integ = a2 * a1 * c1 * integ_line_surf_para_fft([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
                     else #bar 1 is a line along z
-                        integ=a2*a1*b1 *integ_line_surf_para_fft( [z2v[1], z2v[end]],[y2v[1], y2v[end]],xc2,[z1v[1], z1v[end]],yc1,xc1);
+                        integ = a2 * a1 * b1 * integ_line_surf_para_fft([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
                     end
-                elseif supp_y2==1# bar2 is a surface in x-z plane
-                    
-                    if supp_x1==0 #bar 1 is a line along x
-                        integ=b2*b1*c1 * integ_line_surf_para_fft( [x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2,[x1v[1], x1v[end]],zc1,yc1);
-                    elseif supp_y1==0 #bar 1 is a line along y
-                        integ=b2*a1*c1 *integ_line_surf_ortho_fft([y1v[1], y1v[end]],xc1,zc1, yc2,[x2v[1], x2v[end]],[z2v[1], z2v[end]]);
-                        
+                elseif supp_y2 == 1# bar2 is a surface in x-z plane
+
+                    if supp_x1 == 0 #bar 1 is a line along x
+                        integ = b2 * b1 * c1 * integ_line_surf_para_fft([x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2, [x1v[1], x1v[end]], zc1, yc1)
+                    elseif supp_y1 == 0 #bar 1 is a line along y
+                        integ = b2 * a1 * c1 * integ_line_surf_ortho_fft([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
+
                     else #bar 1 is a line along z
-                        integ=b2*a1*b1 *integ_line_surf_para_fft( [z2v[1], z2v[end]],[x2v[1], x2v[end]],yc2,[z1v[1], z1v[end]],xc1,yc1);
+                        integ = b2 * a1 * b1 * integ_line_surf_para_fft([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc2, [z1v[1], z1v[end]], xc1, yc1)
                     end
                 else # bar2 is a surface in x-y plane
-                    
-                    if supp_x1==0 #bar 1 is a line along x
-                        integ=c2*b1*c1 * integ_line_surf_para_fft( [x2v[1], x2v[end]],[y2v[1], y2v[end]],zc2,[x1v[1], x1v[end]],yc1,zc1);
-                    elseif supp_y1==0 #bar 1 is a line along y
-                        integ=c2*a1*c1 *integ_line_surf_para_fft( [y2v[1], y2v[end]],[x2v[1], x2v[end]],zc2,[y1v[1], y1v[end]],xc1,zc1);
+
+                    if supp_x1 == 0 #bar 1 is a line along x
+                        integ = c2 * b1 * c1 * integ_line_surf_para_fft([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
+                    elseif supp_y1 == 0 #bar 1 is a line along y
+                        integ = c2 * a1 * c1 * integ_line_surf_para_fft([y2v[1], y2v[end]], [x2v[1], x2v[end]], zc2, [y1v[1], y1v[end]], xc1, zc1)
                     else #bar 1 is a line along z
-                        integ=c2*a1*b1 *integ_line_surf_ortho_fft([z1v[1], z1v[end]],xc1,yc1, zc2,[x2v[1], x2v[end]],[y2v[1], y2v[end]]);
-                        
+                        integ = c2 * a1 * b1 * integ_line_surf_ortho_fft([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], [y2v[1], y2v[end]])
+
                     end
                 end
             end
         end
-    elseif sum_supp==2 #line-volume or surface-surface
-        
-        is_line_v1=0;
-        if(supp_x1+supp_y1+supp_z1==2)
-            is_line_v1=1;
+    elseif sum_supp == 2 #line-volume or surface-surface
+
+        is_line_v1 = 0
+        if (supp_x1 + supp_y1 + supp_z1 == 2)
+            is_line_v1 = 1
         end
-        
-        is_line_v2=0;
-        if(supp_x2+supp_y2+supp_z2==2)
-            is_line_v2=1;
+
+        is_line_v2 = 0
+        if (supp_x2 + supp_y2 + supp_z2 == 2)
+            is_line_v2 = 1
         end
-        
-        if is_line_v1==1 #bar1 is a line
-            
-            if supp_x1==0 #bar1 is a line along x
-                
-                integ=b1*c1 * integ_line_vol_fft([x2v[1], x2v[end]],[y2v[1], y2v[end]],[z2v[1], z2v[end]],[x1v[1], x1v[end]],yc1,zc1);
-            elseif   supp_y1==0 #bar1 is a line along y
-                integ=a1*c1 * integ_line_vol_fft([y2v[1], y2v[end]],[x2v[1], x2v[end]],[z2v[1], z2v[end]],[y1v[1], y1v[end]],xc1,zc1);
+
+        if is_line_v1 == 1 #bar1 is a line
+
+            if supp_x1 == 0 #bar1 is a line along x
+
+                integ = b1 * c1 * integ_line_vol_fft([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], [x1v[1], x1v[end]], yc1, zc1)
+            elseif supp_y1 == 0 #bar1 is a line along y
+                integ = a1 * c1 * integ_line_vol_fft([y2v[1], y2v[end]], [x2v[1], x2v[end]], [z2v[1], z2v[end]], [y1v[1], y1v[end]], xc1, zc1)
             else #bar1 is a line along z
-                integ=a1*b1 * integ_line_vol_fft([z2v[1], z2v[end]],[x2v[1], x2v[end]],[y2v[1], y2v[end]],[z1v[1], z1v[end]],xc1,yc1);
+                integ = a1 * b1 * integ_line_vol_fft([z2v[1], z2v[end]], [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z1v[1], z1v[end]], xc1, yc1)
             end
-        elseif is_line_v2==1 #bar2 is a line
-            
-            if supp_x2==0 #bar2 is a line along x
-                
-                integ=b2*c2 * integ_line_vol_fft([x1v[1], x1v[end]],[y1v[1], y1v[end]],[z1v[1], z1v[end]],[x2v[1], x2v[end]],yc2,zc2);
-            elseif   supp_y2==0 #bar2 is a line along y
-                integ=a2*c2 * integ_line_vol_fft([y1v[1], y1v[end]],[x1v[1], x1v[end]],[z1v[1], z1v[end]],[y2v[1], y2v[end]],xc2,zc2);
+        elseif is_line_v2 == 1 #bar2 is a line
+
+            if supp_x2 == 0 #bar2 is a line along x
+
+                integ = b2 * c2 * integ_line_vol_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], [x2v[1], x2v[end]], yc2, zc2)
+            elseif supp_y2 == 0 #bar2 is a line along y
+                integ = a2 * c2 * integ_line_vol_fft([y1v[1], y1v[end]], [x1v[1], x1v[end]], [z1v[1], z1v[end]], [y2v[1], y2v[end]], xc2, zc2)
             else #bar2 is a line along z
-                integ=a2*b2 * integ_line_vol_fft([z1v[1], z1v[end]],[x1v[1], x1v[end]],[y1v[1], y1v[end]],[z2v[1], z2v[end]],xc2,yc2);
+                integ = a2 * b2 * integ_line_vol_fft([z1v[1], z1v[end]], [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z2v[1], z2v[end]], xc2, yc2)
             end
         else #surface-surface case
-            
-            if supp_x1==1 #bar1 is a surface in yz plane
-                
-                if supp_x2==1 #bar2 is a surface in yz plane
-                    integ=a1*a2*integ_surf_surf_para_fft([y1v[1], y1v[end]],[z1v[1], z1v[end]],xc1, [y2v[1], y2v[end]],[z2v[1], z2v[end]],xc2);
-                elseif supp_y2==1 #bar2 is a surface in xz plane
-                    integ=a1*b2*integ_surf_surf_ortho_fft([z1v[1], z1v[end]],[y1v[1], y1v[end]],xc1,[z2v[1], z2v[end]],yc2,[x2v[1], x2v[end]]);
+
+            if supp_x1 == 1 #bar1 is a surface in yz plane
+
+                if supp_x2 == 1 #bar2 is a surface in yz plane
+                    integ = a1 * a2 * integ_surf_surf_para_fft([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+                elseif supp_y2 == 1 #bar2 is a surface in xz plane
+                    integ = a1 * b2 * integ_surf_surf_ortho_fft([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, [x2v[1], x2v[end]])
                 else #bar2 is a surface in xy plane
-                    integ=a1*c2*integ_surf_surf_ortho_fft([y1v[1], y1v[end]],[z1v[1], z1v[end]],xc1,[y2v[1], y2v[end]],zc2,[x2v[1], x2v[end]]);
+                    integ = a1 * c2 * integ_surf_surf_ortho_fft([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, [x2v[1], x2v[end]])
                 end
-            elseif supp_y1==1 #bar1 is a surface in xz plane
-                
-                if supp_x2==1 #bar2 is a surface in yz plane
-                    integ=b1*a2*integ_surf_surf_ortho_fft([z1v[1], z1v[end]],[x1v[1], x1v[end]],yc1,[z2v[1], z2v[end]],xc2,[y2v[1], y2v[end]]);
-                elseif supp_y2==1 #bar2 is a surface in xz plane
-                    integ=b1*b2*integ_surf_surf_para_fft([x1v[1], x1v[end]],[z1v[1], z1v[end]],yc1, [x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2);
+            elseif supp_y1 == 1 #bar1 is a surface in xz plane
+
+                if supp_x2 == 1 #bar2 is a surface in yz plane
+                    integ = b1 * a2 * integ_surf_surf_ortho_fft([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, [y2v[1], y2v[end]])
+                elseif supp_y2 == 1 #bar2 is a surface in xz plane
+                    integ = b1 * b2 * integ_surf_surf_para_fft([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
                 else #bar2 is a surface in xy plane
-                    integ=b1*c2*integ_surf_surf_ortho_fft([x1v[1], x1v[end]],[z1v[1], z1v[end]],yc1,[x2v[1], x2v[end]],zc2,[y2v[1], y2v[end]]);
+                    integ = b1 * c2 * integ_surf_surf_ortho_fft([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, [y2v[1], y2v[end]])
                 end
             else #bar1 is a surface in xy plane
-                
-                if supp_x2==1 #bar2 is a surface in yz plane
-                    integ=c1*a2*integ_surf_surf_ortho_fft([y1v[1], y1v[end]],[x1v[1], x1v[end]],zc1,[y2v[1], y2v[end]],xc2,[z2v[1], z2v[end]]);
-                elseif supp_y2==1 #bar2 is a surface in xz plane
-                    integ=c1*b2*integ_surf_surf_ortho_fft([x1v[1], x1v[end]],[y1v[1], y1v[end]],zc1,[x2v[1], x2v[end]],yc2,[z2v[1], z2v[end]]);
+
+                if supp_x2 == 1 #bar2 is a surface in yz plane
+                    integ = c1 * a2 * integ_surf_surf_ortho_fft([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, [z2v[1], z2v[end]])
+                elseif supp_y2 == 1 #bar2 is a surface in xz plane
+                    integ = c1 * b2 * integ_surf_surf_ortho_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, [z2v[1], z2v[end]])
                 else #bar2 is a surface in xy plane
-                    integ=c1*c2*integ_surf_surf_para_fft([x1v[1], x1v[end]],[y1v[1], y1v[end]],zc1, [x2v[1], x2v[end]],[y2v[1], y2v[end]],zc2);
+                    integ = c1 * c2 * integ_surf_surf_para_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
                 end
             end
-            
+
         end
-        
-    elseif sum_supp==1 #surface-volume case
-        
-        if supp_x1==1 #bar1 is a surface in yz plane
-            integ=a1*integ_vol_surf_fft( [y2v[1], y2v[end]],[z2v[1], z2v[end]],[x2v[1], x2v[end]], [y1v[1], y1v[end]],[z1v[1], z1v[end]],xc1);
-        elseif supp_y1==1 #bar1 is a surface in xz plane
-            integ=b1*integ_vol_surf_fft( [x2v[1], x2v[end]],[z2v[1], z2v[end]],[y2v[1], y2v[end]], [x1v[1], x1v[end]],[z1v[1], z1v[end]],yc1);
-        elseif supp_z1==1 #bar1 is a surface in xy plane
-            integ=c1*integ_vol_surf_fft( [x2v[1], x2v[end]],[y2v[1], y2v[end]],[z2v[1], z2v[end]], [x1v[1], x1v[end]],[y1v[1], y1v[end]],zc1);
-        elseif supp_x2==1 #bar2 is a surface in yz plane
-            integ=a2*integ_vol_surf_fft( [y1v[1], y1v[end]],[z1v[1], z1v[end]],[x1v[1], x1v[end]], [y2v[1], y2v[end]],[z2v[1], z2v[end]],xc2);
-        elseif supp_y2==1 #bar2 is a surface in xz plane
-            integ=b2*integ_vol_surf_fft( [x1v[1], x1v[end]],[z1v[1], z1v[end]],[y1v[1], y1v[end]], [x2v[1], x2v[end]],[z2v[1], z2v[end]],yc2);
-        elseif supp_z2==1 #bar2 is a surface in xy plane
-            integ=c2*integ_vol_surf_fft( [x1v[1], x1v[end]],[y1v[1], y1v[end]],[z1v[1], z1v[end]], [x2v[1], x2v[end]],[y2v[1], y2v[end]],zc2);
+
+    elseif sum_supp == 1 #surface-volume case
+
+        if supp_x1 == 1 #bar1 is a surface in yz plane
+            integ = a1 * integ_vol_surf_fft([y2v[1], y2v[end]], [z2v[1], z2v[end]], [x2v[1], x2v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1)
+        elseif supp_y1 == 1 #bar1 is a surface in xz plane
+            integ = b1 * integ_vol_surf_fft([x2v[1], x2v[end]], [z2v[1], z2v[end]], [y2v[1], y2v[end]], [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
+        elseif supp_z1 == 1 #bar1 is a surface in xy plane
+            integ = c1 * integ_vol_surf_fft([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
+        elseif supp_x2 == 1 #bar2 is a surface in yz plane
+            integ = a2 * integ_vol_surf_fft([y1v[1], y1v[end]], [z1v[1], z1v[end]], [x1v[1], x1v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+        elseif supp_y2 == 1 #bar2 is a surface in xz plane
+            integ = b2 * integ_vol_surf_fft([x1v[1], x1v[end]], [z1v[1], z1v[end]], [y1v[1], y1v[end]], [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+        elseif supp_z2 == 1 #bar2 is a surface in xy plane
+            integ = c2 * integ_vol_surf_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
         end
     else #volume-volume case
-        
-        integ=integ_vol_vol_fft([x1v[1], x1v[end]],[y1v[1], y1v[end]],[z1v[1], z1v[end]], [x2v[1], x2v[end]],[y2v[1], y2v[end]],[z2v[1], z2v[end]]);
+
+        integ = integ_vol_vol_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
     end
     return integ
 end
@@ -518,7 +506,7 @@ function integ_line_line_sp_fft(x1v, x2v)
         for c2 = 1:2
             x2 = x2v[c2]
             R = sqrt((x1 - x2)^2)
-            term1 = (x1 - x2) / R * (x1 - x2 * real(log(complex((x2 - x1))))) 
+            term1 = (x1 - x2) / R * (x1 - x2 * real(log(complex((x2 - x1)))))
             if isnan(term1) || isinf(term1)
                 term1 = 0
             end
@@ -571,9 +559,9 @@ function integ_point_vol_fft(x1, y1, z1, x2v, y2v, z2v)
                 if isnan(term3) || isinf(term3)
                     term3 = 0
                 end
-                term4 = -1/2 * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
-                term5 = -1/2 * abs.(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
-                term6 = -1/2 * abs.(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
+                term4 = -1 / 2 * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
+                term5 = -1 / 2 * abs.(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
+                term6 = -1 / 2 * abs.(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
                 sol = sol + (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4 + term5 + term6)
             end
         end
@@ -643,19 +631,19 @@ function integ_line_vol_fft(x1v, y1v, z1v, x2v, y2, z2)
                 for c4 = 1:2
                     x2 = x2v[c4]
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
-                    term2 = -1/2 * (x1 - x2) * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
-                    term3 = -1/2 * (x1 - x2) * abs.(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
-                    term4 = -1/6 * abs.(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
+                    term1 = -1 / 3 * (y1 - y2) * (z1 - z2) * R
+                    term2 = -1 / 2 * (x1 - x2) * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
+                    term3 = -1 / 2 * (x1 - x2) * abs.(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
+                    term4 = -1 / 6 * abs.(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
                     term5 = (x1 - x2) * (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
                     if isnan(term5) || isinf(term5)
                         term5 = 0
                     end
-                    term6 = (1/2 * (x1 - x2)^2 - 1/6 * (z1 - z2)^2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
+                    term6 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (z1 - z2)^2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
                     if isnan(term6) || isinf(term6)
                         term6 = 0
                     end
-                    term7 = (1/2 * (x1 - x2)^2 - 1/6 * (y1 - y2)^2) * (y1 - y2) * real(log(complex((z1 - z2) + R)))
+                    term7 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (y1 - y2)^2) * (y1 - y2) * real(log(complex((z1 - z2) + R)))
                     if isnan(term7) || isinf(term7)
                         term7 = 0
                     end
@@ -678,13 +666,13 @@ function integ_surf_surf_para_fft(x1v, y1v, z1, x2v, y2v, z2)
                 for c4 = 1:2
                     x2 = x2v[c4]
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    term1 = -1/6 * ((x1 - x2)^2 + (y1 - y2)^2 - 2 * (z1 - z2)^2) * R
+                    term1 = -1 / 6 * ((x1 - x2)^2 + (y1 - y2)^2 - 2 * (z1 - z2)^2) * R
                     term2 = -(x1 - x2) * (y1 - y2) * abs.(z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
-                    term3 = 1/2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
+                    term3 = 1 / 2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
                     if isnan(term3) || isinf(term3)
                         term3 = 0
                     end
-                    term4 = 1/2 * ((y1 - y2)^2 - (z1 - z2)^2) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
+                    term4 = 1 / 2 * ((y1 - y2)^2 - (z1 - z2)^2) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
                     if isnan(term4) || isinf(term4)
                         term4 = 0
                     end
@@ -707,13 +695,13 @@ function integ_surf_surf_ortho_fft(x1v, y1v, z1, x2v, y2, z2v)
                 for c4 = 1:2
                     x2 = x2v[c4]
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
-                    term2 = -1/2 * (x1 - x2) * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
-                    term3 = 1/2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
+                    term1 = -1 / 3 * (y1 - y2) * (z1 - z2) * R
+                    term2 = -1 / 2 * (x1 - x2) * abs.(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
+                    term3 = 1 / 2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log(complex((y1 - y2) + R)))
                     if isnan(term3) || isinf(term3)
                         term3 = 0
                     end
-                    term4 = 1/2 * ((x1 - x2)^2 - (y1 - y2)^2) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
+                    term4 = 1 / 2 * ((x1 - x2)^2 - (y1 - y2)^2) * (x1 - x2) * real(log(complex((x1 - x2) + R)))
                     if isnan(term4) || isinf(term4)
                         term4 = 0
                     end
@@ -747,13 +735,13 @@ function integ_vol_surf_fft(x1v, y1v, z1v, x2v, y2v, z2)
                         if isnan(term3) || isinf(term3)
                             term3 = 0
                         end
-                        term4 = (- (x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log(complex((z1 - z2) + R)))
+                        term4 = (-(x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log(complex((z1 - z2) + R)))
                         if isnan(term4) || isinf(term4)
                             term4 = 0
                         end
                         term5 = -abs.(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
-                        term6 = - (x1 - x2) * abs.(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
-                        term7 = - (x1 - x2) * (y1 - y2) * abs.(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
+                        term6 = -(x1 - x2) * abs.(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
+                        term7 = -(x1 - x2) * (y1 - y2) * abs.(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
                         sol = sol + (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
                     end
                 end
@@ -792,8 +780,8 @@ function integ_vol_vol_fft(x1v, y1v, z1v, x2v, y2v, z2v)
                                 term4 = 0.0
                             end
                             term5 = -abs.(x1 - x2)^3 * (y1 - y2) * (z1 - z2) / 6 * atan((y1 - y2) * (z1 - z2), (abs.(x1 - x2) * R))
-                            term6 = - (x1 - x2) * abs.(y1 - y2)^3 * (z1 - z2) / 6 * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
-                            term7 = - (x1 - x2) * (y1 - y2) * abs.(z1 - z2)^3 / 6 * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
+                            term6 = -(x1 - x2) * abs.(y1 - y2)^3 * (z1 - z2) / 6 * atan((x1 - x2) * (z1 - z2), (abs.(y1 - y2) * R))
+                            term7 = -(x1 - x2) * (y1 - y2) * abs.(z1 - z2)^3 / 6 * atan((x1 - x2) * (y1 - y2), (abs.(z1 - z2) * R))
                             sol = sol + (-1)^(c1 + c2 + c3 + c4 + c5 + c6 + 1) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
                         end
                     end
@@ -806,10 +794,10 @@ end
 
 function round_ud_fft(args...)
     nargin = length(args)
-    if nargin<2
-        out=round.(args[1]);
+    if nargin < 2
+        out = round.(args[1])
     else
-        out=round.(args[1]*10^args[2])/10^args[2];
+        out = round.(args[1] * 10^args[2]) / 10^args[2]
     end
     return out
 end

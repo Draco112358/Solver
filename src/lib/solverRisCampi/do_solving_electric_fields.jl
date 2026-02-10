@@ -83,10 +83,8 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
+
+
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])
         A = sparse(row_indices, col_indices, nz_values)
         E, K, H, E_theta_v, E_phi_v = compute_fields_components(theta, phi, e_theta, e_phi)
@@ -181,13 +179,7 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
         end
     finally
-        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
-        lock(stop_computation_lock) do
-            if haskey(stopComputation, id)
-                delete!(stopComputation, id)
-                println("Flag di stop per simulazione $(id) rimosso.")
-            end
-        end
+        # Nessuna pulizia necessaria: il meccanismo di stop è ora basato su processi
     end
 
 end

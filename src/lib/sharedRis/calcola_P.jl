@@ -73,12 +73,6 @@ function calculate_R_cc!(R_cc::Matrix{Float64}, centri::Matrix{Float64}, nsup::I
             end
         end
 
-        # Check for stop request after each block is fully processed
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            # Consider throwing an exception or returning a status for clearer interruption handling
-            return nothing
-        end
 
         # Use an actual counter for blocks for clearer output
         println("Processed block $(block_idx) / $(num_blocks)")
@@ -208,11 +202,6 @@ function calculate_P_matrix(
             end
         end
 
-        # Check for stop request after each block
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing
-        end
 
         #println("Processed block $(block_idx) / $(num_blocks) for P calculation.")
     end

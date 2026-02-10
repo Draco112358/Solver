@@ -52,9 +52,7 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         println("reading ports completed")
         #SIGNALS = [el for el in inputDict["signals"]]
 
-        if is_stopped_computation(id, chan)
-            return false
-        end
+
 
         # # START SETTINGS--------------------------------------------
         # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
@@ -68,10 +66,7 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
+
 
         println("create_volume_centers")
         centri_vox, id_mat = create_volume_centers(grids, mapping_vols, num_centri, sx, sy, sz, origin)
@@ -79,20 +74,14 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
+
         println("create_Grids_externals")
         externals_grids = create_Grids_externals(grids)
 
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
+
 
         println("MesherFFT")
         escalings, incidence_selection, circulant_centers, diagonals, expansions, ports, lumped_elements, li_mats, Zs_info = mesher_FFT(use_escalings, MATERIALS, sx, sy, sz, grids, centri_vox, externals_grids, mapping_vols, PORTS, L_ELEMENTS, origin, commentsEnabled, dominant_list, id)
@@ -107,11 +96,6 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
-
         println("P and Lp")
         FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
         if isnothing(FFTCP)
@@ -136,9 +120,7 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
             return nothing
         end
 
-        if is_stopped_computation(id, chan)
-            return false
-        end
+
         if (commentsEnabled == true)
             #publish_data(dump_json_data(out["Z"], out["S"], out["Y"], length(inputDict["ports"]), id), "solver_results", chan)
             filename = id * "_results.json.gz"
@@ -167,13 +149,7 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
             send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
         end
     finally
-        # Pulizia del flag di stop indipendentemente da come la simulazione finisce
-        lock(stop_computation_lock) do
-            if haskey(stopComputation, id)
-                delete!(stopComputation, id)
-                println("Flag di stop per simulazione $(id) rimosso.")
-            end
-        end
+        # Nessuna pulizia necessaria: il meccanismo di stop è ora basato su processi
     end
 
 end

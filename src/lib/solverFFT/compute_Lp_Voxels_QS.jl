@@ -20,36 +20,32 @@ function compute_Lp_Voxels_QS(centri_m, centri_n, sx, sy, sz, sx2, sy2, sz2, dc,
 
     c1 = centri_m[1:3]
 
-    x1v = round_ud([c1[1] - sx/2, c1[1] + sx/2], round_precision)
-    y1v = round_ud([c1[2] - sy/2, c1[2] + sy/2], round_precision)
-    z1v = round_ud([c1[3] - sz/2, c1[3] + sz/2], round_precision)
+    x1v = round_ud([c1[1] - sx / 2, c1[1] + sx / 2], round_precision)
+    y1v = round_ud([c1[2] - sy / 2, c1[2] + sy / 2], round_precision)
+    z1v = round_ud([c1[3] - sz / 2, c1[3] + sz / 2], round_precision)
 
     for n in 1:N
         c2 = centri_n[n, 1:3]
 
-        x2v = round_ud([c2[1] - sx2/2, c2[1] + sx2/2], round_precision)
-        y2v = round_ud([c2[2] - sy2/2, c2[2] + sy2/2], round_precision)
-        z2v = round_ud([c2[3] - sz2/2, c2[3] + sz2/2], round_precision)
-        
+        x2v = round_ud([c2[1] - sx2 / 2, c2[1] + sx2 / 2], round_precision)
+        y2v = round_ud([c2[2] - sy2 / 2, c2[2] + sy2 / 2], round_precision)
+        z2v = round_ud([c2[3] - sz2 / 2, c2[3] + sz2 / 2], round_precision)
+
         Lp[n] = 1e-7 / S * Integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
-        if is_stop_requested(id)
-            println("Simulazione $(id) interrotta per richiesta stop.")
-            return nothing # O un altro valore che indica interruzione
-        end
     end
 
     return Lp
 end
 
-function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
-    use_suppression=1;
+function Integ_vol_vol(x1v, y1v, z1v, x2v, y2v, z2v)
+    use_suppression = 1
 
-    epsilon1=5e-3;
-    epsilon2=1e-3;
-    epsilon3=1e-3;
-    epsilon4=3e-1;
+    epsilon1 = 5e-3
+    epsilon2 = 1e-3
+    epsilon3 = 1e-3
+    epsilon4 = 3e-1
 
-    integ=0;
+    integ = 0
 
     # Calculate the center coordinates
     xc1 = 0.5 * sum(x1v)
@@ -86,9 +82,9 @@ function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
         aux_x = abs.([x1v[1] - x2v[1], x1v[1] - x2v[end], x1v[end] - x2v[1], x1v[end] - x2v[end]])
         aux_y = abs.([y1v[1] - y2v[1], y1v[1] - y2v[end], y1v[end] - y2v[1], y1v[end] - y2v[end]])
         aux_z = abs.([z1v[1] - z2v[1], z1v[1] - z2v[end], z1v[end] - z2v[1], z1v[end] - z2v[end]])
-    
+
         min_R = sqrt(minimum(aux_x)^2 + minimum(aux_y)^2 + minimum(aux_z)^2)
-    
+
         if a1 <= b1 && a1 <= c1
             max_d = maximum(abs.(aux_x))
             supp_x1 = check_condition(epsilon1, epsilon2, epsilon3, V1, V2, max_d, min_R, a1, b1, c1)
@@ -126,7 +122,7 @@ function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
                 end
             end
         end
-    
+
         if a2 <= b2 && a2 <= c2
             max_d = maximum(abs.(aux_x))
             supp_x2 = check_condition(epsilon1, epsilon2, epsilon3, V1, V2, max_d, min_R, a2, b2, c2)
@@ -248,79 +244,79 @@ function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
             end
         end
     elseif sum_supp == 3  # point-volume or surface-line
-    
-            is_point_v1 = (supp_x1 + supp_y1 + supp_z1 == 3) ? 1 : 0
-            is_point_v2 = (supp_x2 + supp_y2 + supp_z2 == 3) ? 1 : 0
-        
-            is_surf_v1 = (supp_x1 + supp_y1 + supp_z1 == 1) ? 1 : 0
-        
-            if is_point_v1 == 1  # point-volume case
-                integ = a1 * b1 * c1 * integ_point_vol(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
-                
-            elseif is_point_v2 == 1  # point-volume case
-                integ = a2 * b2 * c2 * integ_point_vol(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]])
-                
-            else  # line-surface case
-                if is_surf_v1 == 1  # bar1 is a surface
-                    if supp_x1 == 1  # bar1 is a surface in y-z plane
-                        if supp_x2 == 0  # bar2 is a line along x
-                            integ = a1 * b2 * c2 * integ_line_surf_ortho([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
-                        elseif supp_y2 == 0  # bar2 is a line along y
-                            integ = a1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
-                        else  # bar2 is a line along z
-                            integ = a1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
-                        end
-                    elseif supp_y1 == 1  # bar1 is a surface in x-z plane
-                        if supp_x2 == 0  # bar2 is a line along x
-                            integ = b1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
-                        elseif supp_y2 == 0  # bar2 is a line along y
-                            integ = b1 * a2 * c2 * integ_line_surf_ortho([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
-                        else  # bar2 is a line along z
-                            integ = b1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
-                        end
-                    else  # bar1 is a surface in x-y plane
-                        if supp_x2 == 0  # bar2 is a line along x
-                            integ = c1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
-                        elseif supp_y2 == 0  # bar2 is a line along y
-                            integ = c1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, zc2)
-                        else  # bar2 is a line along z
-                            integ = c1 * a2 * b2 * integ_line_surf_ortho([z2v[1], z2v[end]], xc2, yc2, zc1, [x1v[1], x1v[end]], [y1v[1], y1v[end]])
-                        end
+
+        is_point_v1 = (supp_x1 + supp_y1 + supp_z1 == 3) ? 1 : 0
+        is_point_v2 = (supp_x2 + supp_y2 + supp_z2 == 3) ? 1 : 0
+
+        is_surf_v1 = (supp_x1 + supp_y1 + supp_z1 == 1) ? 1 : 0
+
+        if is_point_v1 == 1  # point-volume case
+            integ = a1 * b1 * c1 * integ_point_vol(xc1, yc1, zc1, [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+
+        elseif is_point_v2 == 1  # point-volume case
+            integ = a2 * b2 * c2 * integ_point_vol(xc2, yc2, zc2, [x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+
+        else  # line-surface case
+            if is_surf_v1 == 1  # bar1 is a surface
+                if supp_x1 == 1  # bar1 is a surface in y-z plane
+                    if supp_x2 == 0  # bar2 is a line along x
+                        integ = a1 * b2 * c2 * integ_line_surf_ortho([x2v[1], x2v[end]], yc2, zc2, xc1, [y1v[1], y1v[end]], [z1v[1], z1v[end]])
+                    elseif supp_y2 == 0  # bar2 is a line along y
+                        integ = a1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1, [y2v[1], y2v[end]], zc2, xc2)
+                    else  # bar2 is a line along z
+                        integ = a1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [y1v[1], y1v[end]], xc1, [z2v[1], z2v[end]], yc2, xc2)
                     end
-                else  # bar2 is a surface
-                    if supp_x2 == 1  # bar2 is a surface in y-z plane
-                        if supp_x1 == 0  # bar1 is a line along x
-                            integ = a2 * b1 * c1 * integ_line_surf_ortho([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
-                        elseif supp_y1 == 0  # bar1 is a line along y
-                            integ = a2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
-                        else  # bar1 is a line along z
-                            integ = a2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
-                        end
-                    elseif supp_y2 == 1  # bar2 is a surface in x-z plane
-                        if supp_x1 == 0  # bar1 is a line along x
-                            integ = b2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2, [x1v[1], x1v[end]], zc1, yc1)
-                        elseif supp_y1 == 0  # bar1 is a line along y
-                            integ = b2 * a1 * c1 * integ_line_surf_ortho([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
-                        else  # bar1 is a line along z
-                            integ = b2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc2, [z1v[1], z1v[end]], xc1, yc1)
-                        end
-                    else  # bar2 is a surface in x-y plane
-                        if supp_x1 == 0  # bar1 is a line along x
-                            integ = c2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
-                        elseif supp_y1 == 0  # bar1 is a line along y
-                            integ = c2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [x2v[1], x2v[end]], zc2, [y1v[1], y1v[end]], xc1, zc1)
-                        else  # bar1 is a line along z
-                            integ = c2 * a1 * b1 * integ_line_surf_ortho([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], [y2v[1], y2v[end]])
-                        end
+                elseif supp_y1 == 1  # bar1 is a surface in x-z plane
+                    if supp_x2 == 0  # bar2 is a line along x
+                        integ = b1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1, [x2v[1], x2v[end]], zc2, yc2)
+                    elseif supp_y2 == 0  # bar2 is a line along y
+                        integ = b1 * a2 * c2 * integ_line_surf_ortho([y2v[1], y2v[end]], xc2, zc2, yc1, [x1v[1], x1v[end]], [z1v[1], z1v[end]])
+                    else  # bar2 is a line along z
+                        integ = b1 * a2 * b2 * integ_line_surf_para([z1v[1], z1v[end]], [x1v[1], x1v[end]], yc1, [z2v[1], z2v[end]], xc2, yc2)
+                    end
+                else  # bar1 is a surface in x-y plane
+                    if supp_x2 == 0  # bar2 is a line along x
+                        integ = c1 * b2 * c2 * integ_line_surf_para([x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1, [x2v[1], x2v[end]], yc2, zc2)
+                    elseif supp_y2 == 0  # bar2 is a line along y
+                        integ = c1 * a2 * c2 * integ_line_surf_para([y1v[1], y1v[end]], [x1v[1], x1v[end]], zc1, [y2v[1], y2v[end]], xc2, zc2)
+                    else  # bar2 is a line along z
+                        integ = c1 * a2 * b2 * integ_line_surf_ortho([z2v[1], z2v[end]], xc2, yc2, zc1, [x1v[1], x1v[end]], [y1v[1], y1v[end]])
+                    end
+                end
+            else  # bar2 is a surface
+                if supp_x2 == 1  # bar2 is a surface in y-z plane
+                    if supp_x1 == 0  # bar1 is a line along x
+                        integ = a2 * b1 * c1 * integ_line_surf_ortho([x1v[1], x1v[end]], yc1, zc1, xc2, [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+                    elseif supp_y1 == 0  # bar1 is a line along y
+                        integ = a2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2, [y1v[1], y1v[end]], zc1, xc1)
+                    else  # bar1 is a line along z
+                        integ = a2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [y2v[1], y2v[end]], xc2, [z1v[1], z1v[end]], yc1, xc1)
+                    end
+                elseif supp_y2 == 1  # bar2 is a surface in x-z plane
+                    if supp_x1 == 0  # bar1 is a line along x
+                        integ = b2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2, [x1v[1], x1v[end]], zc1, yc1)
+                    elseif supp_y1 == 0  # bar1 is a line along y
+                        integ = b2 * a1 * c1 * integ_line_surf_ortho([y1v[1], y1v[end]], xc1, zc1, yc2, [x2v[1], x2v[end]], [z2v[1], z2v[end]])
+                    else  # bar1 is a line along z
+                        integ = b2 * a1 * b1 * integ_line_surf_para([z2v[1], z2v[end]], [x2v[1], x2v[end]], yc2, [z1v[1], z1v[end]], xc1, yc1)
+                    end
+                else  # bar2 is a surface in x-y plane
+                    if supp_x1 == 0  # bar1 is a line along x
+                        integ = c2 * b1 * c1 * integ_line_surf_para([x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2, [x1v[1], x1v[end]], yc1, zc1)
+                    elseif supp_y1 == 0  # bar1 is a line along y
+                        integ = c2 * a1 * c1 * integ_line_surf_para([y2v[1], y2v[end]], [x2v[1], x2v[end]], zc2, [y1v[1], y1v[end]], xc1, zc1)
+                    else  # bar1 is a line along z
+                        integ = c2 * a1 * b1 * integ_line_surf_ortho([z1v[1], z1v[end]], xc1, yc1, zc2, [x2v[1], x2v[end]], [y2v[1], y2v[end]])
                     end
                 end
             end
-        
+        end
+
     elseif sum_supp == 2  # line-volume or surface-surface
-        
+
         is_line_v1 = (supp_x1 + supp_y1 + supp_z1 == 2) ? 1 : 0
         is_line_v2 = (supp_x2 + supp_y2 + supp_z2 == 2) ? 1 : 0
-    
+
         if is_line_v1 == 1  # bar1 is a line
             if supp_x1 == 0  # bar1 is a line along x
                 integ = b1 * c1 * integ_line_vol([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], [x1v[1], x1v[end]], yc1, zc1)
@@ -366,31 +362,31 @@ function Integ_vol_vol(x1v,y1v,z1v, x2v,y2v,z2v)
         end
     elseif sum_supp == 1  # surface-volume case
 
-            if supp_x1 == 1  # bar1 is a surface in yz plane
-                integ = a1 * integ_vol_surf([y2v[1], y2v[end]], [z2v[1], z2v[end]], [x2v[1], x2v[end]], 
-                                            [y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1)
-            elseif supp_y1 == 1  # bar1 is a surface in xz plane
-                integ = b1 * integ_vol_surf([x2v[1], x2v[end]], [z2v[1], z2v[end]], [y2v[1], y2v[end]], 
-                                            [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
-            elseif supp_z1 == 1  # bar1 is a surface in xy plane
-                integ = c1 * integ_vol_surf([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]], 
-                                            [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
-            elseif supp_x2 == 1  # bar2 is a surface in yz plane
-                integ = a2 * integ_vol_surf([y1v[1], y1v[end]], [z1v[1], z1v[end]], [x1v[1], x1v[end]], 
-                                            [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
-            elseif supp_y2 == 1  # bar2 is a surface in xz plane
-                integ = b2 * integ_vol_surf([x1v[1], x1v[end]], [z1v[1], z1v[end]], [y1v[1], y1v[end]], 
-                                            [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
-            elseif supp_z2 == 1  # bar2 is a surface in xy plane
-                integ = c2 * integ_vol_surf([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], 
-                                            [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
-            end
-        
+        if supp_x1 == 1  # bar1 is a surface in yz plane
+            integ = a1 * integ_vol_surf([y2v[1], y2v[end]], [z2v[1], z2v[end]], [x2v[1], x2v[end]],
+                [y1v[1], y1v[end]], [z1v[1], z1v[end]], xc1)
+        elseif supp_y1 == 1  # bar1 is a surface in xz plane
+            integ = b1 * integ_vol_surf([x2v[1], x2v[end]], [z2v[1], z2v[end]], [y2v[1], y2v[end]],
+                [x1v[1], x1v[end]], [z1v[1], z1v[end]], yc1)
+        elseif supp_z1 == 1  # bar1 is a surface in xy plane
+            integ = c1 * integ_vol_surf([x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]],
+                [x1v[1], x1v[end]], [y1v[1], y1v[end]], zc1)
+        elseif supp_x2 == 1  # bar2 is a surface in yz plane
+            integ = a2 * integ_vol_surf([y1v[1], y1v[end]], [z1v[1], z1v[end]], [x1v[1], x1v[end]],
+                [y2v[1], y2v[end]], [z2v[1], z2v[end]], xc2)
+        elseif supp_y2 == 1  # bar2 is a surface in xz plane
+            integ = b2 * integ_vol_surf([x1v[1], x1v[end]], [z1v[1], z1v[end]], [y1v[1], y1v[end]],
+                [x2v[1], x2v[end]], [z2v[1], z2v[end]], yc2)
+        elseif supp_z2 == 1  # bar2 is a surface in xy plane
+            integ = c2 * integ_vol_surf([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]],
+                [x2v[1], x2v[end]], [y2v[1], y2v[end]], zc2)
+        end
+
     else  # volume-volume case
-        integ = Integ_vol_vol_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]], 
-                            [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
+        integ = Integ_vol_vol_fft([x1v[1], x1v[end]], [y1v[1], y1v[end]], [z1v[1], z1v[end]],
+            [x2v[1], x2v[end]], [y2v[1], y2v[end]], [z2v[1], z2v[end]])
     end
-    
+
 
 
 end
@@ -452,21 +448,21 @@ function integ_point_sup(x1, y1, z1, x2v, y2v, z2)
         x2 = x2v[c1]
         for c2 in 1:2
             y2 = y2v[c2]
-            
+
             R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-            
+
             term1 = (x1 - x2) * real(log(complex((y1 - y2) + R)))
             term1 = isnan(term1) || isinf(term1) ? 0.0 : term1
-            
+
             term2 = (y1 - y2) * real(log(complex((x1 - x2) + R)))
             term2 = isnan(term2) || isinf(term2) ? 0.0 : term2
-            
+
             term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-            
+
             sol += (-1)^(c1 + c2) * (term1 + term2 + term3)
         end
     end
-    
+
     return sol
 end
 
@@ -474,27 +470,27 @@ end
 function integ_line_line_parall(x1v, y1, z1, x2v, y2, z2)
     dy = y1 - y2
     dz = z1 - z2
-    
+
     if abs(dy) < 1e-10 && abs(dz) < 1e-10
         sol = integ_line_line_sp(x1v, x2v)
     else
         sol = 0.0
-        
+
         for c1 in 1:2
             x1 = x1v[c1]
             for c2 in 1:2
                 x2 = x2v[c2]
-                
+
                 R = sqrt((x1 - x2)^2 + dy^2 + dz^2)
-                
+
                 term1 = (x1 - x2) * real(log(complex((x1 - x2) + R)))
                 term1 = isnan(term1) || isinf(term1) ? 0.0 : term1
-                
+
                 sol += (-1)^(c1 + c2 + 1) * (term1 - R)
             end
         end
     end
-    
+
     return sol
 end
 
@@ -504,15 +500,15 @@ function integ_line_line_sp(x1v, x2v)
         x1 = x1v[c1]
         for c2 in 1:2
             x2 = x2v[c2]
-            
+
             R = sqrt((x1 - x2)^2)
-            
+
             term1 = (x1 - x2) / R * (x1 - x2 * real(log(complex(x2 - x1))) + x1 * real(log(complex(x1 - x2))))
-            
+
             if isnan(term1) || isinf(term1)
                 term1 = 0.0
             end
-            
+
             sol += (-1)^(c1 + c2 + 1) * term1
         end
     end
@@ -526,23 +522,23 @@ function integ_line_line_ortho_xy(x1v, y1, z1, x2, y2v, z2)
         x1 = x1v[c1]
         for c2 in 1:2
             y2 = y2v[c2]
-            
+
             R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-            
+
             term1 = (x1 - x2) * real(log(complex((y1 - y2) + R)))
-            
+
             if isnan(term1) || isinf(term1)
                 term1 = 0.0
             end
-            
+
             term2 = (y1 - y2) * real(log(complex((x1 - x2) + R)))
-            
+
             if isnan(term2) || isinf(term2)
                 term2 = 0.0
             end
-            
+
             term3 = -abs(z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-            
+
             sol += (-1)^(c1 + c2 + 1) * (term1 + term2 + term3)
         end
     end
@@ -558,33 +554,33 @@ function integ_point_vol(x1, y1, z1, x2v, y2v, z2v)
             y2 = y2v[c2]
             for c3 in 1:2
                 z2 = z2v[c3]
-                
+
                 R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                
+
                 term1 = (y1 - y2) * (z1 - z2) * real(log(complex((x1 - x2) + R)))
-                
+
                 if isnan(term1) || isinf(term1)
                     term1 = 0.0
                 end
-                
+
                 term2 = (x1 - x2) * (z1 - z2) * real(log(complex((y1 - y2) + R)))
-                
+
                 if isnan(term2) || isinf(term2)
                     term2 = 0.0
                 end
-                
+
                 term3 = (y1 - y2) * (x1 - x2) * real(log(complex((z1 - z2) + R)))
-                
+
                 if isnan(term3) || isinf(term3)
                     term3 = 0.0
                 end
-                
+
                 term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                
+
                 term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
-                
+
                 term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
-                
+
                 sol += (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4 + term5 + term6)
             end
         end
@@ -594,69 +590,69 @@ end
 
 function integ_line_surf_ortho(x1v, y1, z1, x2, y2v, z2v)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
             y2 = y2v[c2]
             for c3 in 1:2
                 z2 = z2v[c3]
-                
+
                 R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                
+
                 term1 = (y1 - y2) * (z1 - z2) * real(log((x1 - x2) + R))
                 term1 = isnan(term1) || isinf(term1) ? 0.0 : term1
-                
+
                 term2 = (x1 - x2) * (z1 - z2) * real(log((y1 - y2) + R))
                 term2 = isnan(term2) || isinf(term2) ? 0.0 : term2
-                
+
                 term3 = (y1 - y2) * (x1 - x2) * real(log((z1 - z2) + R))
                 term3 = isnan(term3) || isinf(term3) ? 0.0 : term3
-                
+
                 term4 = -0.5 * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
                 term5 = -0.5 * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
                 term6 = -0.5 * abs(x1 - x2) * (x1 - x2) * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
-                
+
                 sol += (-1)^(c1 + c2 + c3) * (term1 + term2 + term3 + term4 + term5 + term6)
             end
         end
     end
-    
+
     return sol
 end
 
 function integ_line_surf_para(x1v, y1v, z1, x2v, y2, z2)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
             y1 = y1v[c2]
             for c3 in 1:2
                 x2 = x2v[c3]
-                
+
                 R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                
+
                 term1 = (x1 - x2) * (y1 - y2) * real(log((x1 - x2) + R))
                 term1 = isnan(term1) || isinf(term1) ? 0.0 : term1
-                
+
                 term2 = ((x1 - x2)^2 - (z1 - z2)^2) / 2 * real(log((y1 - y2) + R))
                 term2 = isnan(term2) || isinf(term2) ? 0.0 : term2
-                
+
                 term3 = -(x1 - x2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
                 term4 = -(y1 - y2) / 2 * R
-                
+
                 sol += (-1)^(c1 + c2 + c3 + 1) * (term1 + term2 + term3 + term4)
             end
         end
     end
-    
+
     return sol
 end
 
 function integ_line_vol(x1v, y1v, z1v, x2v, y2, z2)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
@@ -665,36 +661,36 @@ function integ_line_vol(x1v, y1v, z1v, x2v, y2, z2)
                 z1 = z1v[c3]
                 for c4 in 1:2
                     x2 = x2v[c4]
-                    
+
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    
-                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
-                    
-                    term2 = -1/2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                    term3 = -1/2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
-                    term4 = -1/6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
-                    
+
+                    term1 = -1 / 3 * (y1 - y2) * (z1 - z2) * R
+
+                    term2 = -1 / 2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
+                    term3 = -1 / 2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
+                    term4 = -1 / 6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
+
                     term5 = (x1 - x2) * (y1 - y2) * (z1 - z2) * real(log((x1 - x2) + R))
                     term5 = isnan(term5) || isinf(term5) ? 0.0 : term5
-                    
-                    term6 = (1/2 * (x1 - x2)^2 - 1/6 * (z1 - z2)^2) * (z1 - z2) * real(log((y1 - y2) + R))
+
+                    term6 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (z1 - z2)^2) * (z1 - z2) * real(log((y1 - y2) + R))
                     term6 = isnan(term6) || isinf(term6) ? 0.0 : term6
-                    
-                    term7 = (1/2 * (x1 - x2)^2 - 1/6 * (y1 - y2)^2) * (y1 - y2) * real(log((z1 - z2) + R))
+
+                    term7 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (y1 - y2)^2) * (y1 - y2) * real(log((z1 - z2) + R))
                     term7 = isnan(term7) || isinf(term7) ? 0.0 : term7
-                    
+
                     sol += (-1)^(c1 + c2 + c3 + c4 + 1) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
                 end
             end
         end
     end
-    
+
     return sol
 end
 
 function integ_surf_surf_para(x1v, y1v, z1, x2v, y2v, z2)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
@@ -703,35 +699,35 @@ function integ_surf_surf_para(x1v, y1v, z1, x2v, y2v, z2)
                 y2 = y2v[c3]
                 for c4 in 1:2
                     x2 = x2v[c4]
-                    
+
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    
-                    term1 = -1/6 * ((x1 - x2)^2 + (y1 - y2)^2 - 2 * (z1 - z2)^2) * R
+
+                    term1 = -1 / 6 * ((x1 - x2)^2 + (y1 - y2)^2 - 2 * (z1 - z2)^2) * R
                     term2 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                    term3 = 1/2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log((y1 - y2) + R))
-                    
+                    term3 = 1 / 2 * ((x1 - x2)^2 - (z1 - z2)^2) * (y1 - y2) * real(log((y1 - y2) + R))
+
                     if isnan(term3) || isinf(term3)
                         term3 = 0.0
                     end
-                    
-                    term4 = 1/2 * ((y1 - y2)^2 - (z1 - z2)^2) * (x1 - x2) * real(log((x1 - x2) + R))
-                    
+
+                    term4 = 1 / 2 * ((y1 - y2)^2 - (z1 - z2)^2) * (x1 - x2) * real(log((x1 - x2) + R))
+
                     if isnan(term4) || isinf(term4)
                         term4 = 0.0
                     end
-                    
+
                     sol += (-1)^(c1 + c2 + c3 + c4) * (term1 + term2 + term3 + term4)
                 end
             end
         end
     end
-    
+
     return sol
 end
 
 function integ_surf_surf_ortho(x1v, y1v, z1, x2v, y2, z2v)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
@@ -740,43 +736,43 @@ function integ_surf_surf_ortho(x1v, y1v, z1, x2v, y2, z2v)
                 z2 = z2v[c3]
                 for c4 in 1:2
                     x2 = x2v[c4]
-                    
+
                     R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                    
-                    term1 = -1/3 * (y1 - y2) * (z1 - z2) * R
-                    term2 = -1/2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                    term3 = -1/2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
-                    term4 = -1/6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
+
+                    term1 = -1 / 3 * (y1 - y2) * (z1 - z2) * R
+                    term2 = -1 / 2 * (x1 - x2) * abs(z1 - z2) * (z1 - z2) * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
+                    term3 = -1 / 2 * (x1 - x2) * abs(y1 - y2) * (y1 - y2) * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
+                    term4 = -1 / 6 * abs(x1 - x2)^3 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
                     term5 = (x1 - x2) * (y1 - y2) * (z1 - z2) * real(log((x1 - x2) + R))
-                    
+
                     if isnan(term5) || isinf(term5)
                         term5 = 0.0
                     end
-                    
-                    term6 = (1/2 * (x1 - x2)^2 - 1/6 * (z1 - z2)^2) * (z1 - z2) * real(log((y1 - y2) + R))
-                    
+
+                    term6 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (z1 - z2)^2) * (z1 - z2) * real(log((y1 - y2) + R))
+
                     if isnan(term6) || isinf(term6)
                         term6 = 0.0
                     end
-                    
-                    term7 = (1/2 * (x1 - x2)^2 - 1/6 * (y1 - y2)^2) * (y1 - y2) * real(log((z1 - z2) + R))
-                    
+
+                    term7 = (1 / 2 * (x1 - x2)^2 - 1 / 6 * (y1 - y2)^2) * (y1 - y2) * real(log((z1 - z2) + R))
+
                     if isnan(term7) || isinf(term7)
                         term7 = 0.0
                     end
-                    
+
                     sol += (-1)^(c1 + c2 + c3 + c4) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
                 end
             end
         end
     end
-    
+
     return sol
 end
 
 function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
     sol = 0.0
-    
+
     for c1 in 1:2
         x1 = x1v[c1]
         for c2 in 1:2
@@ -787,45 +783,45 @@ function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
                     x2 = x2v[c4]
                     for c5 in 1:2
                         y2 = y2v[c5]
-                        
+
                         R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                        
+
                         term1 = ((z1 - z2)^2 / 12 - ((x1 - x2)^2 + (y1 - y2)^2) / 8) * (z1 - z2) * R
                         term2 = ((y1 - y2)^2 / 2 - (z1 - z2)^2 / 6) * (x1 - x2) * (z1 - z2) * real(log((x1 - x2) + R))
-                        
+
                         if isnan(term2) || isinf(term2)
                             term2 = 0.0
                         end
-                        
+
                         term3 = ((x1 - x2)^2 / 2 - (z1 - z2)^2 / 6) * (y1 - y2) * (z1 - z2) * real(log((y1 - y2) + R))
-                        
+
                         if isnan(term3) || isinf(term3)
                             term3 = 0.0
                         end
-                        
+
                         term4 = (-(x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log((z1 - z2) + R))
-                        
+
                         if isnan(term4) || isinf(term4)
                             term4 = 0.0
                         end
-                        
+
                         term5 = -abs(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
                         term6 = -(x1 - x2) * abs(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
                         term7 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                        
+
                         sol += (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
                     end
                 end
             end
         end
     end
-    
+
     return sol
 end
 
 # function integ_vol_surf(x1v, y1v, z1v, x2v, y2v, z2)
 #     sol = 0.0
-    
+
 #     for c1 in 1:2
 #         x1 = x1v[c1]
 #         for c2 in 1:2
@@ -836,39 +832,39 @@ end
 #                     x2 = x2v[c4]
 #                     for c5 in 1:2
 #                         y2 = y2v[c5]
-                        
+
 #                         R = sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
-                        
+
 #                         term1 = ((z1 - z2)^2 / 12 - ((x1 - x2)^2 + (y1 - y2)^2) / 8) * (z1 - z2) * R
 #                         term2 = ((y1 - y2)^2 / 2 - (z1 - z2)^2 / 6) * (x1 - x2) * (z1 - z2) * real(log((x1 - x2) + R))
-                        
+
 #                         if isnan(term2) || isinf(term2)
 #                             term2 = 0.0
 #                         end
-                        
+
 #                         term3 = ((x1 - x2)^2 / 2 - (z1 - z2)^2 / 6) * (y1 - y2) * (z1 - z2) * real(log((y1 - y2) + R))
-                        
+
 #                         if isnan(term3) || isinf(term3)
 #                             term3 = 0.0
 #                         end
-                        
+
 #                         term4 = (-(x1 - x2)^4 / 24 - (y1 - y2)^4 / 24 + ((y1 - y2)^2 * (x1 - x2)^2) / 4) * real(log((z1 - z2) + R))
-                        
+
 #                         if isnan(term4) || isinf(term4)
 #                             term4 = 0.0
 #                         end
-                        
+
 #                         term5 = -abs(x1 - x2)^3 * (y1 - y2) / 6 * atan((y1 - y2) * (z1 - z2), abs(x1 - x2) * R)
 #                         term6 = -(x1 - x2) * abs(y1 - y2)^3 / 6 * atan((x1 - x2) * (z1 - z2), abs(y1 - y2) * R)
 #                         term7 = -(x1 - x2) * (y1 - y2) * abs(z1 - z2) * (z1 - z2) / 2 * atan((x1 - x2) * (y1 - y2), abs(z1 - z2) * R)
-                        
+
 #                         sol += (-1)^(c1 + c2 + c3 + c4 + c5) * (term1 + term2 + term3 + term4 + term5 + term6 + term7)
 #                     end
 #                 end
 #             end
 #         end
 #     end
-    
+
 #     return sol
 # end
 
