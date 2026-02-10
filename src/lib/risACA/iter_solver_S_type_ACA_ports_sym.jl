@@ -176,6 +176,7 @@ function iter_solver_S_type_ACA_ports_sym(freq, escalings, incidence_selection, 
                 tot_iter_number = 1
             end
             println("Flag $flag - Number of iterations = $tot_iter_number")
+            send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
 
             Vrest[:, c1] = V
 

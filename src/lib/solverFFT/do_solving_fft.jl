@@ -35,9 +35,9 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         # end
 
         frequencies = inputDict["frequencies"]
-        freq = Array{Float64}(undef, 1, length(frequencies))
+        freq = Vector{Float64}(undef, length(frequencies))
         for i in range(1, length(frequencies))
-            freq[1, i] = frequencies[i]
+            freq[i] = frequencies[i]
         end
         #freq = convert(Array{Float64}, freq)
 
@@ -159,12 +159,12 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         end
     catch e
         if e isa OutOfMemoryError
-            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")
+            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
         else
             error_msg = sprint(showerror, e)
-            st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
+            st = sprint((io, v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
-            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, isStopped => false, partial: false), "solver_feedback")
+            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
         end
     finally
         # Pulizia del flag di stop indipendentemente da come la simulazione finisce

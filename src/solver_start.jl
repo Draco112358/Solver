@@ -218,21 +218,49 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
-                # Threads.@spawn run_simulation_task(
-                #     simulation_id,
-                #     doSolvingRis,
-                #     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
-                #     req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
-                #     simulation_id, # ID della simulazione
-                #     aws, aws_bucket_name;
-                #     simulation_type="ris"
-                # )
+                Threads.@spawn run_simulation_task(
+                    simulation_id,
+                    doSolvingRis,
+                    mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
+                    simulation_id, # ID della simulazione
+                    aws, aws_bucket_name;
+                    simulation_type="ris"
+                )
+            elseif simulation_type == "Matrix_ACA" && mesher == "ris"
+                mesher_file_id = req_data["mesherFileId"]
+                surface_file_id = req_data["surfaceFileId"]
+
+                # Gestione acaSelectedPorts con fallback
+                aca_ports = get(req_data, "acaSelectedPorts", [0])
+                ports_to_excite = if isa(aca_ports, AbstractArray)
+                    [Int(p) + 1 for p in aca_ports]  # Convert to 1-based indexing
+                else
+                    [1]  # Default fallback
+                end
+                println(req_data)
+                mesherOutput = if req_data["mesherType"] === "backend"
+                    download_serialized_data(aws, aws_bucket_name, mesher_file_id)
+                else
+                    m = get_solverInput_from_s3(aws, aws_bucket_name, mesher_file_id, req_data["mesherType"])
+                    m["incidence_selection"]["Gamma"] = convertSparseMatrixFromJavascriptToJulia(m["incidence_selection"]["Gamma"])
+                    m["incidence_selection"]["A"] = convertSparseMatrixFromJavascriptToJulia(m["incidence_selection"]["A"])
+                    m["nodi_coord"] = transpose(hcat(m["nodi_coord"]...))
+                    m["volumi"]["coordinate"] = transpose(hcat(m["volumi"]["coordinate"]...))
+                    deep_symbolize_keys(m)
+                end
+                surface = download_json_gz(aws, aws_bucket_name, surface_file_id) # O get_solverInput_from_s3 a seconda del tipo
+                surface["sigma"] = Float64.(surface["sigma"])
+                surface["S"] = Float64.(surface["S"])
+                surface["normale"] = map(inner -> map(Float64, inner), surface["normale"])
+                surface["materials"] = String.(surface["materials"])
+                surface["epsr"] = Float64.(surface["epsr"])
+                surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
                 Threads.@spawn run_simulation_task(
                     simulation_id,
                     doSolvingACA,
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
-                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
-                    simulation_id, # ID della simulazione
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"], ports_to_excite, simulation_id, # ID della simulazione
                     aws, aws_bucket_name;
                     simulation_type="ris"
                 )

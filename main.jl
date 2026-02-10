@@ -2,6 +2,7 @@ using Pkg
 ENV["JULIA_APP_BUILD"] = "true"
 Pkg.activate(".")
 Pkg.instantiate()
+ENV["SOLVER_TEST_MODE"] = "false"
 ENV["JULIA_APP_BUILD"] = "false"
 
 using Solver

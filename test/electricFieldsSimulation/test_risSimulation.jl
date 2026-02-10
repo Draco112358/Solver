@@ -12,6 +12,8 @@ include("../../src/lib/sharedRis/distfcm.jl")
 include("../../src/lib/sharedRis/find_nodes_ports_or_le.jl")
 include("../../src/lib/sharedRis/calcola_P.jl")
 include("../../src/lib/sharedRis/calcola_Lp.jl")
+include("../../src/lib/sharedRis/mean_length_rev.jl")
+
 #SHAREDRIS INCLUDE END
 
 # SOLVER RSI CAMPI INCLUDE START
@@ -39,6 +41,8 @@ include("../../src/lib/solverRisCampi/iter_solver_E_Gaussian_Is_type.jl")
 include("../../src/lib/solverRisCampi/do_solving_electric_fields.jl")
 # SOLVER RSI CAMPI INCLUDE END
 
+ENV["SOLVER_TEST_MODE"] = "true"
+
 function is_stop_requested(sim_id::String)
     lock(stop_computation_lock) do
         return haskey(stopComputation, sim_id) && stopComputation[sim_id][]
@@ -46,15 +50,16 @@ function is_stop_requested(sim_id::String)
 end
 
 const solver_overall_status = Ref("ready") # ready, busy, error
-const active_simulations = Dict{String, Dict{String, Any}}() # ID simulazione -> {status, progress, start_time, etc.}
+const active_simulations = Dict{String,Dict{String,Any}}() # ID simulazione -> {status, progress, start_time, etc.}
 const simulations_lock = ReentrantLock() # Lock per proteggere `active_simulations`
-const stopComputation = Dict{String, Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
+const stopComputation = Dict{String,Ref{Bool}}() # ID simulazione -> Ref{Bool} per il flag di stop
 const stop_computation_lock = ReentrantLock() # Aggiungi un lock per proteggere stopComputation
 const commentsEnabled = []
 const norm_treshold = 1e-10
 test_suites = [
-        ("Test Tx ris 8x8", () -> @testset "Test Tx ris 8x8" begin
+    ("Test Tx ris 8x8", () -> @testset "Test Tx ris 8x8" begin
         @load "./test/electricFieldsSimulation/test_input_Tx8x8.jld2"
+        println(typeof(volumi[:coordinate]))
         out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
         outMAT = matread("./test/electricFieldsSimulation/Tx_8x8.mat")
         normExJulia = norm(out["Ex"])
@@ -63,41 +68,37 @@ test_suites = [
         normEyMAT = norm(outMAT["out"]["Ey"])
         normEzJulia = norm(out["Ez"])
         normEzMAT = norm(outMAT["out"]["Ez"])
-        @test (normExMAT-normExJulia)/normExMAT < norm_treshold
-        @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
-        @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
-        end),
-        
-        ("Test ris 6x6", () -> @testset "Test ris 6x6" begin
-            @load "./test/electricFieldsSimulation/test_input_ris6x6.jld2"
-            out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
-            outMAT = matread("./test/electricFieldsSimulation/ris_6x6.mat")
-            normExJulia = norm(out["Ex"])
-            normExMAT = norm(outMAT["out"]["Ex"])
-            normEyJulia = norm(out["Ey"])
-            normEyMAT = norm(outMAT["out"]["Ey"])
-            normEzJulia = norm(out["Ez"])
-            normEzMAT = norm(outMAT["out"]["Ez"])
-            @test (normExMAT-normExJulia)/normExMAT < norm_treshold 
-            @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
-            @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
-        end),
-        
-        ("Test ris 8x8", () -> @testset "Test ris 8x8" begin
-            @load "./test/electricFieldsSimulation/test_input_ris8x8.jld2"
-            out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
-            outMAT = matread("./test/electricFieldsSimulation/ris_8x8.mat")
-            normExJulia = norm(out["Ex"])
-            normExMAT = norm(outMAT["out"]["Ex"])
-            normEyJulia = norm(out["Ey"])
-            normEyMAT = norm(outMAT["out"]["Ey"])
-            normEzJulia = norm(out["Ez"])
-            normEzMAT = norm(outMAT["out"]["Ez"])
-            @test (normExMAT-normExJulia)/normExMAT < norm_treshold 
-            @test (normEyMAT-normEyJulia)/normEyMAT < norm_treshold 
-            @test (normEzMAT-normEzJulia)/normEzMAT < norm_treshold
-        end)
-    ]
+        @test (normExMAT - normExJulia) / normExMAT < norm_treshold
+        @test (normEyMAT - normEyJulia) / normEyMAT < norm_treshold
+        @test (normEzMAT - normEzJulia) / normEzMAT < norm_treshold
+    end), ("Test ris 6x6", () -> @testset "Test ris 6x6" begin
+        @load "./test/electricFieldsSimulation/test_input_ris6x6.jld2"
+        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
+        outMAT = matread("./test/electricFieldsSimulation/ris_6x6.mat")
+        normExJulia = norm(out["Ex"])
+        normExMAT = norm(outMAT["out"]["Ex"])
+        normEyJulia = norm(out["Ey"])
+        normEyMAT = norm(outMAT["out"]["Ey"])
+        normEzJulia = norm(out["Ez"])
+        normEzMAT = norm(outMAT["out"]["Ez"])
+        @test (normExMAT - normExJulia) / normExMAT < norm_treshold
+        @test (normEyMAT - normEyJulia) / normEyMAT < norm_treshold
+        @test (normEzMAT - normEzJulia) / normEzMAT < norm_treshold
+    end), ("Test ris 8x8", () -> @testset "Test ris 8x8" begin
+        @load "./test/electricFieldsSimulation/test_input_ris8x8.jld2"
+        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
+        outMAT = matread("./test/electricFieldsSimulation/ris_8x8.mat")
+        normExJulia = norm(out["Ex"])
+        normExMAT = norm(outMAT["out"]["Ex"])
+        normEyJulia = norm(out["Ey"])
+        normEyMAT = norm(outMAT["out"]["Ey"])
+        normEzJulia = norm(out["Ez"])
+        normEzMAT = norm(outMAT["out"]["Ez"])
+        @test (normExMAT - normExJulia) / normExMAT < norm_treshold
+        @test (normEyMAT - normEyJulia) / normEyMAT < norm_treshold
+        @test (normEzMAT - normEzJulia) / normEzMAT < norm_treshold
+    end)
+]
 
 function send_rabbitmq_feedback(data::Dict, routing_key::String)
     println("Feedback non inviato perchè siamo in fase di test")
@@ -106,9 +107,9 @@ end
 function risSimulationTest(test_suites)
     for (i, (suite_name, test_func)) in enumerate(test_suites)
         println("Eseguendo $suite_name ($(i)/$(length(test_suites)))...")
-        
+
         results = test_func()
-        
+
         if results.anynonpass
             println("❌ $suite_name fallito.")
             println("   Passati: $(results.n_passed)")
@@ -117,13 +118,14 @@ function risSimulationTest(test_suites)
             println("⏹️  Interrompo l'esecuzione delle suite successive.")
             return false
         end
-        
+
         println("✅ $suite_name completato ($(results.n_passed) test passati)")
     end
-    
+
     println("🎉 Tutte le $(length(test_suites)) test suite di risSimulation completate con successo!")
     return true
 end
 
 # Esegui i test
 success = risSimulationTest(test_suites)
+ENV["SOLVER_TEST_MODE"] = "false"

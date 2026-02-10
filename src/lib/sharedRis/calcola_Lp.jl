@@ -257,7 +257,7 @@ function calculate_Lp_matrix(
     offset::Int,
     block_size::Int,
     id::String,
-    escalings_Lp::Int64,
+    escalings_Lp::Union{Int64,Float64},
     epsilon1::Float64, epsilon2::Float64, epsilon3::Float64, epsilon4::Float64,
     use_suppression::Bool
 )

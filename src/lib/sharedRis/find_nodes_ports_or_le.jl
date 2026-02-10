@@ -17,12 +17,12 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         opos[3] = round(port_object["outputElement"][3], digits=5) * escal
         push!(output_positions, opos)
 
-        push!(signals_port, haskey(port_object, "signal") ? port_object["signal"] : Dict("type" =>"no_signal", "params" => Dict()))
+        push!(signals_port, haskey(port_object, "signal") ? port_object["signal"] : Dict("type" => "no_signal", "params" => Dict()))
     end
     ports = Dict(
         :port_start => input_positions,
         :port_end => output_positions,
-        :port_nodes => zeros(1,1),
+        :port_nodes => zeros(1, 1),
         :signals_port => signals_port
     )
     input_positions_lumped = []
@@ -38,7 +38,7 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
         lumped_elements = Dict(
             :le_start => [],
             :le_end => [],
-            :le_nodes => zeros(1,1),
+            :le_nodes => zeros(1, 1),
             :R => [],
             :C => [],
             :L => [],
@@ -56,9 +56,9 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
             push!(input_positions_lumped, ipos)
             #@assert length(lumped_element_object["outputElement"]) == 3
             opos = zeros(3)
-            opos[1] = round(lumped_element_object["outputElement"][1],digits=5) * escal
-            opos[2] = round(lumped_element_object["outputElement"][2],digits=5) * escal
-            opos[3] = round(lumped_element_object["outputElement"][3],digits=5) * escal
+            opos[1] = round(lumped_element_object["outputElement"][1], digits=5) * escal
+            opos[2] = round(lumped_element_object["outputElement"][2], digits=5) * escal
+            opos[3] = round(lumped_element_object["outputElement"][3], digits=5) * escal
             push!(output_positions_lumped, opos)
 
             push!(types, lumped_element_object["type"])
@@ -69,14 +69,14 @@ function find_nodes_ports_or_le(port_objects, lumped_elements_objects, nodi_coor
 
             push!(C_values, haskey(lumped_element_object["rlcParams"], "capacitance") ? lumped_element_object["rlcParams"]["capacitance"] : 0.0)
 
-            push!(signals_lumped, haskey(lumped_element_object, "signal") ? lumped_element_object["signal"] : Dict("type" =>"no_signal", "params" => Dict()))
+            push!(signals_lumped, haskey(lumped_element_object, "signal") ? lumped_element_object["signal"] : Dict("type" => "no_signal", "params" => Dict()))
         end
 
         #@assert length(input_positions_lumped) == N_LUMPED_ELEMENTS && length(output_positions_lumped) == N_LUMPED_ELEMENTS && length(values) == N_LUMPED_ELEMENTS && length(types) == N_LUMPED_ELEMENTS && length(R_values) == N_LUMPED_ELEMENTS && length(L_values) == N_LUMPED_ELEMENTS && length(C_values) == N_LUMPED_ELEMENTS
         lumped_elements = Dict(
             :le_start => input_positions_lumped,
             :le_end => output_positions_lumped,
-            :le_nodes => zeros(1,1),
+            :le_nodes => zeros(1, 1),
             :R => R_values,
             :C => C_values,
             :L => L_values,
@@ -107,13 +107,13 @@ end
 
 function nodes_find_rev(Nodes_inp_coord, nodi_centri)
     nodes = zeros(Int64, size(Nodes_inp_coord, 1), 1)
-    
-    for k in range(1,size(Nodes_inp_coord, 1))
+
+    for k in range(1, size(Nodes_inp_coord, 1))
         # Compute the distances using distfcm, find minimum distances and corresponding node index
         dist = distfcm(Nodes_inp_coord[k, :], nodi_centri)
         nodes_app = findfirst(vec(dist) .== minimum(dist))
         nodes[k] = nodes_app
     end
-    
+
     return nodes
 end

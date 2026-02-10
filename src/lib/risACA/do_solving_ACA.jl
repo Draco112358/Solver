@@ -1,5 +1,6 @@
-function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
+function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, ports_to_excite, id, aws_config, bucket_name; chan=nothing, commentsEnabled=true)
     try
+        println("ports_to_excite: ", ports_to_excite)
         inputDict = solverInput
         unit = solverInput["unit"]
         escal = getEscalFrom(unit)
@@ -10,9 +11,9 @@ function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escali
         # end
 
         frequencies = inputDict["frequencies"]
-        freq = Array{Float64}(undef, 1, length(frequencies))
+        freq = Vector{Float64}(undef, length(frequencies))
         for i in range(1, length(frequencies))
-            freq[1, i] = frequencies[i]
+            freq[i] = frequencies[i]
         end
         n_freq = length(freq)
         println("reading ports")
@@ -91,7 +92,7 @@ function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escali
         println("gmres")
         # ACA_thres = 1e-4  # Defined above
         mat_imp_simm = []
-        ports_to_excite = [1, 2]
+        #ports_to_excite = [1]
         out = iter_solver_S_type_ACA_ports_sym(
             freq, escalings, incidence_selection, P_data, Lp_data,
             ports, lumped_elements, GMRES_settings, volumi, superfici, use_Zs_in, QS_Rcc_FW, ACA_thres, ports_to_excite, mat_imp_simm, id, chan, commentsEnabled

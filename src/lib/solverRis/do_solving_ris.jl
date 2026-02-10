@@ -10,9 +10,9 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         # end
 
         frequencies = inputDict["frequencies"]
-        freq = Array{Float64}(undef, 1, length(frequencies))
+        freq = Vector{Float64}(undef, length(frequencies))
         for i in range(1, length(frequencies))
-            freq[1, i] = frequencies[i]
+            freq[i] = frequencies[i]
         end
         n_freq = length(freq)
         println("reading ports")
@@ -32,7 +32,8 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         GMRES_settings["tol"][ind_low_freq] .= 1e-8
         QS_Rcc_FW = solverType # 1 QS, 2 Rcc, 3 Taylor
         use_Zs_in = true
-
+        superfici["estremi_celle"] = hcat(superfici["estremi_celle"]...)
+        superfici["centri"] = hcat(superfici["centri"]...)
         println("P and Lp")
         P_data = calcola_P(superfici, escalings, QS_Rcc_FW, id)
         if isnothing(P_data)
@@ -60,7 +61,7 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         println("gmres")
         out = iter_solver_QS_S_type(
             freq, escalings, incidence_selection, P_data, Lp_data,
-                ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled
+            ports, lumped_elements, GMRES_settings, volumi, use_Zs_in, QS_Rcc_FW, ports_scatter_value, id, chan, commentsEnabled
         )
         if (isnothing(out))
             return nothing
@@ -93,13 +94,13 @@ function doSolvingRis(incidence_selection, volumi, superfici, nodi_coord, escali
         end
     catch e
         if e isa OutOfMemoryError
-            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback")
+            send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
             #publish_data(Dict("error" => "out of memory", "id" => id, isStopped => false, partial: false), "solver_feedback", chan)
         else
             error_msg = sprint(showerror, e)
-            st = sprint((io,v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
+            st = sprint((io, v) -> show(io, "text/plain", v), stacktrace(catch_backtrace()))
             @warn "Trouble doing things:\n$(error_msg)\n$(st)"
-            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, isStopped => false, partial: false), "solver_feedback")
+            send_rabbitmq_feedback(Dict("error" => "Internal Server Error", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")
         end
     finally
         # Pulizia del flag di stop indipendentemente da come la simulazione finisce
