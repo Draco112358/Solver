@@ -11,8 +11,35 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     w = 2 .* pi .* freq
     nfreq = length(w)
     is = zeros(Float64, n, 1)
-    S = zeros(ComplexF64, size(ports["port_nodes"], 1), size(ports["port_nodes"], 1), length(freq))
+    
+    # -----------------------------------------------------
+    # CHECKPOINT RESUMPTION
+    # -----------------------------------------------------
+    start_k = 1
+    start_c1 = 1
+    
     Vrest = zeros(ComplexF64, m + n + ns, size(ports["port_nodes"], 1))
+    checkpoint_gmres = load_checkpoint(id, "Last_GMRES_State")
+    if !isnothing(checkpoint_gmres) && haskey(checkpoint_gmres, :k) && haskey(checkpoint_gmres, :c1)
+        println("Resuming FFT_solver_QS_S_type from checkpoint (freq index: $(checkpoint_gmres[:k]), port index: $(checkpoint_gmres[:c1]))")
+        S = checkpoint_gmres[:S]
+        start_k = checkpoint_gmres[:k]
+        start_c1 = checkpoint_gmres[:c1]
+        
+        # Load all previously computed Vrest columns
+        for p = 1:size(ports["port_nodes"], 1)
+            vrest_col = load_checkpoint(id, "GMRES_Vrest_Port_$p")
+            if !isnothing(vrest_col) && haskey(vrest_col, :col)
+                Vrest[:, p] = vrest_col[:col]
+            end
+        end
+    else
+        S = zeros(ComplexF64, size(ports["port_nodes"], 1), size(ports["port_nodes"], 1), length(freq))
+    end
+    
+    # Interval for GMRES dynamic checkpointing
+    checkpoint_interval = m > 50000 ? 5 : (m > 10000 ? 10 : 50)
+    
     invP::SparseMatrixCSC{Float64,Int64} = sparse(1:ns, 1:ns, 1 ./ diagonals["P"], ns, ns)
     PVector::Vector{FFTW.cFFTWPlan{ComplexF64,-1,true,3,Tuple{Int64,Int64,Int64}}} = []
     PLIVector::Vector{AbstractFFTs.ScaledPlan{ComplexF64,FFTW.cFFTWPlan{ComplexF64,1,true,3,UnitRange{Int64}},Float64}} = []
@@ -57,7 +84,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     # tn = Array{ComplexF64}(undef, m + ns + n)
     tn = zeros(ComplexF64, m + ns + n, 1)
 
-    for k = 1:nfreq
+    for k = start_k:nfreq
         if QS_Rcc_FW == 2
             FFTCLp_rebuilted = compute_Circulant_Lp_Rcc(FFTCLp, escalings, freq[k] / escalings["freq"])
             FFTCP_rebuilted = compute_Circulant_P_sup_Rcc(FFTCP, escalings, freq[k] / escalings["freq"])
@@ -114,7 +141,11 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         SS::SparseArrays.SparseMatrixCSC{ComplexF64,Int64} = Yle + (transpose(incidence_selection["A"]) * (invZ * incidence_selection["A"])) + 1im * w[k] * (incidence_selection["Gamma"] * invP) * transpose(incidence_selection["Gamma"])
         F::SparseArrays.UMFPACK.UmfpackLU{ComplexF64,Int64} = lu(SS)
         # --------------------------------------------------------------
-        for c1::Int64 = 1:size(ports["port_nodes"], 1)
+        
+        # Determine the starting port for this frequency
+        c1_start_val = (k == start_k) ? start_c1 : 1
+        
+        for c1::Int64 = c1_start_val:size(ports["port_nodes"], 1)
             n1::Int64 = convert(Int32, ports["port_nodes"][c1, 1])
             n2::Int64 = convert(Int32, ports["port_nodes"][c1, 2])
             is[n1] = escalings["Is"]
@@ -128,12 +159,20 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             # x0 = Vrest[:,c1]
             #prob = LinearProblem(prodts, vec(tn))
 
+            # Checkpoint Callback per il GMRES
+            function checkpoint_cb(xm)
+                Vrest[:, c1] = xm
+                save_checkpoint(id, "GMRES_Vrest_Port_$(c1)", Dict{Symbol, Any}(:col => xm))
+                state = Dict{Symbol, Any}(:k => k, :c1 => c1, :S => S)
+                save_checkpoint(id, "Last_GMRES_State", state)
+            end
+
             if QS_Rcc_FW == 1
 
                 #sol = solve(prob, KrylovJL_GMRES())
 
                 #println("start gmres")
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1, checkpoint_cb, checkpoint_interval)
                 if flag == 99
                     return nothing
                 end
@@ -172,7 +211,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 # end
             else
                 println("start gmres Rcc")
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings["tol"][k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector, Chi2Vector, id, chan, c1, checkpoint_cb, checkpoint_interval)
                 if flag == 99
                     return nothing
                 end
@@ -202,6 +241,20 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                     S[c2, c1, k] = S[c1, c2, k]
                 end
             end
+            
+            # Save state after completing a port
+            save_checkpoint(id, "GMRES_Vrest_Port_$(c1)", Dict{Symbol, Any}(:col => Vrest[:, c1]))
+            
+            state_port = Dict{Symbol, Any}()
+            state_port[:k] = k
+            state_port[:c1] = c1 + 1 # Next port
+            if state_port[:c1] > size(ports["port_nodes"], 1)
+                state_port[:c1] = 1
+                state_port[:k] = k + 1 # Next freq
+            end
+            state_port[:S] = S
+            save_checkpoint(id, "Last_GMRES_State", state_port)
+            
         end
         send_rabbitmq_feedback(Dict("freqNumber" => k, "id" => id), "solver_feedback")
         # pubblicazione risultati parziali

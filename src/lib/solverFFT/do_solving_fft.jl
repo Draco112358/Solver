@@ -96,17 +96,41 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
         # if is_stopped_computation(id, chan)
         #     return false
         # end
-        println("P and Lp")
-        FFTCP, FFTCLp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan)
-        if isnothing(FFTCP)
-            return nothing
+        # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
+        # CHECKPOINT LOAD FFT Mats (Separately for P and Lp)
+        # ----------------------------------------------------------------------
+        
+        FFTCP = nothing
+        FFTCLp = nothing
+        
+        checkpoint_p = load_checkpoint(id, "FFT_P_Matrix")
+        if !isnothing(checkpoint_p) && haskey(checkpoint_p, :FFTCP)
+            println("Loading FFT P matrix from checkpoint...")
+            FFTCP = checkpoint_p[:FFTCP]
+            send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
         end
-        if isnothing(FFTCLp)
-            return nothing
+        
+        checkpoint_lp = load_checkpoint(id, "FFT_Lp_Matrix")
+        if !isnothing(checkpoint_lp) && haskey(checkpoint_lp, :FFTCLp)
+            println("Loading FFT Lp matrix from checkpoint...")
+            FFTCLp = checkpoint_lp[:FFTCLp]
+            send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
         end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
+
+        if isnothing(FFTCP) || isnothing(FFTCLp)
+            println("P or Lp (FFT Checkpoint missing or partial), launching computation script...")
+            # compute_FFT_mutual_coupling_mats handles partial resumes natively internally
+            FFTCP_comp, FFTCLp_comp = compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Int64(mesherDict["n_cells"]["n_cells_x"]), Int64(mesherDict["n_cells"]["n_cells_y"]), Int64(mesherDict["n_cells"]["n_cells_z"]), QS_Rcc_FW, id, chan, isnothing(FFTCP), isnothing(FFTCLp), FFTCP)
+            
+            if isnothing(FFTCP_comp) || isnothing(FFTCLp_comp)
+                return nothing
+            end
+            
+            FFTCP = FFTCP_comp
+            FFTCLp = FFTCLp_comp
+        end
 
         #@profile FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
         # if length(stopComputation) > 0
@@ -139,6 +163,7 @@ function doSolvingFFT(mesherOutput, solverInput, solverAlgoParams, solverType, i
             saveOnS3GZippedResults(id, resultsToStoreOnS3, aws_config, bucket_name)
             send_rabbitmq_feedback(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback")
         end
+        return out
     catch e
         if e isa OutOfMemoryError
             send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")

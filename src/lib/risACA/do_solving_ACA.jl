@@ -59,35 +59,38 @@ function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escali
         # end
         # -----------------------------
 
-        println("P and Lp")
-        # P_data = calcola_P(superfici, escalings, QS_Rcc_FW, id)
-        # calcola_P_ACA(superfici, ACA_thres, escalings)
-        superfici["estremi_celle"] = hcat(superfici["estremi_celle"]...)
-        superfici["centri"] = hcat(superfici["centri"]...)
-        P_data = calcola_P_ACA_cpp(superfici, ACA_thres, escalings, id)
-        if isnothing(P_data)
-            return nothing
+        # --- P Matrix Checkpoint Logic ---
+        checkpoint_P = load_checkpoint(id, "P_matrix")
+        if !isnothing(checkpoint_P) && haskey(checkpoint_P, :P_data)
+            println("P_data recovered from checkpoint (ACA).")
+            P_data = checkpoint_P[:P_data]
+            send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
+        else
+            println("P and Lp (ACA)")
+            superfici["estremi_celle"] = hcat(superfici["estremi_celle"]...)
+            superfici["centri"] = hcat(superfici["centri"]...)
+            P_data = calcola_P_ACA_cpp(superfici, ACA_thres, escalings, id)
+            if isnothing(P_data)
+                return nothing
+            end
+            save_checkpoint(id, "P_matrix", Dict{Symbol, Any}(:P_data => P_data))
+            send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
         end
-        send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
-        # if !isnothing(chan)
-        #     publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
-        # end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
-        # Lp_data = calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
-        # calcola_Lp_ACA(volumi, incidence_selection, ACA_thres, escalings)
-        Lp_data = calcola_Lp_ACA_cpp(volumi, incidence_selection, ACA_thres, escalings, id)
-        if isnothing(Lp_data)
-            return nothing
+        
+        # --- Lp Matrix Checkpoint Logic ---
+        checkpoint_Lp = load_checkpoint(id, "Lp_matrix")
+        if !isnothing(checkpoint_Lp) && haskey(checkpoint_Lp, :Lp_data)
+            println("Lp_data recovered from checkpoint (ACA).")
+            Lp_data = checkpoint_Lp[:Lp_data]
+            send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
+        else
+            Lp_data = calcola_Lp_ACA_cpp(volumi, incidence_selection, ACA_thres, escalings, id)
+            if isnothing(Lp_data)
+                return nothing
+            end
+            save_checkpoint(id, "Lp_matrix", Dict{Symbol, Any}(:Lp_data => Lp_data))
+            send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
         end
-        send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
-        # if !isnothing(chan)
-        #     publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
-        # end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
 
         println("gmres")
         # ACA_thres = 1e-4  # Defined above
@@ -126,6 +129,7 @@ function doSolvingACA(incidence_selection, volumi, superfici, nodi_coord, escali
             #     publish_data(Dict("computation_completed" => true, "path" => filename, "id" => id), "solver_feedback", chan)
             # end
         end
+        return out
     catch e
         if e isa OutOfMemoryError
             send_rabbitmq_feedback(Dict("error" => "out of memory", "id" => id, "isStopped" => false, "partial" => false), "solver_feedback")

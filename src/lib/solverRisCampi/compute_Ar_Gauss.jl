@@ -1,4 +1,4 @@
-function compute_Ar_Gauss(barre::Transpose{Float64, Matrix{Float64}},
+function compute_Ar_Gauss(barre::AbstractMatrix{Float64},
                                     centriOss::Matrix{Float64}, ordine::Int, beta::ComplexF64,
                                     simulation_id=nothing, chan=nothing)
     numCentri = size(centriOss, 1)
@@ -6,7 +6,7 @@ function compute_Ar_Gauss(barre::Transpose{Float64, Matrix{Float64}},
 
     # Determina il numero di segmenti per la parallelizzazione
     # La logica è simile a quella di MATLAB, ma Julia usa `Int` per gli indici
-    num_punti = ceil(Int, N / 100)
+    num_punti = max(2, ceil(Int, N / 100))
     vect_ind = ceil.(Int, LinRange(1, N, num_punti))
 
     # Assicura che vect_ind abbia almeno due elementi e che l'ultimo indice sia N

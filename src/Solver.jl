@@ -1,5 +1,6 @@
 module Solver
 using MKL, Base.Threads, AMQPClient, JSON, AWS, AWSS3, DotEnv, Oxygen, HTTP, JSON3, Statistics, Distributed
+DotEnv.load!(joinpath(@__DIR__, "..", ".env"))
 using GZip, CodecZlib, Serialization, MAT, SparseArrays, LinearAlgebra, FLoops, DelimitedFiles
 using JLD2, Printf, SpecialFunctions, Interpolations, Base.Sort, StaticArrays, FFTW
 using MLUtils: unsqueeze
@@ -8,6 +9,10 @@ using Base.Sort: searchsortedfirst
 
 include("./lib/utility.jl") # Contiene download_json_gz, get_solverInput_from_s3, ecc.
 include("./lib/format_input_output_solver_functions.jl")
+
+include("./lib/checkpointing.jl")
+using .Checkpointing
+
 
 #SHAREDRIS INCLUDE START
 

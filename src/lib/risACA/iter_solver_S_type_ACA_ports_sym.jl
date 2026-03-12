@@ -24,12 +24,33 @@ function iter_solver_S_type_ACA_ports_sym(freq, escalings, incidence_selection, 
 
     is = zeros(ComplexF64, n) # Should be complex or float based on usage. MATLAB inits as zeros(n,1) which is double.
 
-    S = zeros(ComplexF64, size(ports[:port_nodes], 1), size(ports[:port_nodes], 1), nfreq)
-
+    # -----------------------------------------------------
+    # CHECKPOINT RESUMPTION
+    # -----------------------------------------------------
+    start_k = 1
+    start_c1 = 1
+    
     Vrest = zeros(ComplexF64, m + n + ns, size(ports[:port_nodes], 1))
-
+    checkpoint_gmres = load_checkpoint(id, "Last_GMRES_State")
+    if !isnothing(checkpoint_gmres) && haskey(checkpoint_gmres, :k) && haskey(checkpoint_gmres, :c1)
+        println("Resuming iter_solver_S_type_ACA_ports_sym from checkpoint (freq index: $(checkpoint_gmres[:k]), port index: $(checkpoint_gmres[:c1]))")
+        S = checkpoint_gmres[:S]
+        start_k = checkpoint_gmres[:k]
+        start_c1 = checkpoint_gmres[:c1]
+        
+        # Load all previously computed Vrest columns
+        for p = 1:size(ports[:port_nodes], 1)
+            vrest_col = load_checkpoint(id, "GMRES_Vrest_Port_$p")
+            if !isnothing(vrest_col) && haskey(vrest_col, :col)
+                Vrest[:, p] = vrest_col[:col]
+            end
+        end
+    else
+        S = zeros(ComplexF64, size(ports[:port_nodes], 1), size(ports[:port_nodes], 1), nfreq)
+    end
+    
     R_chiusura = 50.0
-
+    
     invCd = zeros(ComplexF64, m)
     not_switched = true
 
@@ -41,7 +62,7 @@ function iter_solver_S_type_ACA_ports_sym(freq, escalings, incidence_selection, 
         P_sp, Lp_sp = prepare_sparse_mats_prec_ACA(P_data, Lp_data)
     end
 
-    for k = 1:nfreq
+    for k = start_k:nfreq
 
         if freq[k] / escalings[:freq] >= 1e8 && not_switched
 
@@ -152,7 +173,10 @@ function iter_solver_S_type_ACA_ports_sym(freq, escalings, incidence_selection, 
         # time_Lu = toc
         # println("time LU $time_Lu")
 
-        for c1 = range(1, length(ports_to_excite))
+        # Determine the starting port for this frequency
+        c1_start_val = (k == start_k) ? start_c1 : 1
+        
+        for c1 = c1_start_val:length(ports_to_excite)
 
             idx_port = ports_to_excite[c1]
             n1 = Int64(ports[:port_nodes][idx_port, 1])
@@ -199,6 +223,19 @@ function iter_solver_S_type_ACA_ports_sym(freq, escalings, incidence_selection, 
                 end
                 S[c2, ports_to_excite[c1], k] = S[ports_to_excite[c1], c2, k]
             end
+            
+            # Save state after completing a port
+            save_checkpoint(id, "GMRES_Vrest_Port_$(c1)", Dict{Symbol, Any}(:col => Vrest[:, c1]))
+            
+            state_port = Dict{Symbol, Any}()
+            state_port[:k] = k
+            state_port[:c1] = c1 + 1 # Next port
+            if state_port[:c1] > length(ports_to_excite)
+                state_port[:c1] = 1
+                state_port[:k] = k + 1 # Next freq
+            end
+            state_port[:S] = S
+            save_checkpoint(id, "Last_GMRES_State", state_port)
         end
 
         for kk = range(1, size(mat_imp_simm, 1))

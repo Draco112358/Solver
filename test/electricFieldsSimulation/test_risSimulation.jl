@@ -4,6 +4,9 @@ include("../../src/lib/utility.jl") # Contiene download_json_gz, get_solverInput
 include("../../src/lib/format_input_output_solver_functions.jl")
 
 #SHAREDRIS INCLUDE START
+include("../../src/lib/checkpointing.jl")
+using .Checkpointing
+
 
 include("../../src/lib/sharedRis/Compute_Lp_Self.jl")
 include("../../src/lib/sharedRis/Song_P_improved_Ivana_strategy.jl")
@@ -60,7 +63,7 @@ test_suites = [
     ("Test Tx ris 8x8", () -> @testset "Test Tx ris 8x8" begin
         @load "./test/electricFieldsSimulation/test_input_Tx8x8.jld2"
         println(typeof(volumi[:coordinate]))
-        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
+        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, "dummy_checksum", aws_config, bucket_name; chan=nothing, commentsEnabled=false)
         outMAT = matread("./test/electricFieldsSimulation/Tx_8x8.mat")
         normExJulia = norm(out["Ex"])
         normExMAT = norm(outMAT["out"]["Ex"])
@@ -73,7 +76,7 @@ test_suites = [
         @test (normEzMAT - normEzJulia) / normEzMAT < norm_treshold
     end), ("Test ris 6x6", () -> @testset "Test ris 6x6" begin
         @load "./test/electricFieldsSimulation/test_input_ris6x6.jld2"
-        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
+        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, "dummy_checksum", aws_config, bucket_name; chan=nothing, commentsEnabled=false)
         outMAT = matread("./test/electricFieldsSimulation/ris_6x6.mat")
         normExJulia = norm(out["Ex"])
         normExMAT = norm(outMAT["out"]["Ex"])
@@ -86,7 +89,7 @@ test_suites = [
         @test (normEzMAT - normEzJulia) / normEzMAT < norm_treshold
     end), ("Test ris 8x8", () -> @testset "Test ris 8x8" begin
         @load "./test/electricFieldsSimulation/test_input_ris8x8.jld2"
-        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, aws_config, bucket_name; chan=nothing, commentsEnabled=false)
+        out = doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_coord, escalings, solverInput, solverAlgoParams, solverType, theta, phi, e_theta, e_phi, baricentro, r_circ, times, signal_type_E, ind_freq_interest, id, "dummy_checksum", aws_config, bucket_name; chan=nothing, commentsEnabled=false)
         outMAT = matread("./test/electricFieldsSimulation/ris_8x8.mat")
         normExJulia = norm(out["Ex"])
         normExMAT = norm(outMAT["out"]["Ex"])

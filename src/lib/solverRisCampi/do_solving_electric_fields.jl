@@ -57,32 +57,85 @@ function doSolvingElectricFields(incidence_selection, volumi, superfici, nodi_co
             end
         end
         #is=getSignalbasedOn()
+        
+        # ----------------------------------------------------------------------
+        # CHECKPOINT LOAD
+        # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
+        # CHECKPOINT LOAD P Matrix
+        # ----------------------------------------------------------------------
+        checkpoint_P = load_checkpoint(id, "P_matrix")
+        
+        P_data = nothing
+        Lp_data = nothing
+        
         superfici["estremi_celle"] = hcat(superfici["estremi_celle"]...)
         superfici["centri"] = hcat(superfici["centri"]...)
-        println("P and Lp")
+        
+        # --- P Matrix Checkpoint Logic ---
+        if !isnothing(checkpoint_P) && haskey(checkpoint_P, :P) && haskey(checkpoint_P, :R_cc) && !haskey(checkpoint_P, :P_start_block)
+            println("P_data fully recovered from checkpoint.")
+            P_data = Dict{Symbol, Any}(:P => checkpoint_P[:P], :R_cc => checkpoint_P[:R_cc])
+            send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
+        else
+            println("P and Lp")
+            
+            # Use partial checkpointing if block exists
+            start_block_P = (!isnothing(checkpoint_P) && haskey(checkpoint_P, :P_start_block)) ? checkpoint_P[:P_start_block] : 1
+            
+            function checkpoint_cb_P(P_mat, R_cc_mat, next_block::Int)
+                state_P = Dict{Symbol, Any}(:P => P_mat, :R_cc => R_cc_mat)
+                if next_block != typemax(Int)
+                    state_P[:P_start_block] = next_block
+                end
+                save_checkpoint(id, "P_matrix", state_P)
+            end
 
-        P_data = @time calcola_P(superfici, escalings, QS_Rcc_FW, id)
-        if isnothing(P_data)
-            return nothing
+            P_data = @time calcola_P(superfici, escalings, QS_Rcc_FW, id, start_block_P, checkpoint_cb_P, checkpoint_P)
+            if isnothing(P_data)
+                return nothing
+            end
+            send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
+            
+            # Save state immediately after P computes cleanly
+            save_checkpoint(id, "P_matrix", Dict{Symbol, Any}(:P => P_data[:P], :R_cc => P_data[:R_cc]))
         end
-        send_rabbitmq_feedback(Dict("computingP" => true, "id" => id), "solver_feedback")
-        # if !isnothing(chan)
-        #     publish_data(Dict("computingP" => true, "id" => id), "solver_feedback", chan)
-        # end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
-        Lp_data = @time calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW, id)
-        if isnothing(Lp_data)
-            return nothing
+        
+        # --- Lp Matrix Checkpoint Logic ---
+        checkpoint_Lp = load_checkpoint(id, "Lp_matrix")
+        
+        if !isnothing(checkpoint_Lp) && (!haskey(checkpoint_Lp, :Lp_start_block)) && haskey(checkpoint_Lp, :Lp_x)
+            println("Lp_data fully recovered from checkpoint.")
+            Lp_data = Dict{Symbol, Any}(:Lp_x => checkpoint_Lp[:Lp_x], :Lp_y => checkpoint_Lp[:Lp_y], :Lp_z => checkpoint_Lp[:Lp_z], 
+                           :Rx => checkpoint_Lp[:Rx], :Ry => checkpoint_Lp[:Ry], :Rz => checkpoint_Lp[:Rz])
+            send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
+        else
+            start_block_Lp = (!isnothing(checkpoint_Lp) && haskey(checkpoint_Lp, :Lp_start_block)) ? checkpoint_Lp[:Lp_start_block] : 1
+            
+            function checkpoint_cb_Lp(Lp_x_mat, Lp_y_mat, Lp_z_mat, Rx_mat, Ry_mat, Rz_mat, next_block::Int, curr_component::Int)
+                state_Lp = Dict{Symbol, Any}(
+                    :Lp_x => Lp_x_mat, :Lp_y => Lp_y_mat, :Lp_z => Lp_z_mat,
+                    :Rx => Rx_mat, :Ry => Ry_mat, :Rz => Rz_mat
+                )
+                if next_block != typemax(Int)
+                    state_Lp[:Lp_start_block] = next_block
+                    state_Lp[:curr_component] = curr_component
+                end
+                save_checkpoint(id, "Lp_matrix", state_Lp)
+            end
+            
+            Lp_data = @time calcola_Lp(volumi, incidence_selection, escalings, QS_Rcc_FW, id, start_block_Lp, checkpoint_cb_Lp, checkpoint_Lp)
+            if isnothing(Lp_data)
+                return nothing
+            end
+            send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
+            
+            # Save state immediately after Lp computes cleanly
+            save_checkpoint(id, "Lp_matrix", Dict{Symbol, Any}(
+                :Lp_x => Lp_data[:Lp_x], :Lp_y => Lp_data[:Lp_y], :Lp_z => Lp_data[:Lp_z],
+                :Rx => Lp_data[:Rx], :Ry => Lp_data[:Ry], :Rz => Lp_data[:Rz]
+            ))
         end
-        send_rabbitmq_feedback(Dict("computingLp" => true, "id" => id), "solver_feedback")
-        # if !isnothing(chan)
-        #     publish_data(Dict("computingLp" => true, "id" => id), "solver_feedback", chan)
-        # end
-        # if is_stopped_computation(id, chan)
-        #     return false
-        # end
 
 
         row_indices, col_indices, nz_values = findnz(incidence_selection[:A])

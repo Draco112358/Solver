@@ -2,7 +2,7 @@ function compute_lambda_numeric(punti_oss::Matrix{Float64}, volumi::Dict, incide
     vers_punti_oss::Matrix{Float64}, ordine_int::Int, beta::ComplexF64,
     id=nothing, chan=nothing)
 
-    volumi[:coordinate] = transpose(Float64.(volumi[:coordinate].parent))
+    volumi[:coordinate] = Float64.(volumi[:coordinate])
     N = size(volumi[:coordinate], 1) # Number of volumes
     M = size(punti_oss, 1) # Number of observation points
 

@@ -1,4 +1,4 @@
-function calcola_P(superfici, escalings, QS_Rcc_FW, id)::Dict{Symbol,Union{Matrix{Float64},Matrix{ComplexF64},Nothing}}
+function calcola_P(superfici, escalings, QS_Rcc_FW, id, start_block::Int=1, checkpoint_cb=nothing, checkpoint_data=nothing)::Dict{Symbol,Union{Matrix{Float64},Matrix{ComplexF64},Nothing}}
     # @save "inpuP.jld2" superfici escalings QS_Rcc_FW id
     eps0 = 8.854187816997944e-12
 
@@ -33,13 +33,31 @@ function calcola_P(superfici, escalings, QS_Rcc_FW, id)::Dict{Symbol,Union{Matri
 
     R_cc = zeros(nsup, nsup)
     block_size1 = 200  # ad esempio, 10 iterazioni per blocco
-    println("Calcolo P initialization")
-    R_cc = calculate_R_cc!(R_cc, superfici["centri"], nsup, QS_Rcc_FW, id, block_size1)
-    P = zeros(nsup, nsup)
+    
+    if !isnothing(checkpoint_data) && haskey(checkpoint_data, :R_cc)
+        R_cc = checkpoint_data[:R_cc]
+        println("R_cc loaded from checkpoint")
+    else
+        println("Calcolo P initialization")
+        R_cc = calculate_R_cc!(R_cc, superfici["centri"], nsup, QS_Rcc_FW, id, block_size1)
+    end
+    
+    if !isnothing(checkpoint_data) && haskey(checkpoint_data, :P)
+        P = checkpoint_data[:P]
+        println("P loaded from partial checkpoint, resuming from block $start_block")
+    else
+        P = zeros(nsup, nsup)
+    end
+    
     println("Calcolo P Song_P_improved_Ivana_strategy")
 
-    calculate_P_matrix(P, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, sup_s, sup_yz_planes, sup_xz_planes, Float64.(superfici["S"]), nsup, 0, block_size1, id, escalings[:P], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression, eps0)
-    println(typeof(R_cc))
+    calculate_P_matrix(P, x_vs, y_vs, z_vs, xc_s, yc_s, zc_s, a_s, b_s, c_s, sup_s, sup_yz_planes, sup_xz_planes, Float64.(superfici["S"]), nsup, 0, block_size1, id, escalings[:P], epsilon1, epsilon2, epsilon3, epsilon4, use_suppression, eps0, start_block, checkpoint_cb, R_cc)
+    
+    # Save final
+    if !isnothing(checkpoint_cb)
+        checkpoint_cb(P, R_cc, typemax(Int)) # Signal completion with max block index
+    end
+
     return Dict(
         :P => P,
         :R_cc => QS_Rcc_FW === 1 ? nothing : R_cc,
@@ -162,7 +180,10 @@ function calculate_P_matrix(
     escalings_P::Float64,
     epsilon1::Float64, epsilon2::Float64, epsilon3::Float64, epsilon4::Float64,
     use_suppression::Int64,
-    eps0_val::Float64;
+    eps0_val::Float64,
+    start_block::Int=1,
+    checkpoint_cb=nothing,
+    R_cc=nothing
 )
     # Validate dimensions
     #size(P_matrix) == (nsup, nsup) || throw(DimensionMismatch("P_matrix must be a $(nsup)x$(nsup) matrix."))
@@ -171,6 +192,10 @@ function calculate_P_matrix(
     num_blocks = ceil(Int, nsup / block_size2)
 
     for (block_idx, m_block) in enumerate(1:block_size2:nsup)
+        # Skip blocks we've already done according to the checkpoint
+        if block_idx < start_block
+            continue
+        end
         m_end = min(m_block + block_size2 - 1, nsup)
 
         Threads.@threads for m_idx in m_block:m_end
@@ -202,6 +227,11 @@ function calculate_P_matrix(
             end
         end
 
+
+        # Checkpoint callback logic
+        if !isnothing(checkpoint_cb)
+            checkpoint_cb(P_matrix, R_cc, block_idx + 1)
+        end
 
         #println("Processed block $(block_idx) / $(num_blocks) for P calculation.")
     end

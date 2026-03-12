@@ -1,7 +1,7 @@
 function gmres_custom!(
     out, work, pc_work, b, restarted, tol, maxit, x, wk, 
     incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, 
-    id, chan, portIndex
+    id, chan, portIndex, checkpoint_cb=nothing, checkpoint_interval=50
 )
     # --- Setup iniziale (invariato) ---
     m = size(b, 1)
@@ -180,6 +180,32 @@ function gmres_custom!(
                     break
                 end
                 #... (il resto della logica di stagionamento è complesso ma qui invariato)
+            end
+
+            if !isnothing(checkpoint_cb) && (initercount % checkpoint_interval == 0)
+                # Compute current xm just for checkpointing if we haven't already in this step
+                if (normr > tolb && stag < maxstagsteps && moresteps != 1)
+                    ytmp_cb = ytmp[1:initer]
+                    w_cb = w[1:initer]
+                    R_cb = R[1:initer, 1:initer]
+                    ldiv!(ytmp_cb, UpperTriangular(R_cb), w_cb)
+                    
+                    alpha_add_cb = -2 * ytmp_cb[initer] * conj(U[initer, initer])
+                    additive_cb = U[:, initer] .* alpha_add_cb
+                    additive_cb[initer] += ytmp_cb[initer]
+
+                    for k = initer-1:-1:1
+                        additive_cb[k] += ytmp_cb[k]
+                        d = 2 * dot(U[:, k], additive_cb)
+                        axpy!(-d, U[:, k], additive_cb)
+                    end
+                    
+                    xm_cb = x .+ additive_cb
+                    checkpoint_cb(xm_cb)
+                else
+                    # xm was already computed above in the convergence block
+                    checkpoint_cb(xm)
+                end
             end
 
         end # Fine ciclo interno

@@ -1,4 +1,4 @@
-function gmres_custom(b, restarted, tol, maxit, x, wk, incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, portIndex)
+function gmres_custom(b, restarted, tol, maxit, x, wk, incidence_selection, P_rebuilted, Lp_rebuilted, Z_self, Yle, invZ, invP, F, resProd, id, chan, portIndex, checkpoint_cb=nothing, checkpoint_interval=50)
     m = size(b, 1)
     n = m
     if restarted
@@ -243,10 +243,22 @@ function gmres_custom(b, restarted, tol, maxit, x, wk, incidence_selection, P_re
                 flag = 3
                 break
             end
-            # if !isnothing(chan) && (initer == 1 || initer % 10 == 0)
             #     publish_data(Dict("estimatedTime" => time() - tic, "portIndex" => portIndex, "id" => id), "solver_feedback", chan)
             # end
             #println("end inner iteration number -> ",time() - tic)
+
+            if !isnothing(checkpoint_cb) && (initercount % checkpoint_interval == 0)
+                # Compute current xm inside the loop just for checkpointing
+                @views ytmp = R[1:initer, 1:initer] \ w[1:initer]
+                @views additive = U[:, initer] * (-2 * ytmp[initer] * conj(U[initer, initer]))
+                additive[initer] += ytmp[initer]
+                for k = initer-1:-1:1
+                    additive[k] += ytmp[k]
+                    @views additive -= U[:, k] * (2 * dot(U[:, k], additive))
+                end
+                xm_checkpoint = x + additive
+                checkpoint_cb(xm_checkpoint)
+            end
         end
 
         if (initercount == 0)

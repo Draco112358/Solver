@@ -1,4 +1,4 @@
-DotEnv.load!()
+
 
 aws_access_key_id = ENV["AWS_ACCESS_KEY_ID"]
 aws_secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]
@@ -89,6 +89,26 @@ end
 # ==============================================================================
 # Spawn di una simulazione su un worker Distributed
 # ==============================================================================
+function force_kill_worker(w_id::Int)
+    try
+        if w_id != 1
+            w = Distributed.worker_from_id(w_id)
+            pid = w.config.ospid
+            println("Tentativo terminazione forzata Worker $(w_id) con PID: $pid")
+            if Sys.iswindows()
+                run(`taskkill /F /PID $pid`)
+            else
+                run(`kill -9 $pid`)
+            end
+            println("Worker $(w_id) terminato con successo.")
+        end
+    catch e
+        if !(e isa Distributed.ProcessExitedException)
+            println("Errore nel clean-up del worker $(w_id) (possibile PID inesistente): ", e)
+        end
+    end
+end
+
 function spawn_worker_simulation(simulation_id::String, simulation_type::String, solver_type_key::String, args...)
     # Crea un worker process dedicato
     worker_id = addprocs(1)[1]
@@ -96,6 +116,7 @@ function spawn_worker_simulation(simulation_id::String, simulation_type::String,
 
     # Carica il modulo Solver sul worker (remotecall_eval instead of @everywhere, which is toplevel-only)
     Distributed.remotecall_eval(Main, worker_id, :(using Solver))
+    Distributed.remotecall_eval(Main, worker_id, :(using Solver.Checkpointing))
 
     # Traccia la simulazione
     is_already_stopped = lock(simulations_lock) do
@@ -112,7 +133,7 @@ function spawn_worker_simulation(simulation_id::String, simulation_type::String,
 
     if is_already_stopped
         println("Simulazione $(simulation_id) fermata prima ancora di iniziare. Rimuovo worker $(worker_id).")
-        rmprocs(worker_id)
+        force_kill_worker(worker_id)
         lock(simulations_lock) do
             if haskey(active_simulations, simulation_id)
                 active_simulations[simulation_id]["status"] = "stopped"
@@ -137,8 +158,12 @@ end
 # ==============================================================================
 function monitor_worker_simulation(simulation_id::String, simulation_type::String, worker_id::Int, future::Future)
     try
-        fetch(future)
+        res = fetch(future)
+        if isnothing(res)
+            throw(ErrorException("Simulazione interrotta per un errore interno (out of memory o crash/eccezione del solver). Consultare i log per i dettagli."))
+        end
         # Completata con successo
+        clear_all_checkpoints(simulation_id)
         lock(simulations_lock) do
             if haskey(active_simulations, simulation_id)
                 active_simulations[simulation_id]["status"] = "completed"
@@ -174,7 +199,8 @@ function monitor_worker_simulation(simulation_id::String, simulation_type::Strin
     finally
         # Rimuovi il worker
         try
-            rmprocs(worker_id)
+            force_kill_worker(worker_id)
+            println("Worker $(worker_id) terminato.")
         catch
         end
         # Pulizia dopo un delay
@@ -239,6 +265,10 @@ function setup_oxygen_routes()
             if simulation_type == "Matrix" && mesher == "standard"
                 mesher_file_id = req_data["mesherFileId"]
                 mesherOutput = download_json_gz(aws, aws_bucket_name, mesher_file_id)
+                # Calculate current checksum for validation
+                current_checksum = string(hash(req_data))
+                verify_or_clear_checkpoints(simulation_id, current_checksum)
+                
                 spawn_worker_simulation(
                     simulation_id, "matrix", "fft",
                     mesherOutput,
@@ -265,9 +295,15 @@ function setup_oxygen_routes()
                 surface["sigma"] = Float64.(surface["sigma"])
                 surface["S"] = Float64.(surface["S"])
                 surface["normale"] = map(inner -> map(Float64, inner), surface["normale"])
-                surface["materials"] = String.(surface["materials"])
+                surface[" materials"] = String.(surface["materials"]) # <- typo from older version, kept logic just fixed parsing
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
+                
+                verify_or_clear_checkpoints(simulation_id, string(hash((
+                    mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"]
+                ))))
+
                 spawn_worker_simulation(
                     simulation_id, "ris", "ris",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
@@ -303,6 +339,12 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
+                
+                verify_or_clear_checkpoints(simulation_id, string(hash((
+                    mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"], ports_to_excite
+                ))))
+
                 spawn_worker_simulation(
                     simulation_id, "ris", "aca",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
@@ -330,6 +372,15 @@ function setup_oxygen_routes()
                 surface["materials"] = String.(surface["materials"])
                 surface["epsr"] = Float64.(surface["epsr"])
                 surface["centri"] = map(inner -> map(Float64, inner), surface["centri"])
+                
+                verify_or_clear_checkpoints(simulation_id, string(hash((
+                    mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
+                    req_data["solverInput"], req_data["solverAlgoParams"], req_data["solverType"],
+                    req_data["theta"], req_data["phi"], req_data["e_theta"], req_data["e_phi"],
+                    req_data["baricentro"], req_data["r_circ"], req_data["times"],
+                    req_data["signal_type_E"], req_data["ind_freq_interest"]
+                ))))
+                
                 spawn_worker_simulation(
                     simulation_id, "electric fields", "electric_fields",
                     mesherOutput[:incidence_selection], mesherOutput[:volumi], surface, mesherOutput[:nodi_coord], mesherOutput[:escalings],
@@ -442,7 +493,7 @@ function setup_oxygen_routes()
         if !isnothing(worker_id)
             try
                 println("Terminazione worker $(worker_id) per simulazione $(sim_id)...")
-                rmprocs(worker_id)
+                force_kill_worker(worker_id)
                 println("Worker $(worker_id) terminato.")
             catch e
                 println("Errore nella terminazione del worker $(worker_id): $(e)")
@@ -460,6 +511,33 @@ end
 # ==============================================================================
 # Main execution flow
 # ==============================================================================
+
+function force_kill_workers()
+    println("Terminazione forzata di tutti i worker attivi...")
+    try
+        for w_id in Distributed.workers()
+            if w_id != 1
+                try
+                    w = Distributed.worker_from_id(w_id)
+                    pid = w.config.ospid
+                    if Sys.iswindows()
+                        run(`taskkill /F /PID $pid`)
+                    else
+                        run(`kill -9 $pid`)
+                    end
+                catch e
+                    if !(e isa Distributed.ProcessExitedException)
+                        println("Errore terminazione forzata worker $(w_id): ", e)
+                    end
+                end
+            end
+        end
+    catch e
+        if !(e isa Distributed.ProcessExitedException)
+            println("Errore nel clean-up workers: ", e)
+        end
+    end
+end
 
 function julia_main()
     # Invia lo stato iniziale del solver tramite RabbitMQ
@@ -517,12 +595,16 @@ if myid() == 1
     catch ex
         if ex isa InterruptException
             println("Catturato Ctrl-C nel blocco principale. Chiusura pulita.")
+            println("Killo tutti i worker ancora attivi...")
+            force_kill_workers()
             if get(ENV, "JULIA_APP_BUILD", "false") != "true"
                 send_rabbitmq_feedback(Dict("target" => "solver", "status" => "idle"), "server_init")
             end
             exit()
         else
             println("Eccezione non gestita nel server principale: $(ex)")
+            println("Killo tutti i worker ancora attivi...")
+            force_kill_workers()
             if get(ENV, "JULIA_APP_BUILD", "false") != "true"
                 send_rabbitmq_feedback(Dict("target" => "solver", "status" => "error", "message" => string(ex)), "server_init")
             end
@@ -532,7 +614,7 @@ if myid() == 1
 end
 
 
-# DotEnv.load!()
+# DotEnv.load!(joinpath(@__DIR__, "..", ".env"))
 
 # aws_access_key_id = ENV["AWS_ACCESS_KEY_ID"]
 # aws_secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]

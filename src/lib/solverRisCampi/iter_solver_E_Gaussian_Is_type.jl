@@ -52,20 +52,42 @@ function iter_solver_E_Gaussian_Is_type(
         w = 2 .* pi .* freq
         nfreq = length(w)
         is = zeros(ComplexF64, n)
-        out = Dict(
-            "Vp" => zeros(ComplexF64, size(ports[:port_start], 1), length(freq)),
-            "Ex" => zeros(ComplexF64, num_oss, length(freq)),
-            "Ey" => zeros(ComplexF64, num_oss, length(freq)),
-            "Ez" => zeros(ComplexF64, num_oss, length(freq)),
-            "Ex_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "Ey_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "Ez_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "Hx_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "Hy_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "Hz_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
-            "f" => zeros(length(freq)),
-        )
-        Vrest = zeros(m + n + ns)
+        # -----------------------------------------------------
+        # CHECKPOINT RESUMPTION
+        # -----------------------------------------------------
+        start_k = 1
+        
+        checkpoint_gmres = load_checkpoint(id, "Last_GMRES_State")
+        if !isnothing(checkpoint_gmres) && haskey(checkpoint_gmres, :k)
+            println("Resuming iter_solver_E_Gaussian_Is_type from checkpoint (freq index: $(checkpoint_gmres[:k]))")
+            out = checkpoint_gmres[:out]
+            start_k = checkpoint_gmres[:k]
+            
+            vrest_chk = load_checkpoint(id, "GMRES_Vrest")
+            if !isnothing(vrest_chk) && haskey(vrest_chk, :col)
+                Vrest = vrest_chk[:col]
+            else
+                Vrest = zeros(m + n + ns)
+            end
+        else
+            out = Dict(
+                "Vp" => zeros(ComplexF64, size(ports[:port_start], 1), length(freq)),
+                "Ex" => zeros(ComplexF64, num_oss, length(freq)),
+                "Ey" => zeros(ComplexF64, num_oss, length(freq)),
+                "Ez" => zeros(ComplexF64, num_oss, length(freq)),
+                "Ex_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "Ey_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "Ez_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "Hx_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "Hy_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "Hz_3D" => zeros(ComplexF64, num_oss_3D, length(freq)),
+                "f" => zeros(length(freq)),
+            )
+            Vrest = zeros(m + n + ns)
+        end
+
+        # Interval for GMRES dynamic checkpointing
+        checkpoint_interval = m > 50000 ? 5 : (m > 10000 ? 10 : 50)
 
         invP::SparseMatrixCSC{Float64,Int64} = spdiagm(1.0 ./ diag(P_data[:P]))
         R_chiusura = ports_scatter_value
@@ -94,7 +116,7 @@ function iter_solver_E_Gaussian_Is_type(
     pc_work = PCWork(ComplexF64, m_gmres, ns, size(incidence_selection[:Gamma], 1))
     incidence_selection[:A_t] = transpose(incidence_selection[:A])
     incidence_selection[:Gamma_t] = transpose(incidence_selection[:Gamma])
-    for k ∈ 1:nfreq
+    for k ∈ start_k:nfreq
         @time begin
             β, w, keeped_diag, invP = handle_scaling_and_rebuilding!(
                 k, freq, escalings, not_switched,
@@ -152,23 +174,44 @@ function iter_solver_E_Gaussian_Is_type(
 
             tn = precond_3_3_vector_new(F, invZ, invP, incidence_selection[:A], incidence_selection[:Gamma], ns, Vs[:, k], is)
         end
-
-        V, flag, relres, iter, resvec = @time gmres_custom!(out_gmres, work, pc_work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w, incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1)
-        if flag == 99
-            return nothing
+        
+        # Checkpoint Callback per il GMRES
+        function checkpoint_cb(xm)
+            Vrest = real.(xm) # Assuming Vrest handles real vectors or xm can be assigned
+            save_checkpoint(id, "GMRES_Vrest", Dict{Symbol, Any}(:col => xm))
+            state = Dict{Symbol, Any}(:k => k, :out => out)
+            save_checkpoint(id, "Last_GMRES_State", state)
         end
 
-        tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
-        if commentsEnabled
-            if (flag == 0)
-                println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
+        skip_gmres = !isnothing(checkpoint_gmres) && get(checkpoint_gmres, :gmres_completed_for_k, -1) == k
+        
+        if skip_gmres
+            println("GMRES already completed for frequency $(k), recovering Vrest and skipping GMRES.")
+            V = ComplexF64.(Vrest)
+        else
+            V, flag, relres, iter, resvec = @time gmres_custom!(out_gmres, work, pc_work, tn, false, GMRES_settings["tol"][k], Inner_Iter, ComplexF64.(Vrest), w, incidence_selection, P_data, Lp_data, Z_self, Yle, invZ, invP, F, id, chan, 1, checkpoint_cb, checkpoint_interval)
+            if flag == 99
+                return nothing
             end
 
-            if (flag == 1)
-                println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
+            tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
+            if commentsEnabled
+                if (flag == 0)
+                    println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
+                end
+
+                if (flag == 1)
+                    println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
+                end
             end
+            Vrest = V
+            
+            # Save checkpoint immediately after solving GMRES
+            save_checkpoint(id, "GMRES_Vrest", Dict{Symbol, Any}(:col => Vrest))
+            state = Dict{Symbol, Any}(:k => k, :out => out, :gmres_completed_for_k => k)
+            save_checkpoint(id, "Last_GMRES_State", state)
         end
-        Vrest = V
+        
         for c1 in 1:size(ports[:port_nodes], 1)
             n1::Int64 = convert(Int64, ports[:port_nodes][c1, 1])
             n2::Int64 = convert(Int64, ports[:port_nodes][c1, 2])
@@ -191,13 +234,13 @@ function iter_solver_E_Gaussian_Is_type(
             return nothing
         end
         send_rabbitmq_feedback(Dict("electric_fields_results_step" => 2, "electric_fields_results_name" => "ha", "id" => id), "solver_feedback")
-        ha = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
+        ha = @time compute_Ar_Gauss(Float64.(volumi[:coordinate]), centri_oss, ordine_int, complex(beta, 0.0), id, chan)
         if isnothing(ha)
             return nothing
         end
         #saveComplexMatrix("ha_Opt3.mat", ha, varname="haOpt3")
         send_rabbitmq_feedback(Dict("electric_fields_results_step" => 3, "electric_fields_results_name" => "ha_3D", "id" => id), "solver_feedback")
-        ha_3D = @time compute_Ar_Gauss(transpose(Float64.(volumi[:coordinate].parent)), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
+        ha_3D = @time compute_Ar_Gauss(Float64.(volumi[:coordinate]), centri_oss_3D, ordine_int, complex(beta, 0.0), id, chan)
         if isnothing(ha_3D)
             return nothing
         end
@@ -221,6 +264,17 @@ function iter_solver_E_Gaussian_Is_type(
         out["Ex"][:, k], out["Ey"][:, k], out["Ez"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss, hc, ha, J, sigma, freq[k] / escalings[:freq])
         out["Ex_3D"][:, k], out["Ey_3D"][:, k], out["Ez_3D"][:, k] = compute_E_field_Gauss(indx, indy, indz, centri_oss_3D, hc_3D, ha_3D, J, sigma, freq[k] / escalings[:freq])
         out["Hx_3D"][:, k], out["Hy_3D"][:, k], out["Hz_3D"][:, k] = compute_H_field_Gauss(Lambda_x, Lambda_y, Lambda_z, I)
+        
+        # Save checkpoint at the end of frequency computation
+        save_checkpoint(id, "GMRES_Vrest", Dict{Symbol, Any}(:col => Vrest))
+        
+        state_freq = Dict{Symbol, Any}()
+        state_freq[:k] = k + 1
+        state_freq[:out] = out
+        save_checkpoint(id, "Last_GMRES_State", state_freq)
+        
+        # Clear checkpoint_gmres so we don't skip the next frequencies
+        checkpoint_gmres = nothing
     end
     return out
 end
@@ -421,9 +475,9 @@ end
 function handle_scaling_and_rebuilding!(
     k::Int, freq::Vector{Float64}, esc::Dict{Symbol,<:Real},
     not_switched::Bool,
-    volumi::Dict{Symbol,AbstractArray},
-    P_data::Dict{Symbol,<:Union{Matrix{Float64},Matrix{ComplexF64},Nothing}},
-    Lp_data::Dict{Symbol,<:Union{Matrix{Float64},Matrix{ComplexF64},Nothing}},
+    volumi::Dict{Symbol,<:AbstractArray},
+    P_data::Dict{Symbol,Any},
+    Lp_data::Dict{Symbol,Any},
     Vrest::Union{Vector{Float64},Vector{ComplexF64}},
     m::Int, ns::Int,
     QS_Rcc_FW::Int,
